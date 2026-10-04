@@ -85,7 +85,7 @@ Resultado atual:
 
 A Phase 7 implementa `shell.exec`, `process.start`, `process.read`, `process.write`, `process.cancel` e `process.list` no agent com `SHELL_SAFE` fail-closed, ownership local de processos, output/input bounded, cursor, timeout, idempotência, cancelamento de árvore e limites de concorrência. O MCP expõe as seis tools correspondentes com `telechir:processes:read/write`, ownership, presença/capability e dispatch pelo realtime channel.
 
-O agent passou em fmt/clippy, 61 testes e compile checks Windows/macOS. O control plane passou em format/typecheck, 68 testes, migrations `0001 + 0002 + 0003` em D1 local limpa, Wrangler dry-run e `npm audit` sem vulnerabilidades. A Phase 7 preserva os boundaries do roadmap: Basic Git, approvals/audit, dashboard e deploy de produção permanecem não implementados.
+O agent passou em fmt/clippy, 61 testes e compile checks Windows/macOS. O control plane passou em format/typecheck, 68 testes, migrations `0001 + 0002 + 0003` em D1 local limpa, Wrangler dry-run e `npm audit` sem vulnerabilidades. A Phase 7 preserva os boundaries do roadmap: Basic Git, approvals/audit persistente, dashboard, sandbox e deploy de produção permanecem não implementados.
 
 ## Próximos trabalhos
 
