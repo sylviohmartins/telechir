@@ -132,8 +132,8 @@ Runner Linux em Docker, sem build Cargo nativo no Windows:
 - auth cross-language contracts: **2/2**;
 - protocol contracts: **7/7**;
 - total Rust: **61 testes, 0 falhas**;
-- Windows MSVC compile check com `RUSTFLAGS="-D warnings"`: **PASS**;
-- macOS ARM64 compile check com `RUSTFLAGS="-D warnings"`: **PASS**.
+- Windows MSVC compile check (`cargo check --locked --all-targets --all-features --target x86_64-pc-windows-msvc`): **PASS**;
+- macOS ARM64 compile check (`cargo check --locked --all-targets --all-features --target aarch64-apple-darwin`): **PASS**.
 
 Nenhuma exclusão de antivírus ou desativação de proteção foi usada.
 
