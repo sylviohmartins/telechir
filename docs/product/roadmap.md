@@ -19,6 +19,7 @@ Este roadmap é intencionalmente gated. Ele descreve a ordem de maturação do p
 13. **Phase 5** — Remote MCP Integration and OAuth concluída em 2026-10-02; exit review em `docs/testing/acceptance/phase5-exit-review-2026-10-02.md`.
 14. **Phase 6** — Filesystem Tools concluída em 2026-10-03; exit review em `docs/testing/acceptance/phase6-exit-review-2026-10-03.md`.
 15. **Phase 7** — Shell/Process Lifecycle concluída em 2026-10-04; exit review em `docs/testing/acceptance/phase7-exit-review-2026-10-04.md`.
+16. **Phase 8** — Basic Git concluída em 2026-10-04; exit review em `docs/testing/acceptance/phase8-exit-review-2026-10-04.md`.
 
 ## Fases após readiness
 
@@ -30,8 +31,8 @@ Este roadmap é intencionalmente gated. Ele descreve a ordem de maturação do p
 5. Remote MCP integration and OAuth — **concluída**
 6. Filesystem tools — **concluída**
 7. Shell/process lifecycle — **concluída**
-8. Basic Git — **próxima fase**
-9. Policy, approvals and audit
+8. Basic Git — **concluída**
+9. Policy, approvals and audit — **próxima fase**
 10. Dashboard
 11. ChatGPT public-plugin readiness
 12. Sandbox mode

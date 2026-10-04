@@ -54,7 +54,6 @@ Core local do Telechir implementado em Rust.
 ### Phase 7 — Shell/Process Lifecycle
 
 - `shell.exec`, `process.start`, `process.read`, `process.write`, `process.cancel` e `process.list`;
-- `LocalCommandExecutor` compondo filesystem e process sem habilitar Basic Git;
 - `SHELL_SAFE` fail-closed, sem fallback para shell irrestrito;
 - bloqueio de elevation, nested shells, network/package-management perigoso, chaining/redirection/expansion/globbing e workspace escape;
 - `cwd` validado pela mesma `FilesystemPolicy` da Phase 6;
@@ -66,6 +65,21 @@ Core local do Telechir implementado em Rust.
 - idempotência para operações com side effects;
 - cancelamento best-effort da árvore de processos;
 - limites de concorrência e registros gerenciados.
+
+### Phase 8 — Basic Git
+
+- `git.status` e `git.diff` read-only;
+- `LocalCommandExecutor` compondo filesystem, process e Git sem habilitar operações Git mutáveis;
+- exatamente `FS_READ` + risco `LOW`;
+- worktree, gitdir e common-dir obrigatoriamente dentro de roots autorizados;
+- discovery de `.git`/gitdir antes do primeiro subprocesso Git;
+- symlink/reparse/gitdir escape fail-closed;
+- audit de config local antes de Git executar;
+- includes, hooks, fsmonitor, external diff/textconv, filters e credential helpers perigosos recusados;
+- environment Git minimizado, prompts/lazy fetch/protocol desabilitados;
+- status e diff bounded, com timeout local e truncation explícita;
+- staged/unstaged diff e literal path filter;
+- nenhuma operação `add/commit/push/fetch/pull/checkout/reset/clean/stash/tag/branch/remote/submodule`.
 
 A private key não faz parte de nenhum DTO serializável do agent.
 
@@ -81,12 +95,12 @@ O `MemoryIdentityStore` existe somente para testes e adapters controlados.
 
 ## Limites atuais
 
-O agent já possui realtime outbound, filesystem typed tools e shell/process lifecycle com enforcement local. Não existe deploy de produção.
+O agent já possui realtime outbound, filesystem typed tools, shell/process lifecycle e Basic Git read-only com enforcement local. Não existe deploy de produção.
 
 Ficam para fases posteriores:
 
-- Basic Git;
-- approvals/audit operacional.
+- policy/approvals/audit operacional completo;
+- Git mutável permanece fora do MVP atual.
 
 ## Build e validação
 
@@ -99,7 +113,7 @@ cargo test --all-features
 cargo run
 ```
 
-As Phases 3–7 também exigem compile checks para:
+As Phases 3–8 também exigem compile checks para:
 
 ```text
 x86_64-pc-windows-msvc
@@ -118,4 +132,5 @@ Evidências:
 - `../docs/testing/acceptance/phase3-exit-review-2026-10-02.md`;
 - `../docs/testing/acceptance/phase4-exit-review-2026-10-02.md`;
 - `../docs/testing/acceptance/phase6-exit-review-2026-10-03.md`;
-- `../docs/testing/acceptance/phase7-exit-review-2026-10-04.md`.
+- `../docs/testing/acceptance/phase7-exit-review-2026-10-04.md`;
+- `../docs/testing/acceptance/phase8-exit-review-2026-10-04.md`.

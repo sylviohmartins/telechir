@@ -1,6 +1,6 @@
 # Direção Atual da Arquitetura
 
-**Status:** arquitetura aceita; contratos da Phase 0 congelados; Phases 1–7 implementadas, incluindo Local Agent Core, control plane, Pairing/Device Identity, Device Realtime Channel, Remote MCP/OAuth, Filesystem Tools e Shell/Process Lifecycle; nenhum deploy de produção realizado.
+**Status:** arquitetura aceita; contratos da Phase 0 congelados; Phases 1–8 implementadas, incluindo Local Agent Core, control plane, Pairing/Device Identity, Device Realtime Channel, Remote MCP/OAuth, Filesystem Tools, Shell/Process Lifecycle e Basic Git read-only; nenhum deploy de produção realizado.
 
 ## Boundary do produto
 

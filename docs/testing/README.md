@@ -46,3 +46,7 @@ Camadas esperadas:
 ## Phase 7
 
 - `acceptance/phase7-exit-review-2026-10-04.md` — exit gate de Shell/Process Lifecycle, incluindo `SHELL_SAFE` fail-closed, ownership local de processos, ring buffers/cursor, timeout, idempotência, process-tree cancellation, scopes MCP e checks cross-platform.
+
+## Phase 8
+
+- `acceptance/phase8-exit-review-2026-10-04.md` — exit gate de Basic Git, incluindo `git.status`/`git.diff` read-only, containment de worktree/gitdir/common-dir, config audit fail-closed, subprocesso Git bounded, scope MCP e checks cross-platform.
