@@ -17,10 +17,16 @@ import {
   type FilesystemToolName,
 } from "./filesystem-tools";
 import {
-  PHASE6_TOOLS,
+  PHASE7_TOOLS,
   publicSchema,
   type PublicToolDefinition,
 } from "./mcp-catalog";
+import {
+  PHASE7_PROCESS_TOOL_NAMES,
+  ProcessToolsError,
+  ProcessToolsService,
+  type ProcessToolName,
+} from "./process-tools";
 import { SERVICE_VERSION } from "./meta";
 import {
   JwtAccessTokenVerifier,
@@ -118,6 +124,45 @@ function toolFailure(error: unknown) {
           text:
             safe.get(error.code) ??
             "The Telechir filesystem operation could not be completed.",
+        },
+      ],
+      isError: true,
+    };
+  }
+
+  if (error instanceof ProcessToolsError) {
+    const safe = new Map<string, string>([
+      ["NOT_FOUND", "The managed process or device was not found."],
+      ["DEVICE_OFFLINE", "The selected device is offline."],
+      [
+        "UNSUPPORTED_CAPABILITY",
+        "The selected device does not support this process operation.",
+      ],
+      [
+        "POLICY_DENIED",
+        "The local device policy denied this process operation.",
+      ],
+      [
+        "APPROVAL_REQUIRED",
+        "This command requires broader local approval that is not available in Phase 7.",
+      ],
+      ["CONFLICT", "The managed process is not in a compatible state."],
+      [
+        "IDEMPOTENCY_CONFLICT",
+        "The process operation conflicts with a previous idempotent request.",
+      ],
+      ["DEADLINE_EXCEEDED", "The process operation exceeded its deadline."],
+      ["TIMEOUT", "The process operation timed out on the device."],
+      ["RATE_LIMITED", "The local managed-process limit has been reached."],
+      ["INVALID_ARGUMENT", "The process request is invalid."],
+    ]);
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text:
+            safe.get(error.code) ??
+            "The Telechir process operation could not be completed.",
         },
       ],
       isError: true,
@@ -266,6 +311,58 @@ function registerFilesystemTool(
   );
 }
 
+function registerProcessTool(
+  server: McpServer,
+  env: Env,
+  tool: PublicToolDefinition,
+): void {
+  if (!PHASE7_PROCESS_TOOL_NAMES.includes(tool.name as ProcessToolName)) {
+    throw new Error(`unexpected process tool: ${tool.name}`);
+  }
+
+  const scopes = tool.securitySchemes.flatMap((scheme) => scheme.scopes);
+  server.registerTool(
+    tool.name,
+    {
+      title: tool.title,
+      description: tool.description,
+      inputSchema: fromJsonSchema(publicSchema(tool.input_schema_ref)),
+      outputSchema: fromJsonSchema(publicSchema(tool.output_schema_ref)),
+      annotations: tool.annotations,
+      _meta: {
+        securitySchemes: tool.securitySchemes,
+      },
+      scopeChallenge: scopedChallenge(scopes),
+    },
+    async (args, ctx) => {
+      try {
+        const userId = telechirUserId(ctx.http?.authInfo);
+        if (!args || typeof args !== "object" || Array.isArray(args)) {
+          throw new ProcessToolsError(
+            "INVALID_ARGUMENT",
+            "Process tool arguments must be an object",
+          );
+        }
+
+        const output = await new ProcessToolsService(
+          env.DB,
+          env.DEVICE_COORDINATOR,
+        ).execute(
+          userId,
+          tool.name as ProcessToolName,
+          args as Record<string, unknown>,
+        );
+        return {
+          content: [{ type: "text", text: jsonText(output) }],
+          structuredContent: output,
+        };
+      } catch (error) {
+        return toolFailure(error);
+      }
+    },
+  );
+}
+
 export function createTelechirMcpServer(env: Env): McpServer {
   const server = new McpServer({
     name: "telechir",
@@ -273,7 +370,7 @@ export function createTelechirMcpServer(env: Env): McpServer {
     title: "Telechir",
   });
 
-  for (const tool of PHASE6_TOOLS) {
+  for (const tool of PHASE7_TOOLS) {
     switch (tool.name) {
       case "list_devices":
         registerListDevices(server, env, tool);
@@ -289,8 +386,16 @@ export function createTelechirMcpServer(env: Env): McpServer {
       case "search_files":
         registerFilesystemTool(server, env, tool);
         break;
+      case "run_command":
+      case "start_process":
+      case "read_process_output":
+      case "write_process_input":
+      case "cancel_process":
+      case "list_managed_processes":
+        registerProcessTool(server, env, tool);
+        break;
       default:
-        throw new Error(`unexpected Phase 6 tool: ${tool.name}`);
+        throw new Error(`unexpected Phase 7 tool: ${tool.name}`);
     }
   }
 
@@ -315,7 +420,7 @@ async function materializeOpenAiSecuritySchemes(
   }
 
   const catalogByName = new Map(
-    PHASE6_TOOLS.map((tool) => [tool.name, tool.securitySchemes]),
+    PHASE7_TOOLS.map((tool) => [tool.name, tool.securitySchemes]),
   );
 
   const visit = (value: unknown): void => {

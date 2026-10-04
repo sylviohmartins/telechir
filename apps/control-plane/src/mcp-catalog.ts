@@ -33,6 +33,15 @@ const PHASE6_TOOL_NAMES = new Set([
   "patch_file",
   "search_files",
 ]);
+const PHASE7_TOOL_NAMES = new Set([
+  ...PHASE6_TOOL_NAMES,
+  "run_command",
+  "start_process",
+  "read_process_output",
+  "write_process_input",
+  "cancel_process",
+  "list_managed_processes",
+]);
 
 const catalogTools = toolCatalog.tools as PublicToolDefinition[];
 
@@ -42,22 +51,33 @@ export const PHASE5_TOOLS = catalogTools.filter((tool) =>
 export const PHASE6_TOOLS = catalogTools.filter((tool) =>
   PHASE6_TOOL_NAMES.has(tool.name),
 );
+export const PHASE7_TOOLS = catalogTools.filter((tool) =>
+  PHASE7_TOOL_NAMES.has(tool.name),
+);
 
 if (
-  PHASE6_TOOLS.length !== PHASE6_TOOL_NAMES.size ||
-  PHASE6_TOOLS.some((tool) => {
+  PHASE7_TOOLS.length !== PHASE7_TOOL_NAMES.size ||
+  PHASE7_TOOLS.some((tool) => {
     const expectedPlane = PHASE5_TOOL_NAMES.has(tool.name)
       ? "control-plane"
       : "device";
     return tool.execution_plane !== expectedPlane;
   })
 ) {
-  throw new Error("Phase 6 MCP tool catalog is inconsistent");
+  throw new Error("Phase 7 MCP tool catalog is inconsistent");
 }
 
 export const PHASE6_OAUTH_SCOPES = [
   ...new Set(
     PHASE6_TOOLS.flatMap((tool) =>
+      tool.securitySchemes.flatMap((scheme) => scheme.scopes),
+    ),
+  ),
+].sort();
+
+export const PHASE7_OAUTH_SCOPES = [
+  ...new Set(
+    PHASE7_TOOLS.flatMap((tool) =>
       tool.securitySchemes.flatMap((scheme) => scheme.scopes),
     ),
   ),
@@ -133,6 +153,14 @@ export function phase6Tool(name: string): PublicToolDefinition {
   const tool = PHASE6_TOOLS.find((candidate) => candidate.name === name);
   if (!tool) {
     throw new Error(`tool is not enabled in Phase 6: ${name}`);
+  }
+  return tool;
+}
+
+export function phase7Tool(name: string): PublicToolDefinition {
+  const tool = PHASE7_TOOLS.find((candidate) => candidate.name === name);
+  if (!tool) {
+    throw new Error(`tool is not enabled in Phase 7: ${name}`);
   }
   return tool;
 }

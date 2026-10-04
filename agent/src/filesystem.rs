@@ -119,7 +119,7 @@ impl FilesystemPolicy {
         Ok(())
     }
 
-    fn resolve_existing(&self, input: &str) -> Result<PathBuf, TelechirError> {
+    pub(crate) fn resolve_existing(&self, input: &str) -> Result<PathBuf, TelechirError> {
         if self.roots.is_empty() {
             return Err(error(
                 ErrorCode::PolicyDenied,
