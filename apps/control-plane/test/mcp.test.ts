@@ -12,7 +12,7 @@ import {
 import { beforeEach, describe, expect, it } from "vitest";
 
 import type { Env } from "../src/env";
-import { PHASE7_TOOLS, publicSchema } from "../src/mcp-catalog";
+import { PHASE8_TOOLS, publicSchema } from "../src/mcp-catalog";
 import { MCP_MAX_REQUEST_BYTES, mcpHttpRoute } from "../src/mcp-http";
 
 const bindings = env as unknown as Env;
@@ -205,7 +205,7 @@ beforeEach(async () => {
 });
 
 describe("Remote MCP 2026-07-28", () => {
-  it("negotiates server/discover and advertises exactly the Phase 7 tool surface", async () => {
+  it("negotiates server/discover and advertises exactly the Phase 8 tool surface", async () => {
     const userId = await seedUser("MCP User");
     await seedDevice(userId, "Device A");
     const captured: CapturedExchange[] = [];
@@ -224,6 +224,8 @@ describe("Remote MCP 2026-07-28", () => {
       "cancel_process",
       "get_device",
       "get_file_metadata",
+      "get_git_diff",
+      "get_git_status",
       "list_devices",
       "list_files",
       "list_managed_processes",
@@ -239,10 +241,12 @@ describe("Remote MCP 2026-07-28", () => {
     expect(
       captured.some((exchange) => exchange.method === "server/discover"),
     ).toBe(true);
-    expect(PHASE7_TOOLS.map((tool) => tool.name).sort()).toEqual([
+    expect(PHASE8_TOOLS.map((tool) => tool.name).sort()).toEqual([
       "cancel_process",
       "get_device",
       "get_file_metadata",
+      "get_git_diff",
+      "get_git_status",
       "list_devices",
       "list_files",
       "list_managed_processes",
@@ -278,9 +282,9 @@ describe("Remote MCP 2026-07-28", () => {
     expect(toolExchange).toBeDefined();
 
     const descriptors = wireTools(toolExchange?.responseBody);
-    expect(descriptors).toHaveLength(14);
+    expect(descriptors).toHaveLength(16);
 
-    for (const tool of PHASE7_TOOLS) {
+    for (const tool of PHASE8_TOOLS) {
       const descriptor = descriptors.find(
         (candidate) => candidate.name === tool.name,
       );
@@ -356,7 +360,7 @@ describe("Remote MCP 2026-07-28", () => {
     await client.close();
   });
 
-  it("advertises process tools but keeps Phase 8+ Git tools unavailable", async () => {
+  it("advertises Phase 8 Git tools but keeps later tools unavailable", async () => {
     const userId = await seedUser("Boundary User");
     const captured: CapturedExchange[] = [];
     const verifier = verifierFor({
@@ -371,22 +375,19 @@ describe("Remote MCP 2026-07-28", () => {
     const tools = await client.listTools();
     expect(tools.tools.some((tool) => tool.name === "read_file")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "run_command")).toBe(true);
-    expect(tools.tools.some((tool) => tool.name === "start_process")).toBe(
+    expect(tools.tools.some((tool) => tool.name === "get_git_status")).toBe(
       true,
     );
-    expect(
-      tools.tools.some((tool) => tool.name === "read_process_output"),
-    ).toBe(true);
-    expect(tools.tools.some((tool) => tool.name === "get_git_status")).toBe(
+    expect(tools.tools.some((tool) => tool.name === "get_git_diff")).toBe(true);
+    expect(tools.tools.some((tool) => tool.name === "get_system_metrics")).toBe(
       false,
     );
 
     await expect(
       client.callTool({
-        name: "get_git_status",
+        name: "get_system_metrics",
         arguments: {
           device_id: "device",
-          repository_path: ".",
         },
       }),
     ).rejects.toThrow();
@@ -547,6 +548,37 @@ describe("Remote MCP 2026-07-28", () => {
     expect(writeCall?.wwwAuthenticate).toContain(
       'scope="telechir:processes:write"',
     );
+
+    await client.close();
+  });
+
+  it("enforces Git read scope before device dispatch", async () => {
+    const userId = await seedUser("Git Scope User");
+    const captured: CapturedExchange[] = [];
+    const verifier = verifierFor({
+      "phase8-no-git-scope": authInfo(userId, ["telechir:devices:read"]),
+    });
+    const { client } = await connectedClient(
+      "phase8-no-git-scope",
+      verifier,
+      captured,
+    );
+
+    await expect(
+      client.callTool({
+        name: "get_git_status",
+        arguments: {
+          device_id: crypto.randomUUID(),
+          repository_path: ".",
+        },
+      }),
+    ).rejects.toThrow();
+
+    const call = [...captured]
+      .reverse()
+      .find((exchange) => exchange.method === "tools/call");
+    expect(call?.status).toBe(403);
+    expect(call?.wwwAuthenticate).toContain('scope="telechir:git:read"');
 
     await client.close();
   });
