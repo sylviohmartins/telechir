@@ -59,12 +59,24 @@ Control plane do Telechir em TypeScript para Cloudflare Workers.
 - `device_id` usado apenas para routing, não incluído em `arguments` enviados ao agent;
 - `command.request` via `DeviceCoordinator` com deadline, permission/risk e idempotency;
 - correlação bounded por `command_id` e remoção após consumo;
+- nenhuma credencial OAuth é encaminhada ao agent.
+
+### Phase 7 — Shell/Process Lifecycle
+
+- superfície MCP acumulada de 14 tools;
+- `run_command`, `start_process`, `read_process_output`, `write_process_input`, `cancel_process` e `list_managed_processes`;
+- scopes `telechir:processes:read` / `telechir:processes:write`;
+- ownership, revogação, presence e capability antes do dispatch;
+- `device_id` permanece apenas como routing metadata;
+- `start_process` preserva a `idempotency_key` pública até o agent;
+- deadlines diferenciados: operações lifecycle curtas e `run_command` com timeout público bounded + headroom;
+- correlação por `command_id` removida após consumo;
 - nenhuma credencial OAuth é encaminhada ao agent;
-- shell/process/Git permanecem indisponíveis.
+- Basic Git permanece indisponível.
 
 ## Boundaries de autenticação
 
-A Phase 5 implementa o resource-server boundary, e a Phase 6 reutiliza esse boundary para filesystem. O projeto não implementa authorization server próprio nem browser login.
+A Phase 5 implementa o resource-server boundary, e as Phases 6–7 reutilizam esse boundary para filesystem e process lifecycle. O projeto não implementa authorization server próprio nem browser login.
 
 `PairingService.verifyUser(...)` recebe um `user_id` já autenticado. O futuro adapter browser/OAuth deverá chamar esse domínio sem alterar suas invariantes.
 
@@ -88,11 +100,11 @@ Sem essas configurações, `/ready` falha fechado com `503`.
 
 Ainda não implementados:
 
-- shell/process lifecycle;
-- Git;
+- Basic Git;
+- approvals/audit operacional completo;
 - dashboard.
 
-Rotas administrativas como `/devices` e `/ws` continuam fechadas; `/mcp` é a superfície pública e, na Phase 6, expõe apenas device info e filesystem typed tools.
+Rotas administrativas como `/devices` e `/ws` continuam fechadas; `/mcp` é a superfície pública e, na Phase 7, expõe device info, filesystem typed tools e process lifecycle typed tools.
 
 ## Desenvolvimento local
 

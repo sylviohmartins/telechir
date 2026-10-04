@@ -13,14 +13,29 @@ import { PROJECT_PHASE, SERVICE_VERSION } from "./meta";
 const MAX_RECENT_MESSAGE_IDS = 32;
 const MAX_RECENT_CREDENTIALS = 128;
 const MAX_CORRELATED_COMMANDS = 256;
-const PHASE6_FILESYSTEM_OPERATIONS = new Set([
+const PHASE7_DEVICE_OPERATIONS = new Set([
   "fs.list",
   "fs.stat",
   "fs.read",
   "fs.write",
   "fs.patch",
   "fs.search",
+  "shell.exec",
+  "process.start",
+  "process.read",
+  "process.write",
+  "process.cancel",
+  "process.list",
 ]);
+const PHASE7_SIDE_EFFECT_OPERATIONS = new Set([
+  "fs.write",
+  "fs.patch",
+  "shell.exec",
+  "process.start",
+  "process.write",
+  "process.cancel",
+]);
+const MAX_COMMAND_DEADLINE_MS = 130_000;
 const REPLACED_CLOSE_CODE = 4001;
 const PROTOCOL_CLOSE_CODE = 4002;
 const REVOKED_CLOSE_CODE = 4003;
@@ -319,7 +334,7 @@ export class DeviceCoordinator {
       typeof command.command_id !== "string" ||
       command.command_id.length < 8 ||
       command.command_id.length > 160 ||
-      !PHASE6_FILESYSTEM_OPERATIONS.has(command.operation) ||
+      !PHASE7_DEVICE_OPERATIONS.has(command.operation) ||
       !command.arguments ||
       typeof command.arguments !== "object" ||
       Array.isArray(command.arguments) ||
@@ -336,8 +351,7 @@ export class DeviceCoordinator {
       );
     }
 
-    const sideEffect =
-      command.operation === "fs.write" || command.operation === "fs.patch";
+    const sideEffect = PHASE7_SIDE_EFFECT_OPERATIONS.has(command.operation);
     if (
       (sideEffect &&
         (typeof command.idempotency_key !== "string" ||
@@ -349,7 +363,7 @@ export class DeviceCoordinator {
     ) {
       return failure(
         "INVALID_ARGUMENT",
-        "Filesystem idempotency contract is invalid",
+        "Command idempotency contract is invalid",
         400,
       );
     }
@@ -359,7 +373,7 @@ export class DeviceCoordinator {
     if (
       !Number.isFinite(deadline) ||
       deadline <= now ||
-      deadline > now + 15_000
+      deadline > now + MAX_COMMAND_DEADLINE_MS
     ) {
       return failure("INVALID_ARGUMENT", "Command deadline is invalid", 400);
     }

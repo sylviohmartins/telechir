@@ -4,7 +4,7 @@ Este repositório pode ser utilizado por ChatGPT, Codex, Claude Code, Gemini CLI
 
 ## Guardrail da fase atual
 
-O projeto concluiu discovery e as Phases 0–6. **Não inicie automaticamente a Phase 7 apenas porque `PROJECT_STATE.md` registra `PHASE_6_COMPLETE`: Shell/Process Lifecycle deve começar somente em uma tarefa explicitamente dedicada a Build, Test & Iterate.** Não atravesse para Git, approvals/audit ou fases posteriores sem o gate correspondente. Nunca faça deploy de produção, crie recursos pagos ou publique plugin sem autorização específica da fase correspondente.
+O projeto concluiu discovery e as Phases 0–7. **Não inicie automaticamente a Phase 8 apenas porque `PROJECT_STATE.md` registra `PHASE_7_COMPLETE`: Basic Git deve começar somente em uma tarefa explicitamente dedicada a Build, Test & Iterate.** Não atravesse para policy/approvals/audit, dashboard ou fases posteriores sem o gate correspondente. Nunca faça deploy de produção, crie recursos pagos ou publique plugin sem autorização específica da fase correspondente.
 
 ## Ordem de fonte de verdade
 

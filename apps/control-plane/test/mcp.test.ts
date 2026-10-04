@@ -12,7 +12,7 @@ import {
 import { beforeEach, describe, expect, it } from "vitest";
 
 import type { Env } from "../src/env";
-import { PHASE6_TOOLS, publicSchema } from "../src/mcp-catalog";
+import { PHASE7_TOOLS, publicSchema } from "../src/mcp-catalog";
 import { MCP_MAX_REQUEST_BYTES, mcpHttpRoute } from "../src/mcp-http";
 
 const bindings = env as unknown as Env;
@@ -205,7 +205,7 @@ beforeEach(async () => {
 });
 
 describe("Remote MCP 2026-07-28", () => {
-  it("negotiates server/discover and advertises exactly the Phase 6 tool surface", async () => {
+  it("negotiates server/discover and advertises exactly the Phase 7 tool surface", async () => {
     const userId = await seedUser("MCP User");
     await seedDevice(userId, "Device A");
     const captured: CapturedExchange[] = [];
@@ -221,27 +221,39 @@ describe("Remote MCP 2026-07-28", () => {
     expect(client.getDiscoverResult()).toBeDefined();
     const listed = await client.listTools();
     expect(listed.tools.map((tool) => tool.name).sort()).toEqual([
+      "cancel_process",
       "get_device",
       "get_file_metadata",
       "list_devices",
       "list_files",
+      "list_managed_processes",
       "patch_file",
       "read_file",
+      "read_process_output",
+      "run_command",
       "search_files",
+      "start_process",
       "write_file",
+      "write_process_input",
     ]);
     expect(
       captured.some((exchange) => exchange.method === "server/discover"),
     ).toBe(true);
-    expect(PHASE6_TOOLS.map((tool) => tool.name).sort()).toEqual([
+    expect(PHASE7_TOOLS.map((tool) => tool.name).sort()).toEqual([
+      "cancel_process",
       "get_device",
       "get_file_metadata",
       "list_devices",
       "list_files",
+      "list_managed_processes",
       "patch_file",
       "read_file",
+      "read_process_output",
+      "run_command",
       "search_files",
+      "start_process",
       "write_file",
+      "write_process_input",
     ]);
 
     await client.close();
@@ -266,9 +278,9 @@ describe("Remote MCP 2026-07-28", () => {
     expect(toolExchange).toBeDefined();
 
     const descriptors = wireTools(toolExchange?.responseBody);
-    expect(descriptors).toHaveLength(8);
+    expect(descriptors).toHaveLength(14);
 
-    for (const tool of PHASE6_TOOLS) {
+    for (const tool of PHASE7_TOOLS) {
       const descriptor = descriptors.find(
         (candidate) => candidate.name === tool.name,
       );
@@ -344,7 +356,7 @@ describe("Remote MCP 2026-07-28", () => {
     await client.close();
   });
 
-  it("advertises filesystem tools but keeps Phase 7+ host tools unavailable", async () => {
+  it("advertises process tools but keeps Phase 8+ Git tools unavailable", async () => {
     const userId = await seedUser("Boundary User");
     const captured: CapturedExchange[] = [];
     const verifier = verifierFor({
@@ -358,20 +370,23 @@ describe("Remote MCP 2026-07-28", () => {
 
     const tools = await client.listTools();
     expect(tools.tools.some((tool) => tool.name === "read_file")).toBe(true);
-    expect(tools.tools.some((tool) => tool.name === "run_command")).toBe(false);
+    expect(tools.tools.some((tool) => tool.name === "run_command")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "start_process")).toBe(
-      false,
+      true,
     );
+    expect(
+      tools.tools.some((tool) => tool.name === "read_process_output"),
+    ).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "get_git_status")).toBe(
       false,
     );
 
     await expect(
       client.callTool({
-        name: "run_command",
+        name: "get_git_status",
         arguments: {
           device_id: "device",
-          command: "echo denied",
+          repository_path: ".",
         },
       }),
     ).rejects.toThrow();
@@ -487,6 +502,50 @@ describe("Remote MCP 2026-07-28", () => {
     expect(writeCall?.status).toBe(403);
     expect(writeCall?.wwwAuthenticate).toContain(
       'scope="telechir:files:write"',
+    );
+
+    await client.close();
+  });
+
+  it("enforces process read/write scopes before device dispatch", async () => {
+    const userId = await seedUser("Process Scope User");
+    const captured: CapturedExchange[] = [];
+    const verifier = verifierFor({
+      "phase7-process-read-only": authInfo(userId, ["telechir:processes:read"]),
+    });
+    const { client } = await connectedClient(
+      "phase7-process-read-only",
+      verifier,
+      captured,
+    );
+
+    const read = await client.callTool({
+      name: "list_managed_processes",
+      arguments: {
+        device_id: crypto.randomUUID(),
+      },
+    });
+    expect(read.isError).toBe(true);
+    expect(JSON.stringify(read.content)).toContain("not found");
+
+    await expect(
+      client.callTool({
+        name: "run_command",
+        arguments: {
+          device_id: crypto.randomUUID(),
+          command: "echo denied",
+          timeout_seconds: 1,
+          env_refs: [],
+        },
+      }),
+    ).rejects.toThrow();
+
+    const writeCall = [...captured]
+      .reverse()
+      .find((exchange) => exchange.method === "tools/call");
+    expect(writeCall?.status).toBe(403);
+    expect(writeCall?.wwwAuthenticate).toContain(
+      'scope="telechir:processes:write"',
     );
 
     await client.close();

@@ -23,7 +23,7 @@ describe("control-plane worker", () => {
     expect(body.data).toMatchObject({
       service: "telechir-control-plane",
       status: "ok",
-      phase: "phase6-filesystem-tools",
+      phase: "phase7-shell-process-lifecycle",
       version: "0.1.0",
     });
   });
@@ -63,11 +63,11 @@ describe("control-plane worker", () => {
     expect(body.data).toEqual({
       service: "telechir-control-plane",
       version: "0.1.0",
-      phase: "phase6-filesystem-tools",
+      phase: "phase7-shell-process-lifecycle",
     });
   });
 
-  it("keeps later-phase public product routes closed in Phase 6", async () => {
+  it("keeps later-phase public product routes closed in Phase 7", async () => {
     for (const route of ["/devices", "/pairing", "/ws"]) {
       const response = await fetch(route);
       expect(response.status).toBe(404);
@@ -86,6 +86,8 @@ describe("control-plane worker", () => {
         "telechir:devices:read",
         "telechir:files:read",
         "telechir:files:write",
+        "telechir:processes:read",
+        "telechir:processes:write",
       ],
     });
   });

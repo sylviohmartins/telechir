@@ -42,3 +42,7 @@ Camadas esperadas:
 ## Phase 6
 
 - `acceptance/phase6-exit-review-2026-10-03.md` — exit gate de Filesystem Tools, incluindo policy local deny-by-default, traversal/symlink/junction hardening, idempotência, vertical slice MCP → realtime → agent e checks cross-platform.
+
+## Phase 7
+
+- `acceptance/phase7-exit-review-2026-10-04.md` — exit gate de Shell/Process Lifecycle, incluindo `SHELL_SAFE` fail-closed, ownership local de processos, ring buffers/cursor, timeout, idempotência, process-tree cancellation, scopes MCP e checks cross-platform.

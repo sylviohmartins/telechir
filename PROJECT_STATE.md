@@ -1,12 +1,12 @@
 # Estado do Projeto
 
-**Atualizado em:** 2026-10-03
+**Atualizado em:** 2026-10-04
 
 ## Fase atual
 
-**Discovery concluído / Phases 0–6 concluídas / Phase 6 — Filesystem Tools concluída**
+**Discovery concluído / Phases 0–7 concluídas / Phase 7 — Shell/Process Lifecycle concluída**
 
-A implementação possui Local Agent Core, control plane, identidade/pairing Ed25519, canal realtime outbound, Remote MCP/OAuth e seis typed filesystem tools com enforcement final no agent. A superfície MCP atual possui oito tools; o projeto **não possui deploy de produção** e ainda não iniciou shell/process lifecycle ou Git.
+A implementação possui Local Agent Core, control plane, identidade/pairing Ed25519, canal realtime outbound, Remote MCP/OAuth, seis typed filesystem tools e shell/process lifecycle com enforcement final no agent. A superfície MCP atual possui 14 tools; o projeto **não possui deploy de produção** e ainda não iniciou Basic Git.
 
 ## Gates atuais
 
@@ -25,7 +25,8 @@ A implementação possui Local Agent Core, control plane, identidade/pairing Ed2
 - [x] Phase 4 — Device Realtime Channel: **`PHASE_4_COMPLETE`**.
 - [x] Phase 5 — Remote MCP Integration and OAuth: **`PHASE_5_COMPLETE`**.
 - [x] Phase 6 — Filesystem Tools: **`PHASE_6_COMPLETE`**.
-- [ ] Phase 7 — Shell/Process Lifecycle iniciada.
+- [x] Phase 7 — Shell/Process Lifecycle: **`PHASE_7_COMPLETE`**.
+- [ ] Phase 8 — Basic Git iniciada.
 
 ## Decisões atuais
 
@@ -73,21 +74,22 @@ As avaliações relevantes estão em:
 - `docs/testing/acceptance/phase4-exit-review-2026-10-02.md`
 - `docs/testing/acceptance/phase5-exit-review-2026-10-02.md`
 - `docs/testing/acceptance/phase6-exit-review-2026-10-03.md`
+- `docs/testing/acceptance/phase7-exit-review-2026-10-04.md`
 - `docs/research/cloudflare/phase2-revalidation-2026-10-02.md`
 - `docs/research/cloudflare/phase4-revalidation-2026-10-02.md`
 - `docs/research/mcp/phase5-revalidation-2026-10-02.md`
 
 Resultado atual:
 
-> **PHASE_6_COMPLETE**
+> **PHASE_7_COMPLETE**
 
-A Phase 6 implementa `fs.list`, `fs.stat`, `fs.read`, `fs.write`, `fs.patch` e `fs.search` no agent com roots deny-by-default, traversal/symlink protection, hard deny de paths sensíveis, limites, hash/preconditions, escrita atômica e idempotência. O MCP expõe as seis tools correspondentes com `telechir:files:read/write`, ownership, presença/capability e dispatch pelo realtime channel.
+A Phase 7 implementa `shell.exec`, `process.start`, `process.read`, `process.write`, `process.cancel` e `process.list` no agent com `SHELL_SAFE` fail-closed, ownership local de processos, output/input bounded, cursor, timeout, idempotência, cancelamento de árvore e limites de concorrência. O MCP expõe as seis tools correspondentes com `telechir:processes:read/write`, ownership, presença/capability e dispatch pelo realtime channel.
 
-O agent passou em fmt/clippy, 45 testes e compile checks Windows/macOS. O control plane passou em format/typecheck, 60 testes, migrations `0001 + 0002 + 0003` aplicadas do zero, Wrangler dry-run e `npm audit` sem vulnerabilidades. A Phase 6 preserva os boundaries do roadmap: não há shell/process lifecycle, Git, dashboard ou deploy de produção implementados.
+O agent passou em fmt/clippy, 61 testes e compile checks Windows/macOS. O control plane passou em format/typecheck, 68 testes, migrations `0001 + 0002 + 0003` em D1 local limpa, Wrangler dry-run e `npm audit` sem vulnerabilidades. A Phase 7 preserva os boundaries do roadmap: Basic Git, approvals/audit persistente, dashboard, sandbox e deploy de produção permanecem não implementados.
 
 ## Próximos trabalhos
 
-1. Em uma execução dedicada de build/test, iniciar **Phase 7 — Shell/Process Lifecycle**.
+1. Em uma execução dedicada de build/test, iniciar **Phase 8 — Basic Git**.
 2. Em paralelo, completar/reservar ativos comerciais de Telechir antes de lançamento.
 3. Manter os release gates de OpenAI, segurança operacional, signing e custos antes de beta/publicação.
 
