@@ -17,7 +17,7 @@ import {
   type FilesystemToolName,
 } from "./filesystem-tools";
 import {
-  PHASE7_TOOLS,
+  PHASE8_TOOLS,
   publicSchema,
   type PublicToolDefinition,
 } from "./mcp-catalog";
@@ -27,6 +27,12 @@ import {
   ProcessToolsService,
   type ProcessToolName,
 } from "./process-tools";
+import {
+  GitToolsError,
+  GitToolsService,
+  PHASE8_GIT_TOOL_NAMES,
+  type GitToolName,
+} from "./git-tools";
 import { SERVICE_VERSION } from "./meta";
 import {
   JwtAccessTokenVerifier,
@@ -163,6 +169,37 @@ function toolFailure(error: unknown) {
           text:
             safe.get(error.code) ??
             "The Telechir process operation could not be completed.",
+        },
+      ],
+      isError: true,
+    };
+  }
+
+  if (error instanceof GitToolsError) {
+    const safe = new Map<string, string>([
+      ["NOT_FOUND", "The Git repository or device was not found."],
+      ["DEVICE_OFFLINE", "The selected device is offline."],
+      [
+        "UNSUPPORTED_CAPABILITY",
+        "The selected device does not support this Git operation.",
+      ],
+      [
+        "POLICY_DENIED",
+        "The local device policy denied this Git read operation.",
+      ],
+      ["CONFLICT", "The Git repository state could not be read."],
+      ["OUTPUT_TRUNCATED", "The Git status exceeds the bounded output limit."],
+      ["DEADLINE_EXCEEDED", "The Git operation exceeded its deadline."],
+      ["TIMEOUT", "The Git operation timed out on the device."],
+      ["INVALID_ARGUMENT", "The Git request is invalid."],
+    ]);
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text:
+            safe.get(error.code) ??
+            "The Telechir Git operation could not be completed.",
         },
       ],
       isError: true,
@@ -363,6 +400,58 @@ function registerProcessTool(
   );
 }
 
+function registerGitTool(
+  server: McpServer,
+  env: Env,
+  tool: PublicToolDefinition,
+): void {
+  if (!PHASE8_GIT_TOOL_NAMES.includes(tool.name as GitToolName)) {
+    throw new Error(`unexpected Git tool: ${tool.name}`);
+  }
+
+  const scopes = tool.securitySchemes.flatMap((scheme) => scheme.scopes);
+  server.registerTool(
+    tool.name,
+    {
+      title: tool.title,
+      description: tool.description,
+      inputSchema: fromJsonSchema(publicSchema(tool.input_schema_ref)),
+      outputSchema: fromJsonSchema(publicSchema(tool.output_schema_ref)),
+      annotations: tool.annotations,
+      _meta: {
+        securitySchemes: tool.securitySchemes,
+      },
+      scopeChallenge: scopedChallenge(scopes),
+    },
+    async (args, ctx) => {
+      try {
+        const userId = telechirUserId(ctx.http?.authInfo);
+        if (!args || typeof args !== "object" || Array.isArray(args)) {
+          throw new GitToolsError(
+            "INVALID_ARGUMENT",
+            "Git tool arguments must be an object",
+          );
+        }
+
+        const output = await new GitToolsService(
+          env.DB,
+          env.DEVICE_COORDINATOR,
+        ).execute(
+          userId,
+          tool.name as GitToolName,
+          args as Record<string, unknown>,
+        );
+        return {
+          content: [{ type: "text", text: jsonText(output) }],
+          structuredContent: output,
+        };
+      } catch (error) {
+        return toolFailure(error);
+      }
+    },
+  );
+}
+
 export function createTelechirMcpServer(env: Env): McpServer {
   const server = new McpServer({
     name: "telechir",
@@ -370,7 +459,7 @@ export function createTelechirMcpServer(env: Env): McpServer {
     title: "Telechir",
   });
 
-  for (const tool of PHASE7_TOOLS) {
+  for (const tool of PHASE8_TOOLS) {
     switch (tool.name) {
       case "list_devices":
         registerListDevices(server, env, tool);
@@ -394,8 +483,12 @@ export function createTelechirMcpServer(env: Env): McpServer {
       case "list_managed_processes":
         registerProcessTool(server, env, tool);
         break;
+      case "get_git_status":
+      case "get_git_diff":
+        registerGitTool(server, env, tool);
+        break;
       default:
-        throw new Error(`unexpected Phase 7 tool: ${tool.name}`);
+        throw new Error(`unexpected Phase 8 tool: ${tool.name}`);
     }
   }
 
@@ -420,7 +513,7 @@ async function materializeOpenAiSecuritySchemes(
   }
 
   const catalogByName = new Map(
-    PHASE7_TOOLS.map((tool) => [tool.name, tool.securitySchemes]),
+    PHASE8_TOOLS.map((tool) => [tool.name, tool.securitySchemes]),
   );
 
   const visit = (value: unknown): void => {

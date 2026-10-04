@@ -13,7 +13,7 @@ import { PROJECT_PHASE, SERVICE_VERSION } from "./meta";
 const MAX_RECENT_MESSAGE_IDS = 32;
 const MAX_RECENT_CREDENTIALS = 128;
 const MAX_CORRELATED_COMMANDS = 256;
-const PHASE7_DEVICE_OPERATIONS = new Set([
+const PHASE8_DEVICE_OPERATIONS = new Set([
   "fs.list",
   "fs.stat",
   "fs.read",
@@ -26,6 +26,8 @@ const PHASE7_DEVICE_OPERATIONS = new Set([
   "process.write",
   "process.cancel",
   "process.list",
+  "git.status",
+  "git.diff",
 ]);
 const PHASE7_SIDE_EFFECT_OPERATIONS = new Set([
   "fs.write",
@@ -334,7 +336,7 @@ export class DeviceCoordinator {
       typeof command.command_id !== "string" ||
       command.command_id.length < 8 ||
       command.command_id.length > 160 ||
-      !PHASE7_DEVICE_OPERATIONS.has(command.operation) ||
+      !PHASE8_DEVICE_OPERATIONS.has(command.operation) ||
       !command.arguments ||
       typeof command.arguments !== "object" ||
       Array.isArray(command.arguments) ||

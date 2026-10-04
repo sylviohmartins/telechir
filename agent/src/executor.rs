@@ -1,6 +1,7 @@
 use std::convert::Infallible;
 
 use crate::filesystem::{FilesystemExecutor, FilesystemPolicy};
+use crate::git::GitExecutor;
 use crate::ports::{CommandExecutor, ExecutionOutcome};
 use crate::process::{ProcessExecutor, ProcessPolicy};
 use crate::protocol::{CommandOperation, CommandRequest, ErrorCode, TelechirError};
@@ -8,14 +9,17 @@ use crate::protocol::{CommandOperation, CommandRequest, ErrorCode, TelechirError
 pub struct LocalCommandExecutor {
     filesystem: FilesystemExecutor,
     process: ProcessExecutor,
+    git: GitExecutor,
 }
 
 impl LocalCommandExecutor {
     pub fn new(filesystem_policy: FilesystemPolicy) -> Self {
         let process_policy = ProcessPolicy::new(filesystem_policy.clone());
+        let git = GitExecutor::new(filesystem_policy.clone());
         Self {
             filesystem: FilesystemExecutor::new(filesystem_policy),
             process: ProcessExecutor::new(process_policy),
+            git,
         }
     }
 
@@ -25,6 +29,10 @@ impl LocalCommandExecutor {
 
     pub fn process(&self) -> &ProcessExecutor {
         &self.process
+    }
+
+    pub fn git(&self) -> &GitExecutor {
+        &self.git
     }
 }
 
@@ -45,9 +53,10 @@ impl CommandExecutor for LocalCommandExecutor {
             | CommandOperation::ProcessWrite
             | CommandOperation::ProcessCancel
             | CommandOperation::ProcessList => self.process.execute(request).unwrap(),
-            CommandOperation::GitStatus
-            | CommandOperation::GitDiff
-            | CommandOperation::SystemMetrics => ExecutionOutcome::Failed(TelechirError {
+            CommandOperation::GitStatus | CommandOperation::GitDiff => {
+                self.git.execute(request).unwrap()
+            }
+            CommandOperation::SystemMetrics => ExecutionOutcome::Failed(TelechirError {
                 code: ErrorCode::UnsupportedCapability,
                 message: "operation is not enabled in the current Telechir phase".to_owned(),
                 retryable: false,
@@ -67,14 +76,14 @@ mod tests {
     use crate::protocol::{PermissionDomain, RiskLevel};
 
     #[test]
-    fn composite_executor_keeps_phase8_operations_disabled() {
+    fn composite_executor_keeps_later_operations_disabled() {
         let root = tempfile::tempdir().unwrap();
         let policy = FilesystemPolicy::new([root.path()]).unwrap();
         let mut executor = LocalCommandExecutor::new(policy);
         let request = CommandRequest {
-            command_id: "cmd_phase7_composite".to_owned(),
+            command_id: "cmd_phase8_composite".to_owned(),
             idempotency_key: None,
-            operation: CommandOperation::GitStatus,
+            operation: CommandOperation::SystemMetrics,
             arguments: Map::new(),
             requested_permissions: vec![PermissionDomain::FsRead],
             risk: RiskLevel::Low,

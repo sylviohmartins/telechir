@@ -13,7 +13,7 @@ import {
 } from "jose";
 
 import type { Env } from "./env";
-import { PHASE7_OAUTH_SCOPES } from "./mcp-catalog";
+import { PHASE8_OAUTH_SCOPES } from "./mcp-catalog";
 import { toBase64Url } from "./pairing-crypto";
 
 const ALLOWED_JWT_ALGORITHMS = ["RS256", "ES256"] as const;
@@ -123,7 +123,7 @@ export function protectedResourceMetadata(config: OAuthResourceConfig) {
   return {
     resource: config.resourceUri,
     authorization_servers: [config.issuer],
-    scopes_supported: PHASE7_OAUTH_SCOPES,
+    scopes_supported: PHASE8_OAUTH_SCOPES,
   };
 }
 

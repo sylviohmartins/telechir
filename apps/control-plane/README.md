@@ -71,12 +71,24 @@ Control plane do Telechir em TypeScript para Cloudflare Workers.
 - `start_process` preserva a `idempotency_key` pública até o agent;
 - deadlines diferenciados: operações lifecycle curtas e `run_command` com timeout público bounded + headroom;
 - correlação por `command_id` removida após consumo;
-- nenhuma credencial OAuth é encaminhada ao agent;
-- Basic Git permanece indisponível.
+- nenhuma credencial OAuth é encaminhada ao agent.
+
+### Phase 8 — Basic Git
+
+- superfície MCP acumulada de 16 tools;
+- `get_git_status` e `get_git_diff`;
+- scope `telechir:git:read`;
+- ownership, revogação, presence e capability antes do dispatch;
+- requested permission `FS_READ` e risco `LOW`;
+- `device_id` usado apenas para routing;
+- access token nunca encaminhado ao agent;
+- deadline e argumentos bounded;
+- correlação por `command_id` removida após consumo;
+- nenhuma operação Git mutável é exposta.
 
 ## Boundaries de autenticação
 
-A Phase 5 implementa o resource-server boundary, e as Phases 6–7 reutilizam esse boundary para filesystem e process lifecycle. O projeto não implementa authorization server próprio nem browser login.
+A Phase 5 implementa o resource-server boundary, e as Phases 6–8 reutilizam esse boundary para filesystem, process lifecycle e Git read-only. O projeto não implementa authorization server próprio nem browser login.
 
 `PairingService.verifyUser(...)` recebe um `user_id` já autenticado. O futuro adapter browser/OAuth deverá chamar esse domínio sem alterar suas invariantes.
 
@@ -100,11 +112,11 @@ Sem essas configurações, `/ready` falha fechado com `503`.
 
 Ainda não implementados:
 
-- Basic Git;
-- approvals/audit operacional completo;
-- dashboard.
+- policy/approvals/audit operacional completo;
+- dashboard;
+- Git mutável.
 
-Rotas administrativas como `/devices` e `/ws` continuam fechadas; `/mcp` é a superfície pública e, na Phase 7, expõe device info, filesystem typed tools e process lifecycle typed tools.
+Rotas administrativas como `/devices` e `/ws` continuam fechadas; `/mcp` é a superfície pública e, na Phase 8, expõe device info, filesystem typed tools, process lifecycle typed tools e Basic Git read-only.
 
 ## Desenvolvimento local
 

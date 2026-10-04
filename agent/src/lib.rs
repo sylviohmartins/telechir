@@ -3,6 +3,7 @@
 pub mod config;
 pub mod executor;
 pub mod filesystem;
+pub mod git;
 pub mod identity;
 pub mod lifecycle;
 pub mod ports;
@@ -13,6 +14,7 @@ pub mod realtime;
 pub use config::AgentConfig;
 pub use executor::LocalCommandExecutor;
 pub use filesystem::{FILESYSTEM_CAPABILITIES, FilesystemExecutor, FilesystemPolicy};
+pub use git::{GIT_CAPABILITIES, GitExecutor};
 pub use identity::{
     CONNECTION_PROOF_AUDIENCE, CONNECTION_PROOF_VERSION, ConnectionCredentialProof,
     DEVICE_KEY_ALGORITHM, DeviceIdentity, DeviceIdentityManager, DeviceIdentityStore,
