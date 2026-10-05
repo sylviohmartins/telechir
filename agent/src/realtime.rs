@@ -17,11 +17,11 @@ use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async_with_conf
 use url::Url;
 use uuid::Uuid;
 
-use crate::ports::{CommandExecutor, ExecutionOutcome};
+use crate::ports::{AuthorizationOutcome, CommandExecutor, ExecutionOutcome};
 use crate::protocol::{
-    AgentHello, AgentHelloAck, CommandAccepted, CommandCompleted, CommandFailed, CommandRequest,
-    DeviceMessage, ErrorCode, Heartbeat, MessageType, PROTOCOL_VERSION, TelechirError,
-    decode_and_validate,
+    AgentHello, AgentHelloAck, ApprovalDecision, ApprovalRequest, CommandAccepted,
+    CommandCompleted, CommandFailed, CommandRequest, DeviceMessage, ErrorCode, Heartbeat,
+    MessageType, PROTOCOL_VERSION, TelechirError, decode_and_validate,
 };
 
 pub const REALTIME_MAX_FRAME_BYTES: usize = 256 * 1024;
@@ -267,6 +267,14 @@ impl RealtimeConnection {
         E::Error: std::fmt::Display,
     {
         let message = self.receive().await?;
+
+        if message.message_type == MessageType::ApprovalDecision {
+            let decision: ApprovalDecision = serde_json::from_value(message.payload.clone())
+                .map_err(|error| RealtimeError::Protocol(error.to_string()))?;
+            executor.apply_approval_decision(&decision, message.session_id.as_deref());
+            return Ok(None);
+        }
+
         if message.message_type != MessageType::CommandRequest {
             return Ok(None);
         }
@@ -294,12 +302,32 @@ impl RealtimeConnection {
             return Ok(Some(command_id));
         }
 
+        let (prepared, approval_verified) =
+            match executor.authorize(&request, message.session_id.as_deref()) {
+                AuthorizationOutcome::Allow {
+                    request,
+                    approval_verified,
+                } => (request, approval_verified),
+                AuthorizationOutcome::Ask(approval) => {
+                    self.send_approval_request(&message.message_id, approval)
+                        .await?;
+                    return Ok(Some(command_id));
+                }
+                AuthorizationOutcome::Deny(error) => {
+                    self.send_command_failed(&message.message_id, &command_id, error)
+                        .await?;
+                    return Ok(Some(command_id));
+                }
+            };
+
         self.send_command_accepted(&message.message_id, &command_id)
             .await?;
 
-        let outcome = executor.execute(&request).map_err(|_error| {
-            RealtimeError::Protocol("local command executor failed unexpectedly".to_owned())
-        })?;
+        let outcome = executor
+            .execute_authorized(&prepared, approval_verified)
+            .map_err(|_error| {
+                RealtimeError::Protocol("local command executor failed unexpectedly".to_owned())
+            })?;
 
         match outcome {
             ExecutionOutcome::Completed(Value::Object(result)) => {
@@ -327,6 +355,19 @@ impl RealtimeConnection {
         }
 
         Ok(Some(command_id))
+    }
+
+    async fn send_approval_request(
+        &mut self,
+        correlation_id: &str,
+        approval: ApprovalRequest,
+    ) -> Result<(), RealtimeError> {
+        self.send_protocol_payload(
+            MessageType::ApprovalRequest,
+            Some(correlation_id.to_owned()),
+            to_value(approval).map_err(|error| RealtimeError::Protocol(error.to_string()))?,
+        )
+        .await
     }
 
     async fn send_command_accepted(

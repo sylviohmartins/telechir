@@ -12,4 +12,4 @@ Direção atual:
 - host, guarded-host e sandbox são modos de segurança distintos;
 - secrets devem ser referenciados/injetados sem expor valores desnecessariamente ao modelo.
 
-O threat model atual ainda é artefato de discovery e só será congelado em especificação formal após o Blueprint v2.
+O threat model foi formalizado na Phase 0 em `threat-model/stride-baseline-2026-10-02.md` e é atualizado incrementalmente por capability. O delta da Phase 9 está em `threat-model/phase9-policy-approvals-audit-2026-10-05.md`.

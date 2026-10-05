@@ -185,8 +185,25 @@ async function respondCompleted(
 }
 
 beforeEach(async () => {
+  const userFilter =
+    "SELECT id FROM users WHERE identity_provider = 'phase8-test'";
   await bindings.DB.prepare(
-    "DELETE FROM devices WHERE user_id IN (SELECT id FROM users WHERE identity_provider = 'phase8-test')",
+    `DELETE FROM audit_events WHERE user_id IN (${userFilter})`,
+  ).run();
+  await bindings.DB.prepare(
+    `DELETE FROM approvals WHERE user_id IN (${userFilter})`,
+  ).run();
+  await bindings.DB.prepare(
+    `DELETE FROM commands
+     WHERE session_id IN (
+       SELECT id FROM sessions WHERE user_id IN (${userFilter})
+     )`,
+  ).run();
+  await bindings.DB.prepare(
+    `DELETE FROM sessions WHERE user_id IN (${userFilter})`,
+  ).run();
+  await bindings.DB.prepare(
+    `DELETE FROM devices WHERE user_id IN (${userFilter})`,
   ).run();
   await bindings.DB.prepare(
     "DELETE FROM users WHERE identity_provider = 'phase8-test'",

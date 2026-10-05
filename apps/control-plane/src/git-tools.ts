@@ -1,4 +1,10 @@
 import type { Env } from "./env";
+import {
+  GovernanceError,
+  GovernanceService,
+  type CallerContext,
+} from "./governance";
+import type { PermissionDomain } from "./policy";
 
 const DEFAULT_COMMAND_TIMEOUT_MS = 8_000;
 const POLL_INTERVAL_MS = 10;
@@ -62,6 +68,7 @@ export class GitToolsError extends Error {
   constructor(
     public readonly code: string,
     message: string,
+    public readonly approvalId: string | null = null,
   ) {
     super(message);
     this.name = "GitToolsError";
@@ -78,6 +85,7 @@ export class GitToolsService {
     userId: string,
     toolName: GitToolName,
     input: Record<string, unknown>,
+    caller?: CallerContext,
   ): Promise<Record<string, unknown>> {
     const deviceId = input.device_id;
     if (typeof deviceId !== "string" || deviceId.length < 3) {
@@ -121,6 +129,28 @@ export class GitToolsService {
     const deadlineAt = new Date(
       Date.now() + DEFAULT_COMMAND_TIMEOUT_MS,
     ).toISOString();
+    const governance = new GovernanceService(this.db);
+
+    let governed;
+    try {
+      governed = await governance.prepareCommand({
+        commandId,
+        userId,
+        ...(caller ? { caller } : {}),
+        deviceId,
+        toolName,
+        operation: runtime.operation,
+        arguments: argumentsObject,
+        requestedPermissions: runtime.permissions as PermissionDomain[],
+        risk: runtime.risk,
+        idempotencyKey: null,
+      });
+    } catch (error) {
+      if (error instanceof GovernanceError) {
+        throw new GitToolsError(error.code, error.message, error.approvalId);
+      }
+      throw error;
+    }
 
     const dispatch = await coordinator.fetch(
       "https://device-coordinator/internal/commands",
@@ -138,6 +168,11 @@ export class GitToolsService {
           requested_permissions: runtime.permissions,
           risk: runtime.risk,
           deadline_at: deadlineAt,
+          user_id: userId,
+          session_id: governed.sessionId,
+          tool_name: toolName,
+          argument_digest: governed.argumentDigest,
+          approval_id: governed.approvalId,
         }),
       },
     );
@@ -145,13 +180,20 @@ export class GitToolsService {
       throw await responseError(dispatch);
     }
 
+    let retainCorrelation = false;
     try {
       return await this.awaitResult(coordinator, commandId, deadlineAt);
+    } catch (error) {
+      retainCorrelation =
+        error instanceof GitToolsError && error.code === "APPROVAL_REQUIRED";
+      throw error;
     } finally {
-      await coordinator.fetch(
-        `https://device-coordinator/internal/commands/${commandId}`,
-        { method: "DELETE" },
-      );
+      if (!retainCorrelation) {
+        await coordinator.fetch(
+          `https://device-coordinator/internal/commands/${commandId}`,
+          { method: "DELETE" },
+        );
+      }
     }
   }
 
@@ -222,6 +264,14 @@ export class GitToolsService {
           );
         }
         return result as Record<string, unknown>;
+      }
+      if (command.message_type === "approval.request") {
+        const approvalId = command.payload?.approval_id;
+        throw new GitToolsError(
+          "APPROVAL_REQUIRED",
+          "The local device policy requires explicit Telechir approval",
+          typeof approvalId === "string" ? approvalId : null,
+        );
       }
       if (command.message_type === "command.failed") {
         const remoteError = command.payload?.error;

@@ -50,3 +50,8 @@ Camadas esperadas:
 ## Phase 8
 
 - `acceptance/phase8-exit-review-2026-10-04.md` — exit gate de Basic Git, incluindo `git.status`/`git.diff` read-only, containment de worktree/gitdir/common-dir, config audit fail-closed, subprocesso Git bounded, scope MCP e checks cross-platform.
+
+## Phase 9
+
+- `acceptance/phase9-exit-review-2026-10-05.md` — exit gate de Policy, Approvals and Audit, incluindo autoridade local, risk floor, approval binding/TTL/consumo, restrictions cloud somente restritivas, audit redaction, migrations D1 e checks cross-platform.
+- `../security/threat-model/phase9-policy-approvals-audit-2026-10-05.md` — delta de threat model para os abuse cases afetados pela Phase 9.

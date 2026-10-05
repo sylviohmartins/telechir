@@ -89,6 +89,7 @@ impl ProcessPolicy {
         &self,
         request: &CommandRequest,
         command: &str,
+        approval_verified: bool,
     ) -> Result<(), TelechirError> {
         if !request
             .requested_permissions
@@ -96,7 +97,7 @@ impl ProcessPolicy {
         {
             return Err(error(
                 ErrorCode::PolicyDenied,
-                "Phase 7 shell execution requires SHELL_SAFE",
+                "shell execution requires SHELL_SAFE",
             ));
         }
         if request.requested_permissions.iter().any(|permission| {
@@ -113,7 +114,7 @@ impl ProcessPolicy {
         }) {
             return Err(error(
                 ErrorCode::PolicyDenied,
-                "Phase 7 does not allow shell-full, elevation, admin, network, secret, or Git write permissions",
+                "local shell policy does not allow shell-full, elevation, admin, network, secret, or Git write permissions",
             ));
         }
         if request.risk == RiskLevel::Low {
@@ -122,7 +123,7 @@ impl ProcessPolicy {
                 "shell execution must be classified at least MEDIUM",
             ));
         }
-        classify_safe_command(command)
+        classify_safe_command(command, approval_verified)
     }
 }
 
@@ -333,7 +334,49 @@ impl ProcessExecutor {
         &self.policy
     }
 
-    fn execute_request(&mut self, request: &CommandRequest) -> Result<Value, TelechirError> {
+    pub(crate) fn preflight_shell(
+        &self,
+        request: &CommandRequest,
+        approval_verified: bool,
+    ) -> Result<(), TelechirError> {
+        match request.operation {
+            CommandOperation::ShellExec => {
+                let input: RunCommandInput = parse_arguments(&request.arguments)?;
+                self.policy
+                    .authorize_shell(request, &input.command, approval_verified)?;
+                reject_env_refs(&input.env_refs)?;
+                let _ = self.policy.resolve_cwd(input.cwd.as_deref())?;
+                Ok(())
+            }
+            CommandOperation::ProcessStart => {
+                require_permission(request, PermissionDomain::ProcessControl)?;
+                let input: StartProcessInput = parse_arguments(&request.arguments)?;
+                self.policy
+                    .authorize_shell(request, &input.command, approval_verified)?;
+                reject_env_refs(&input.env_refs)?;
+                let _ = self.policy.resolve_cwd(input.cwd.as_deref())?;
+                Ok(())
+            }
+            _ => Ok(()),
+        }
+    }
+
+    pub(crate) fn execute_with_verified_approval(
+        &mut self,
+        request: &CommandRequest,
+        approval_verified: bool,
+    ) -> ExecutionOutcome {
+        match self.execute_request(request, approval_verified) {
+            Ok(value) => ExecutionOutcome::Completed(value),
+            Err(error) => ExecutionOutcome::Failed(error),
+        }
+    }
+
+    fn execute_request(
+        &mut self,
+        request: &CommandRequest,
+        approval_verified: bool,
+    ) -> Result<Value, TelechirError> {
         if !matches!(
             request.operation,
             CommandOperation::ShellExec
@@ -350,12 +393,16 @@ impl ProcessExecutor {
         }
 
         if request.operation.has_side_effect() {
-            return self.with_idempotency(request);
+            return self.with_idempotency(request, approval_verified);
         }
-        self.execute_uncached(request)
+        self.execute_uncached(request, approval_verified)
     }
 
-    fn with_idempotency(&mut self, request: &CommandRequest) -> Result<Value, TelechirError> {
+    fn with_idempotency(
+        &mut self,
+        request: &CommandRequest,
+        approval_verified: bool,
+    ) -> Result<Value, TelechirError> {
         let key = request.idempotency_key.as_deref().ok_or_else(|| {
             error(
                 ErrorCode::InvalidArgument,
@@ -376,7 +423,7 @@ impl ProcessExecutor {
             };
         }
 
-        let result = self.execute_uncached(request);
+        let result = self.execute_uncached(request, approval_verified);
         let outcome = match &result {
             Ok(value) => ExecutionOutcome::Completed(value.clone()),
             Err(error) => ExecutionOutcome::Failed(error.clone()),
@@ -396,11 +443,16 @@ impl ProcessExecutor {
             .insert(key, CachedOutcome { digest, outcome });
     }
 
-    fn execute_uncached(&mut self, request: &CommandRequest) -> Result<Value, TelechirError> {
+    fn execute_uncached(
+        &mut self,
+        request: &CommandRequest,
+        approval_verified: bool,
+    ) -> Result<Value, TelechirError> {
         match request.operation {
             CommandOperation::ShellExec => {
                 let input: RunCommandInput = parse_arguments(&request.arguments)?;
-                self.policy.authorize_shell(request, &input.command)?;
+                self.policy
+                    .authorize_shell(request, &input.command, approval_verified)?;
                 reject_env_refs(&input.env_refs)?;
                 let cwd = self.policy.resolve_cwd(input.cwd.as_deref())?;
                 run_short_command(input, &cwd)
@@ -408,7 +460,8 @@ impl ProcessExecutor {
             CommandOperation::ProcessStart => {
                 require_permission(request, PermissionDomain::ProcessControl)?;
                 let input: StartProcessInput = parse_arguments(&request.arguments)?;
-                self.policy.authorize_shell(request, &input.command)?;
+                self.policy
+                    .authorize_shell(request, &input.command, approval_verified)?;
                 reject_env_refs(&input.env_refs)?;
                 let cwd = self.policy.resolve_cwd(input.cwd.as_deref())?;
                 self.start_process(input.command, cwd)
@@ -589,7 +642,7 @@ impl ProcessExecutor {
         if bytes.len() > MAX_PROCESS_INPUT_BYTES {
             return Err(error(
                 ErrorCode::InvalidArgument,
-                "process input exceeds the Phase 7 limit",
+                "process input exceeds the bounded input limit",
             ));
         }
 
@@ -693,7 +746,7 @@ impl CommandExecutor for ProcessExecutor {
     type Error = std::convert::Infallible;
 
     fn execute(&mut self, request: &CommandRequest) -> Result<ExecutionOutcome, Self::Error> {
-        Ok(match self.execute_request(request) {
+        Ok(match self.execute_request(request, false) {
             Ok(value) => ExecutionOutcome::Completed(value),
             Err(error) => ExecutionOutcome::Failed(error),
         })
@@ -1085,7 +1138,7 @@ fn terminate_process_tree(child: &mut Child, force: bool) -> Result<(), Telechir
     }
 }
 
-fn classify_safe_command(command: &str) -> Result<(), TelechirError> {
+fn classify_safe_command(command: &str, approval_verified: bool) -> Result<(), TelechirError> {
     let trimmed = command.trim();
     if trimmed.is_empty() || command.len() > MAX_COMMAND_BYTES || command.contains('\0') {
         return Err(error(
@@ -1112,14 +1165,10 @@ fn classify_safe_command(command: &str) -> Result<(), TelechirError> {
     let words = lower.split_whitespace().collect::<Vec<_>>();
     let executable = words.first().copied().unwrap_or_default();
     let executable = executable.trim_matches(['"', '\'']);
-    let executable = executable
-        .strip_prefix("./")
-        .or_else(|| executable.strip_prefix(".\\"))
-        .unwrap_or(executable);
     if executable.contains('/') || executable.contains('\\') {
         return Err(error(
-            ErrorCode::ApprovalRequired,
-            "command path requires SHELL_FULL approval that is unavailable in Phase 7",
+            ErrorCode::PolicyDenied,
+            "command paths require SHELL_FULL, which remains outside the Phase 9 authority ceiling",
         ));
     }
     let executable = executable
@@ -1163,7 +1212,7 @@ fn classify_safe_command(command: &str) -> Result<(), TelechirError> {
     if HARD_DENY_EXECUTABLES.contains(&executable) {
         return Err(error(
             ErrorCode::PolicyDenied,
-            "command is blocked by the Phase 7 local shell hard rules",
+            "command is blocked by local shell hard rules",
         ));
     }
 
@@ -1181,10 +1230,10 @@ fn classify_safe_command(command: &str) -> Result<(), TelechirError> {
         _ => false,
     };
 
-    if !allowed {
+    if !allowed && !approval_verified {
         return Err(error(
             ErrorCode::ApprovalRequired,
-            "command is outside the Phase 7 SHELL_SAFE allowlist and requires later policy/approval support",
+            "command is outside the default SHELL_SAFE allowlist and requires a bound Phase 9 approval",
         ));
     }
     Ok(())
@@ -1260,7 +1309,7 @@ fn reject_env_refs(env_refs: &[String]) -> Result<(), TelechirError> {
     if !env_refs.is_empty() {
         return Err(error(
             ErrorCode::UnsupportedCapability,
-            "env_refs require the future local secret/config broker and fail closed in Phase 7",
+            "env_refs require the future local secret/config broker and fail closed",
         ));
     }
     Ok(())
@@ -1408,6 +1457,29 @@ mod tests {
         (root, ProcessExecutor::new(ProcessPolicy::new(filesystem)))
     }
 
+    #[cfg(unix)]
+    fn wait_until_terminal(executor: &mut ProcessExecutor, process_id: &str) {
+        let deadline = Instant::now() + Duration::from_secs(2);
+        loop {
+            let terminal = {
+                let process = executor
+                    .processes
+                    .get_mut(process_id)
+                    .expect("managed process must exist");
+                process.refresh().expect("managed process must refresh");
+                process.state.terminal()
+            };
+            if terminal {
+                return;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "managed process did not reach a terminal state before the test deadline"
+            );
+            thread::sleep(Duration::from_millis(5));
+        }
+    }
+
     #[cfg(target_os = "linux")]
     fn unix_test_process_is_running(pid: i32) -> bool {
         use nix::sys::signal::kill;
@@ -1472,45 +1544,56 @@ mod tests {
     }
 
     #[test]
-    fn shell_safe_classifier_is_fail_closed() {
-        assert!(classify_safe_command("echo telechir").is_ok());
-        assert!(classify_safe_command("cargo test --all-features").is_ok());
+    fn shell_safe_classifier_is_fail_closed_and_approval_bounded() {
+        assert!(classify_safe_command("echo telechir", false).is_ok());
+        assert!(classify_safe_command("cargo test --all-features", false).is_ok());
         assert_eq!(
-            classify_safe_command("echo ok && whoami").unwrap_err().code,
-            ErrorCode::PolicyDenied
-        );
-        assert_eq!(
-            classify_safe_command("echo ok & sleep 30")
+            classify_safe_command("echo ok && whoami", false)
                 .unwrap_err()
                 .code,
             ErrorCode::PolicyDenied
         );
         assert_eq!(
-            classify_safe_command("echo /*").unwrap_err().code,
-            ErrorCode::PolicyDenied
-        );
-        assert_eq!(
-            classify_safe_command("cargo test --manifest-path ../outside/Cargo.toml")
+            classify_safe_command("echo ok & sleep 30", false)
                 .unwrap_err()
                 .code,
             ErrorCode::PolicyDenied
         );
         assert_eq!(
-            classify_safe_command("mvn -f /tmp/outside.xml test")
+            classify_safe_command("echo /*", false).unwrap_err().code,
+            ErrorCode::PolicyDenied
+        );
+        assert_eq!(
+            classify_safe_command("cargo test --manifest-path ../outside/Cargo.toml", false,)
                 .unwrap_err()
                 .code,
             ErrorCode::PolicyDenied
         );
         assert_eq!(
-            classify_safe_command("sudo echo ok").unwrap_err().code,
+            classify_safe_command("mvn -f /tmp/outside.xml test", false)
+                .unwrap_err()
+                .code,
             ErrorCode::PolicyDenied
         );
         assert_eq!(
-            classify_safe_command("python tool.py").unwrap_err().code,
+            classify_safe_command("sudo echo ok", false)
+                .unwrap_err()
+                .code,
+            ErrorCode::PolicyDenied
+        );
+        assert_eq!(
+            classify_safe_command("python tool.py", false)
+                .unwrap_err()
+                .code,
             ErrorCode::ApprovalRequired
         );
+        assert!(classify_safe_command("python tool.py", true).is_ok());
         assert_eq!(
-            classify_safe_command("git status").unwrap_err().code,
+            classify_safe_command("git status", true).unwrap_err().code,
+            ErrorCode::PolicyDenied
+        );
+        assert_eq!(
+            classify_safe_command("./tool", true).unwrap_err().code,
             ErrorCode::PolicyDenied
         );
     }
@@ -1675,7 +1758,7 @@ mod tests {
                 exit_code: None,
             },
         );
-        thread::sleep(Duration::from_millis(50));
+        wait_until_terminal(&mut executor, &process_id);
 
         let first = completed(
             &mut executor,
@@ -1865,7 +1948,7 @@ mod tests {
                 exit_code: None,
             },
         );
-        thread::sleep(Duration::from_millis(50));
+        wait_until_terminal(&mut executor, &process_id);
 
         let write = request(
             CommandOperation::ProcessWrite,

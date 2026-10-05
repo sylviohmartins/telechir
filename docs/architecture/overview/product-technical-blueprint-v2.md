@@ -1,7 +1,7 @@
 # Product & Technical Blueprint v2
 
 **Data:** 2026-10-01  
-**Status:** arquitetura consolidada; Phases 0–8 concluídas; foundations, identidade, canal realtime, integração MCP/OAuth, filesystem tools, shell/process lifecycle e Basic Git read-only implementados sem deploy de produção
+**Status:** arquitetura consolidada; Phases 0–9 concluídas; foundations, identidade, canal realtime, integração MCP/OAuth, filesystem tools, shell/process lifecycle, Basic Git read-only e Policy/Approvals/Audit implementados sem deploy de produção
 **Marca:** **Telechir** (`NAME_READY`); commercial/legal clearance permanece pendente antes de lançamento  
 **Objetivo:** consolidar a direção técnica após naming discovery e validação empírica do caminho ChatGPT Plus + plugin público + Remote MCP.
 
@@ -460,8 +460,8 @@ Decidida em ADR-0005:
 7. Phase 6 — Filesystem tools — **concluída em 2026-10-03**
 8. Phase 7 — Shell/process lifecycle — **concluída em 2026-10-04**
 9. Phase 8 — Basic Git — **concluída em 2026-10-04**
-10. Phase 9 — Policies, approvals and audit — **próxima fase**
-11. Phase 10 — Dashboard
+10. Phase 9 — Policies, approvals and audit — **concluída em 2026-10-05**
+11. Phase 10 — Dashboard — **próxima fase**
 12. Phase 11 — ChatGPT public-plugin readiness
 13. Phase 12 — Sandbox mode
 14. Phase 13 — Computer use
@@ -527,4 +527,4 @@ Sem commit/push automático.
 
 A Phase 0 materializou os contratos em `specs/`, formalizou threat model/tabletops e aceitou os ADRs centrais. A Phase 1 implementou o Local Agent Core em Rust; a Phase 2 implementou o skeleton TypeScript/Cloudflare do control plane; e a Phase 3 materializou identidade Ed25519, pairing one-time, prova criptográfica cross-language, ativação D1 transacional e revogação.
 
-O projeto está em **`PHASE_8_COMPLETE`**. O próximo gate de implementação é **Phase 9 — Policy, Approvals and Audit**, em execução dedicada de Build, Test & Iterate. Não há deploy de produção e os release gates pendentes continuam válidos.
+O projeto está em **`PHASE_9_COMPLETE`**. Policy, Approvals and Audit preserva a autoridade final local, mantém approvals remotos apenas como restrições cloud adicionais, vincula grants a command/session/permission/risk/digest/TTL e persiste audit metadata mínima/redigida. O próximo gate de implementação é **Phase 10 — Dashboard**, em execução dedicada de Build, Test & Iterate e sem bypass da pipeline de autorização. Não há deploy de produção e os release gates pendentes continuam válidos.

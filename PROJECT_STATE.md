@@ -1,12 +1,12 @@
 # Estado do Projeto
 
-**Atualizado em:** 2026-10-04
+**Atualizado em:** 2026-10-05
 
 ## Fase atual
 
-**Discovery concluído / Phases 0–8 concluídas / Phase 8 — Basic Git concluída**
+**Discovery concluído / Phases 0–9 concluídas / Phase 9 — Policy, Approvals and Audit concluída**
 
-A implementação possui Local Agent Core, control plane, identidade/pairing Ed25519, canal realtime outbound, Remote MCP/OAuth, seis typed filesystem tools, shell/process lifecycle e Basic Git read-only com enforcement final no agent. A superfície MCP atual possui 16 tools; o projeto **não possui deploy de produção** e ainda não iniciou Policy, Approvals and Audit.
+A implementação possui Local Agent Core, control plane, identidade/pairing Ed25519, canal realtime outbound, Remote MCP/OAuth, seis typed filesystem tools, shell/process lifecycle, Basic Git read-only e governança de policy/approvals/audit com enforcement final no agent. A superfície MCP pública permanece com 16 tools; o projeto **não possui deploy de produção** e ainda não iniciou Dashboard/Phase 10.
 
 ## Gates atuais
 
@@ -27,7 +27,8 @@ A implementação possui Local Agent Core, control plane, identidade/pairing Ed2
 - [x] Phase 6 — Filesystem Tools: **`PHASE_6_COMPLETE`**.
 - [x] Phase 7 — Shell/Process Lifecycle: **`PHASE_7_COMPLETE`**.
 - [x] Phase 8 — Basic Git: **`PHASE_8_COMPLETE`**.
-- [ ] Phase 9 — Policy, Approvals and Audit iniciada.
+- [x] Phase 9 — Policy, Approvals and Audit: **`PHASE_9_COMPLETE`**.
+- [ ] Phase 10 — Dashboard iniciada.
 
 ## Decisões atuais
 
@@ -38,6 +39,8 @@ A implementação possui Local Agent Core, control plane, identidade/pairing Ed2
 - Distribuição no ChatGPT: plugin/app público + Remote MCP; usuários Plus não devem precisar registrar manualmente um custom MCP.
 - Cloudflare foi aceito como primeiro control plane hospedado em ADR-0004, mantendo protocolo e agent independentes do provedor.
 - O agent local aplica a autoridade final de policy.
+- Approval remoto pode restringir o dispatch, mas nunca se transforma em autoridade local do agent.
+- Operações `CRITICAL` permanecem fail-closed enquanto não existir confirmação local dedicada.
 - GUI/browser/computer-use permanecem pós-MVP.
 - O core público usa **Apache License 2.0**, com trademark Telechir separado; `LICENSE` já está na raiz.
 - Artefatos históricos permanecem imutáveis; conclusões atuais vivem em `docs/`.
@@ -77,21 +80,23 @@ As avaliações relevantes estão em:
 - `docs/testing/acceptance/phase6-exit-review-2026-10-03.md`
 - `docs/testing/acceptance/phase7-exit-review-2026-10-04.md`
 - `docs/testing/acceptance/phase8-exit-review-2026-10-04.md`
+- `docs/testing/acceptance/phase9-exit-review-2026-10-05.md`
+- `docs/security/threat-model/phase9-policy-approvals-audit-2026-10-05.md`
 - `docs/research/cloudflare/phase2-revalidation-2026-10-02.md`
 - `docs/research/cloudflare/phase4-revalidation-2026-10-02.md`
 - `docs/research/mcp/phase5-revalidation-2026-10-02.md`
 
 Resultado atual:
 
-> **PHASE_8_COMPLETE**
+> **PHASE_9_COMPLETE**
 
-A Phase 8 implementa `git.status` e `git.diff` read-only no agent com `FS_READ / LOW`, containment de worktree/gitdir/common-dir, config audit fail-closed, subprocesso Git bounded e nenhuma operação mutável. O MCP expõe `get_git_status` e `get_git_diff` com `telechir:git:read`, ownership, presença/capability e dispatch pelo realtime channel.
+A Phase 9 implementa `ALLOW / ASK / DENY` local, risk floor, hard denies, approvals vinculados a command/session/permission/risk/argument digest/TTL, consumo `once`, `approval.request / approval.decision`, restrictions cloud somente restritivas e audit metadata mínima/redigida. Remote approval nunca vira local authority. O command context atual suporta restrictions account/device/session; workspace policy não é declarada operacional enquanto não existir `workspace_id` confiável no dispatch.
 
-O agent passou em fmt/clippy, 76 testes e compile checks Windows/macOS. O control plane passou em format/typecheck, 74 testes, migrations `0001 + 0002 + 0003` em D1 local limpa, Wrangler dry-run e `npm audit` sem vulnerabilidades. A Phase 8 preserva os boundaries do roadmap: Git mutável, approvals/audit persistente, dashboard, sandbox e deploy de produção permanecem não implementados.
+O agent passou em fmt/clippy, **81 testes** e compile checks Windows/macOS. O control plane passou em format/typecheck, **81 testes**, migrations `0001 + 0002 + 0003 + 0004` em D1 local limpa, Wrangler dry-run e `npm audit` sem vulnerabilidades. Nenhum deploy remoto foi executado e a Phase 10 não foi iniciada.
 
 ## Próximos trabalhos
 
-1. Em uma execução dedicada de build/test, iniciar **Phase 9 — Policy, Approvals and Audit**.
+1. Em uma execução dedicada de build/test, iniciar **Phase 10 — Dashboard**, reutilizando a mesma pipeline de policy/approval/audit e sem bypass.
 2. Em paralelo, completar/reservar ativos comerciais de Telechir antes de lançamento.
 3. Manter os release gates de OpenAI, segurança operacional, signing e custos antes de beta/publicação.
 

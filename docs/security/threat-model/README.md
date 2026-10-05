@@ -26,3 +26,7 @@ Famílias de ameaça já identificadas:
 20. vazamento de secrets em logs/artefatos.
 
 A conversão formal foi concluída em `stride-baseline-2026-10-02.md`, com ativos, trust boundaries, STRIDE, controles e 40 abuse cases. O modelo deve ser reaberto à medida que novas capacidades forem implementadas.
+
+## Deltas por capability
+
+- `phase9-policy-approvals-audit-2026-10-05.md` — revalida AB-024, AB-025, AB-029, AB-031, AB-032 e AB-034 após a implementação de policy, approvals e audit.

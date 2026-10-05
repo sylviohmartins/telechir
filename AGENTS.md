@@ -4,7 +4,7 @@ Este repositório pode ser utilizado por ChatGPT, Codex, Claude Code, Gemini CLI
 
 ## Guardrail da fase atual
 
-O projeto concluiu discovery e as Phases 0–8. **Não inicie automaticamente a Phase 9 apenas porque `PROJECT_STATE.md` registra `PHASE_8_COMPLETE`: Policy, Approvals and Audit deve começar somente em uma tarefa explicitamente dedicada a Build, Test & Iterate.** Não atravesse para dashboard ou fases posteriores sem o gate correspondente. Nunca faça deploy de produção, crie recursos pagos ou publique plugin sem autorização específica da fase correspondente.
+O projeto concluiu discovery e as Phases 0–9. **Não inicie automaticamente a Phase 10 apenas porque `PROJECT_STATE.md` registra `PHASE_9_COMPLETE`: Dashboard deve começar somente em uma tarefa explicitamente dedicada a Build, Test & Iterate.** Não atravesse para fases posteriores sem o gate correspondente. Nunca faça deploy de produção, crie recursos pagos ou publique plugin sem autorização específica da fase correspondente.
 
 ## Ordem de fonte de verdade
 

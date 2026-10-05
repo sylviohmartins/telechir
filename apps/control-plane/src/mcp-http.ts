@@ -10,6 +10,7 @@ import {
 
 import { DeviceToolsError, DeviceToolsService } from "./device-tools";
 import type { Env } from "./env";
+import type { CallerContext } from "./governance";
 import {
   FilesystemToolsError,
   FilesystemToolsService,
@@ -83,6 +84,15 @@ function jsonText(value: unknown): string {
   return JSON.stringify(value);
 }
 
+function callerContext(authInfo: AuthInfo | undefined): CallerContext {
+  return {
+    ...(authInfo?.clientId ? { clientId: authInfo.clientId } : {}),
+    ...(typeof authInfo?.expiresAt === "number"
+      ? { expiresAt: authInfo.expiresAt }
+      : {}),
+  };
+}
+
 function scopedChallenge(scopes: string[]) {
   const [first, ...rest] = scopes;
   if (!first) {
@@ -110,6 +120,10 @@ function toolFailure(error: unknown) {
       [
         "POLICY_DENIED",
         "The local device policy denied this filesystem operation.",
+      ],
+      [
+        "APPROVAL_REQUIRED",
+        "This filesystem operation requires explicit Telechir approval.",
       ],
       [
         "CONFLICT",
@@ -150,7 +164,7 @@ function toolFailure(error: unknown) {
       ],
       [
         "APPROVAL_REQUIRED",
-        "This command requires broader local approval that is not available in Phase 7.",
+        "This process operation requires explicit Telechir approval.",
       ],
       ["CONFLICT", "The managed process is not in a compatible state."],
       [
@@ -186,6 +200,10 @@ function toolFailure(error: unknown) {
       [
         "POLICY_DENIED",
         "The local device policy denied this Git read operation.",
+      ],
+      [
+        "APPROVAL_REQUIRED",
+        "This Git operation requires explicit Telechir approval.",
       ],
       ["CONFLICT", "The Git repository state could not be read."],
       ["OUTPUT_TRUNCATED", "The Git status exceeds the bounded output limit."],
@@ -336,6 +354,7 @@ function registerFilesystemTool(
           userId,
           tool.name as FilesystemToolName,
           args as Record<string, unknown>,
+          callerContext(ctx.http?.authInfo),
         );
         return {
           content: [{ type: "text", text: jsonText(output) }],
@@ -388,6 +407,7 @@ function registerProcessTool(
           userId,
           tool.name as ProcessToolName,
           args as Record<string, unknown>,
+          callerContext(ctx.http?.authInfo),
         );
         return {
           content: [{ type: "text", text: jsonText(output) }],
@@ -440,6 +460,7 @@ function registerGitTool(
           userId,
           tool.name as GitToolName,
           args as Record<string, unknown>,
+          callerContext(ctx.http?.authInfo),
         );
         return {
           content: [{ type: "text", text: jsonText(output) }],
@@ -488,7 +509,7 @@ export function createTelechirMcpServer(env: Env): McpServer {
         registerGitTool(server, env, tool);
         break;
       default:
-        throw new Error(`unexpected Phase 8 tool: ${tool.name}`);
+        throw new Error(`unexpected enabled MCP tool: ${tool.name}`);
     }
   }
 

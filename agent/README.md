@@ -81,6 +81,19 @@ Core local do Telechir implementado em Rust.
 - staged/unstaged diff e literal path filter;
 - nenhuma operação `add/commit/push/fetch/pull/checkout/reset/clean/stash/tag/branch/remote/submodule`.
 
+### Phase 9 — Policy, Approvals and Audit
+
+- `LocalPolicyEngine` com `ALLOW / ASK / DENY` e autoridade final local;
+- risk floor local para side effects, sem aceitar redução remota;
+- hard denies para permissões fora do teto atual;
+- `CRITICAL` fail-closed sem confirmação local dedicada;
+- approval binding por command/session/permission/risk/argument digest/TTL;
+- `once` consumido na primeira autorização válida;
+- `approval.request` / `approval.decision` no realtime channel;
+- remote approval nunca substitui approval emitido pelo agent;
+- audit local bounded com event IDs imutáveis, policy revision e digests;
+- executáveis por path explícito permanecem hard-denied mesmo com approval.
+
 A private key não faz parte de nenhum DTO serializável do agent.
 
 ## Native keyring
@@ -95,11 +108,12 @@ O `MemoryIdentityStore` existe somente para testes e adapters controlados.
 
 ## Limites atuais
 
-O agent já possui realtime outbound, filesystem typed tools, shell/process lifecycle e Basic Git read-only com enforcement local. Não existe deploy de produção.
+O agent já possui realtime outbound, filesystem typed tools, shell/process lifecycle, Basic Git read-only e policy/approvals/audit local com enforcement final no device. Não existe deploy de produção.
 
 Ficam para fases posteriores:
 
-- policy/approvals/audit operacional completo;
+- Dashboard/UX de approvals sem bypass da pipeline local;
+- policy editável/persistente do usuário;
 - Git mutável permanece fora do MVP atual.
 
 ## Build e validação
@@ -113,7 +127,7 @@ cargo test --all-features
 cargo run
 ```
 
-As Phases 3–8 também exigem compile checks para:
+As Phases 3–9 também exigem compile checks para:
 
 ```text
 x86_64-pc-windows-msvc
@@ -133,4 +147,5 @@ Evidências:
 - `../docs/testing/acceptance/phase4-exit-review-2026-10-02.md`;
 - `../docs/testing/acceptance/phase6-exit-review-2026-10-03.md`;
 - `../docs/testing/acceptance/phase7-exit-review-2026-10-04.md`;
-- `../docs/testing/acceptance/phase8-exit-review-2026-10-04.md`.
+- `../docs/testing/acceptance/phase8-exit-review-2026-10-04.md`;
+- `../docs/testing/acceptance/phase9-exit-review-2026-10-05.md`.
