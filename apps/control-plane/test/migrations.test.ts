@@ -52,6 +52,10 @@ describe("D1 conceptual model migration", () => {
       "idx_approvals_device_expiry_consumed",
       "idx_audit_events_device_created",
       "idx_artifacts_user_created",
+      "idx_policy_restrictions_scope_permission_expiry",
+      "idx_approvals_binding",
+      "idx_approvals_command",
+      "idx_audit_events_command_created",
     ];
 
     for (const index of expected) {

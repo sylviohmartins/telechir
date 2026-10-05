@@ -86,9 +86,24 @@ Control plane do Telechir em TypeScript para Cloudflare Workers.
 - correlação por `command_id` removida após consumo;
 - nenhuma operação Git mutável é exposta.
 
+### Phase 9 — Policy, Approvals and Audit
+
+- superfície MCP pública permanece em 16 tools;
+- `GovernanceService` aplicado antes de dispatch de filesystem/process/Git;
+- session/command metadata durável em D1;
+- idempotency key persistida somente por hash;
+- restrictions cloud com precedência `DENY > ASK > ALLOW` e caráter somente restritivo;
+- remote approval nunca é enviado ao agent como autoridade local;
+- lifecycle de approvals com ownership, binding, TTL e consumo `once`;
+- `approval.request` do agent correlacionado a device/session/command/digest;
+- endpoint interno para `approval.decision` sem criar Dashboard/UX;
+- redispatch de approval local preserva o command original e ocorre somente após consumo do grant;
+- audit metadata mínima, bounded e redigida antes de persistir;
+- migration `0004_policy_approval_audit.sql` com índices operacionais.
+
 ## Boundaries de autenticação
 
-A Phase 5 implementa o resource-server boundary, e as Phases 6–8 reutilizam esse boundary para filesystem, process lifecycle e Git read-only. O projeto não implementa authorization server próprio nem browser login.
+A Phase 5 implementa o resource-server boundary, e as Phases 6–9 reutilizam esse boundary para filesystem, process lifecycle, Git read-only e governança de policy/approvals/audit. O projeto não implementa authorization server próprio nem browser login.
 
 `PairingService.verifyUser(...)` recebe um `user_id` já autenticado. O futuro adapter browser/OAuth deverá chamar esse domínio sem alterar suas invariantes.
 
@@ -112,11 +127,11 @@ Sem essas configurações, `/ready` falha fechado com `503`.
 
 Ainda não implementados:
 
-- policy/approvals/audit operacional completo;
-- dashboard;
+- dashboard/approval inbox público;
+- policy editor e workspace policy sem um `workspace_id` confiável no command context;
 - Git mutável.
 
-Rotas administrativas como `/devices` e `/ws` continuam fechadas; `/mcp` é a superfície pública e, na Phase 8, expõe device info, filesystem typed tools, process lifecycle typed tools e Basic Git read-only.
+Rotas administrativas como `/devices` e `/ws` continuam fechadas; `/mcp` é a superfície pública e, na Phase 9, mantém device info, filesystem typed tools, process lifecycle typed tools e Basic Git read-only. Policy/approvals/audit atuam na governança do dispatch sem adicionar uma nova tool pública.
 
 ## Desenvolvimento local
 
@@ -140,5 +155,6 @@ npm audit --audit-level=high
 - material público pendente vive em `pairings` antes de `ACTIVE`;
 - private key nunca sai do agent;
 - Durable Object coordena presence/conexão efêmera por device e usa attachment/storage para sobreviver à hibernação;
-- D1 continua a autoridade durável para identidade/revogação;
+- D1 continua a autoridade durável para identidade/revogação e, na Phase 9, para sessions, commands, approvals e audit metadata;
+- policy restrictions operacionais usam account/device/session; workspace permanece indisponível até existir identidade confiável no command context;
 - cloud nunca amplia a policy local do agent.

@@ -766,6 +766,20 @@ pub struct ApprovalRequest {
 
 impl PayloadContract for ApprovalRequest {
     fn validate(&self) -> Result<(), String> {
+        if !(8..=160).contains(&self.approval_id.chars().count()) {
+            return Err("approval_id length must be between 8 and 160".to_owned());
+        }
+        if !(1..=160).contains(&self.command_id.chars().count()) {
+            return Err("command_id length must be between 1 and 160".to_owned());
+        }
+        if self.argument_digest.len() != 43
+            || !self
+                .argument_digest
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+        {
+            return Err("argument_digest must be a SHA-256 base64url digest".to_owned());
+        }
         if self
             .human_summary
             .as_deref()
@@ -802,6 +816,15 @@ pub struct ApprovalDecision {
     pub scope: ApprovalScope,
 }
 
+impl PayloadContract for ApprovalDecision {
+    fn validate(&self) -> Result<(), String> {
+        if !(8..=160).contains(&self.approval_id.chars().count()) {
+            return Err("approval_id length must be between 8 and 160".to_owned());
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ProtocolErrorPayload {
@@ -821,7 +844,6 @@ payload_ok!(
     CommandCancelled,
     Heartbeat,
     HeartbeatAck,
-    ApprovalDecision,
 );
 
 #[cfg(test)]

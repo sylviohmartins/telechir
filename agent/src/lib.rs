@@ -6,6 +6,7 @@ pub mod filesystem;
 pub mod git;
 pub mod identity;
 pub mod lifecycle;
+pub mod policy;
 pub mod ports;
 pub mod process;
 pub mod protocol;

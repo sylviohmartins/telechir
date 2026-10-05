@@ -14,19 +14,28 @@ interface TestDevice {
 }
 
 function nextMessage(socket: WebSocket): Promise<MessageEvent> {
+  return nextMessages(socket, 1).then(([event]) => event!);
+}
+
+function nextMessages(
+  socket: WebSocket,
+  count: number,
+): Promise<MessageEvent[]> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(
-      () => reject(new Error("timed out waiting for process command")),
-      2_000,
-    );
-    socket.addEventListener(
-      "message",
-      (event) => {
+    const events: MessageEvent[] = [];
+    const timer = setTimeout(() => {
+      socket.removeEventListener("message", listener);
+      reject(new Error("timed out waiting for process command"));
+    }, 2_000);
+    const listener = (event: MessageEvent) => {
+      events.push(event);
+      if (events.length === count) {
         clearTimeout(timer);
-        resolve(event);
-      },
-      { once: true },
-    );
+        socket.removeEventListener("message", listener);
+        resolve(events);
+      }
+    };
+    socket.addEventListener("message", listener);
   });
 }
 
@@ -175,8 +184,25 @@ async function respondCompleted(
 }
 
 beforeEach(async () => {
+  const userFilter =
+    "SELECT id FROM users WHERE identity_provider = 'phase7-test'";
   await bindings.DB.prepare(
-    "DELETE FROM devices WHERE user_id IN (SELECT id FROM users WHERE identity_provider = 'phase7-test')",
+    `DELETE FROM audit_events WHERE user_id IN (${userFilter})`,
+  ).run();
+  await bindings.DB.prepare(
+    `DELETE FROM approvals WHERE user_id IN (${userFilter})`,
+  ).run();
+  await bindings.DB.prepare(
+    `DELETE FROM commands
+     WHERE session_id IN (
+       SELECT id FROM sessions WHERE user_id IN (${userFilter})
+     )`,
+  ).run();
+  await bindings.DB.prepare(
+    `DELETE FROM sessions WHERE user_id IN (${userFilter})`,
+  ).run();
+  await bindings.DB.prepare(
+    `DELETE FROM devices WHERE user_id IN (${userFilter})`,
   ).run();
   await bindings.DB.prepare(
     "DELETE FROM users WHERE identity_provider = 'phase7-test'",
@@ -407,7 +433,7 @@ describe("Phase 7 process dispatch", () => {
           error: {
             code: "APPROVAL_REQUIRED",
             message:
-              "command is outside the Phase 7 SHELL_SAFE allowlist and requires later policy support",
+              "command is outside the default SHELL_SAFE allowlist and requires a bound policy approval",
             retryable: false,
             retry_after_ms: null,
             details: null,
@@ -419,6 +445,126 @@ describe("Phase 7 process dispatch", () => {
     await expect(execution).rejects.toMatchObject({
       code: "APPROVAL_REQUIRED",
     });
+    device.socket!.close(1000, "test complete");
+  });
+
+  it("persists an agent approval and redispatches the exact command after approval", async () => {
+    const device = await seedDevice(["shell.exec"]);
+    const service = new ProcessToolsService(
+      bindings.DB,
+      bindings.DEVICE_COORDINATOR,
+    );
+    const firstCommandMessage = nextMessage(device.socket!);
+    const execution = service.execute(
+      device.userId,
+      "run_command",
+      {
+        device_id: device.deviceId,
+        command: "python tool.py",
+      },
+      { clientId: "phase9-approval-client", expiresAt: 1_900_000_000 },
+    );
+
+    const firstCommand = JSON.parse(
+      String((await firstCommandMessage).data),
+    ) as Record<string, unknown>;
+    const firstPayload = firstCommand.payload as Record<string, unknown>;
+    const commandId = firstPayload.command_id as string;
+    const sessionId = firstCommand.session_id as string;
+    const commandRow = await bindings.DB.prepare(
+      "SELECT argument_digest FROM commands WHERE id = ?",
+    )
+      .bind(commandId)
+      .first<{ argument_digest: string }>();
+    expect(commandRow).not.toBeNull();
+
+    const approvalId = `approval_${crypto.randomUUID()}`;
+    device.socket!.send(
+      agentFrame({
+        deviceId: device.deviceId,
+        connectionId: device.connectionId!,
+        sequence: 1,
+        messageType: "approval.request",
+        payload: {
+          approval_id: approvalId,
+          command_id: commandId,
+          permission: "SHELL_SAFE",
+          risk: "HIGH",
+          argument_digest: commandRow!.argument_digest,
+          human_summary: "Explicit approval required.",
+          expires_at: new Date(Date.now() + 60_000).toISOString(),
+        },
+      }),
+    );
+
+    await expect(execution).rejects.toMatchObject({
+      code: "APPROVAL_REQUIRED",
+      approvalId,
+    });
+
+    const persisted = await bindings.DB.prepare(
+      "SELECT session_id, argument_digest, decision FROM approvals WHERE id = ?",
+    )
+      .bind(approvalId)
+      .first<{
+        session_id: string;
+        argument_digest: string;
+        decision: string | null;
+      }>();
+    expect(persisted).toMatchObject({
+      session_id: sessionId,
+      argument_digest: commandRow!.argument_digest,
+      decision: null,
+    });
+
+    const approvalMessages = nextMessages(device.socket!, 2);
+    const coordinator = bindings.DEVICE_COORDINATOR.get(
+      bindings.DEVICE_COORDINATOR.idFromName(device.deviceId),
+    );
+    const decisionResponse = await coordinator.fetch(
+      `https://device-coordinator/internal/approvals/${approvalId}/decision`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-telechir-device-id": device.deviceId,
+        },
+        body: JSON.stringify({
+          user_id: device.userId,
+          session_id: sessionId,
+          decision: "APPROVE",
+          scope: "once",
+        }),
+      },
+    );
+    expect(decisionResponse.status).toBe(200);
+
+    const [decisionEvent, redispatchEvent] = await approvalMessages;
+    const decision = JSON.parse(String(decisionEvent!.data)) as Record<
+      string,
+      unknown
+    >;
+    expect(decision.message_type).toBe("approval.decision");
+    expect(decision.session_id).toBe(sessionId);
+    expect(decision.payload).toMatchObject({
+      approval_id: approvalId,
+      decision: "APPROVE",
+      scope: "once",
+    });
+
+    const redispatch = JSON.parse(String(redispatchEvent!.data)) as Record<
+      string,
+      unknown
+    >;
+    expect(redispatch.message_type).toBe("command.request");
+    const redispatchPayload = redispatch.payload as Record<string, unknown>;
+    expect(redispatchPayload.command_id).toBe(commandId);
+    expect(redispatchPayload.approval_id).toBe(approvalId);
+    expect(redispatchPayload.arguments).toEqual(firstPayload.arguments);
+    expect(redispatchPayload.requested_permissions).toEqual(
+      firstPayload.requested_permissions,
+    );
+
     device.socket!.close(1000, "test complete");
   });
 

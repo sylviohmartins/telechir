@@ -7,13 +7,20 @@ import {
   serverEnvelope,
 } from "./device-protocol";
 import type { Env } from "./env";
+import { GovernanceError, GovernanceService } from "./governance";
 import { failure, success } from "./http";
 import { PROJECT_PHASE, SERVICE_VERSION } from "./meta";
+import {
+  commandArgumentDigest,
+  isPermission,
+  isRisk,
+  type RiskLevel,
+} from "./policy";
 
 const MAX_RECENT_MESSAGE_IDS = 32;
 const MAX_RECENT_CREDENTIALS = 128;
 const MAX_CORRELATED_COMMANDS = 256;
-const PHASE8_DEVICE_OPERATIONS = new Set([
+const ACTIVE_DEVICE_OPERATIONS = new Set([
   "fs.list",
   "fs.stat",
   "fs.read",
@@ -29,7 +36,7 @@ const PHASE8_DEVICE_OPERATIONS = new Set([
   "git.status",
   "git.diff",
 ]);
-const PHASE7_SIDE_EFFECT_OPERATIONS = new Set([
+const SIDE_EFFECT_OPERATIONS = new Set([
   "fs.write",
   "fs.patch",
   "shell.exec",
@@ -48,8 +55,13 @@ interface InternalCommandRequest {
   operation: string;
   arguments: Record<string, unknown>;
   requested_permissions: string[];
-  risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  risk: RiskLevel;
   deadline_at: string;
+  user_id: string;
+  session_id: string;
+  tool_name: string;
+  argument_digest: string;
+  approval_id?: string | null;
 }
 
 interface CorrelatedCommandState {
@@ -57,12 +69,22 @@ interface CorrelatedCommandState {
   message_type:
     | "command.request"
     | "command.accepted"
+    | "command.chunk"
     | "command.completed"
-    | "command.failed";
+    | "command.failed"
+    | "command.cancelled"
+    | "approval.request";
   message_id: string;
   sequence: number;
   received_at: string;
   payload?: Record<string, unknown>;
+  request?: InternalCommandRequest;
+}
+
+interface PreparedOutboundFrame {
+  encoded: string;
+  messageId: string;
+  sequence: number;
 }
 
 interface ConnectionAttachment {
@@ -154,6 +176,12 @@ export class DeviceCoordinator {
     if (commandMatch && request.method === "DELETE") {
       await this.state.storage.delete(`command:${commandMatch[1]!}`);
       return success({ deleted: true });
+    }
+
+    const approvalDecisionMatch =
+      /^\/internal\/approvals\/([^/]+)\/decision$/u.exec(url.pathname);
+    if (approvalDecisionMatch && request.method === "POST") {
+      return this.decideApproval(request, approvalDecisionMatch[1]!);
     }
 
     return failure("ROUTE_NOT_FOUND", "Route not found", 404);
@@ -266,6 +294,9 @@ export class DeviceCoordinator {
       case "command.cancelled":
       case "approval.request": {
         const commandId = frame.payload.command_id as string;
+        const storageKey = `command:${commandId}`;
+        const previous =
+          await this.state.storage.get<CorrelatedCommandState>(storageKey);
         const correlated: CorrelatedCommandState = {
           command_id: commandId,
           message_type:
@@ -273,14 +304,95 @@ export class DeviceCoordinator {
           message_id: frame.message_id,
           sequence: frame.sequence,
           received_at: new Date().toISOString(),
+          ...(previous?.request ? { request: previous.request } : {}),
         };
         if (
           frame.message_type === "command.completed" ||
-          frame.message_type === "command.failed"
+          frame.message_type === "command.failed" ||
+          frame.message_type === "approval.request"
         ) {
           correlated.payload = frame.payload;
         }
-        await this.state.storage.put(`command:${commandId}`, correlated);
+
+        const governance = new GovernanceService(this.env.DB);
+        try {
+          if (frame.message_type === "command.accepted") {
+            const acceptedAt = frame.payload.accepted_at;
+            if (typeof acceptedAt === "string") {
+              await governance.markAccepted(commandId, acceptedAt);
+            }
+          } else if (frame.message_type === "command.completed") {
+            const completedAt = frame.payload.completed_at;
+            if (typeof completedAt === "string") {
+              await governance.markCompleted(commandId, completedAt);
+            }
+          } else if (frame.message_type === "command.cancelled") {
+            const cancelledAt = frame.payload.cancelled_at;
+            await governance.markCancelled(
+              commandId,
+              typeof cancelledAt === "string"
+                ? cancelledAt
+                : new Date().toISOString(),
+            );
+          } else if (frame.message_type === "command.failed") {
+            const failedAt = frame.payload.failed_at;
+            const remoteError = frame.payload.error;
+            const code =
+              remoteError &&
+              typeof remoteError === "object" &&
+              !Array.isArray(remoteError) &&
+              typeof (remoteError as Record<string, unknown>).code === "string"
+                ? ((remoteError as Record<string, unknown>).code as string)
+                : "INTERNAL_ERROR";
+            await governance.markFailed(
+              commandId,
+              code,
+              typeof failedAt === "string"
+                ? failedAt
+                : new Date().toISOString(),
+            );
+          } else if (frame.message_type === "approval.request") {
+            const requestContext = previous?.request;
+            const approvalId = frame.payload.approval_id;
+            const permission = frame.payload.permission;
+            const risk = frame.payload.risk;
+            const argumentDigest = frame.payload.argument_digest;
+            const expiresAt = frame.payload.expires_at;
+            if (
+              !requestContext ||
+              typeof approvalId !== "string" ||
+              !isPermission(permission) ||
+              !requestContext.requested_permissions.includes(permission) ||
+              !isRisk(risk) ||
+              typeof argumentDigest !== "string" ||
+              typeof expiresAt !== "string"
+            ) {
+              throw new GovernanceError(
+                "CONFLICT",
+                "Agent approval request is missing bound command metadata",
+              );
+            }
+            await governance.recordAgentApprovalRequest({
+              approvalId,
+              commandId,
+              userId: requestContext.user_id,
+              deviceId: attachment.deviceId,
+              sessionId: requestContext.session_id,
+              permission,
+              risk,
+              argumentDigest,
+              expiresAt,
+            });
+          }
+        } catch {
+          socket.close(
+            PROTOCOL_CLOSE_CODE,
+            "governance validation failed for agent message",
+          );
+          return;
+        }
+
+        await this.state.storage.put(storageKey, correlated);
         break;
       }
       case "protocol.error":
@@ -336,15 +448,29 @@ export class DeviceCoordinator {
       typeof command.command_id !== "string" ||
       command.command_id.length < 8 ||
       command.command_id.length > 160 ||
-      !PHASE8_DEVICE_OPERATIONS.has(command.operation) ||
+      !ACTIVE_DEVICE_OPERATIONS.has(command.operation) ||
       !command.arguments ||
       typeof command.arguments !== "object" ||
       Array.isArray(command.arguments) ||
       !Array.isArray(command.requested_permissions) ||
-      !command.requested_permissions.every(
-        (permission) => typeof permission === "string",
-      ) ||
-      !["LOW", "MEDIUM", "HIGH", "CRITICAL"].includes(command.risk)
+      !command.requested_permissions.every(isPermission) ||
+      !isRisk(command.risk) ||
+      typeof command.user_id !== "string" ||
+      command.user_id.length < 3 ||
+      command.user_id.length > 128 ||
+      typeof command.session_id !== "string" ||
+      command.session_id.length < 3 ||
+      command.session_id.length > 128 ||
+      typeof command.tool_name !== "string" ||
+      command.tool_name.length < 1 ||
+      command.tool_name.length > 128 ||
+      typeof command.argument_digest !== "string" ||
+      !/^[A-Za-z0-9_-]{43}$/u.test(command.argument_digest) ||
+      (command.approval_id !== null &&
+        command.approval_id !== undefined &&
+        (typeof command.approval_id !== "string" ||
+          command.approval_id.length < 8 ||
+          command.approval_id.length > 160))
     ) {
       return failure(
         "INVALID_ARGUMENT",
@@ -353,7 +479,20 @@ export class DeviceCoordinator {
       );
     }
 
-    const sideEffect = PHASE7_SIDE_EFFECT_OPERATIONS.has(command.operation);
+    const computedArgumentDigest = await commandArgumentDigest({
+      operation: command.operation,
+      arguments: command.arguments,
+      requestedPermissions: command.requested_permissions,
+    });
+    if (computedArgumentDigest !== command.argument_digest) {
+      return failure(
+        "INVALID_ARGUMENT",
+        "Command argument digest does not match the normalized payload",
+        400,
+      );
+    }
+
+    const sideEffect = SIDE_EFFECT_OPERATIONS.has(command.operation);
     if (
       (sideEffect &&
         (typeof command.idempotency_key !== "string" ||
@@ -430,18 +569,18 @@ export class DeviceCoordinator {
       requested_permissions: command.requested_permissions,
       risk: command.risk,
       workspace_id: null,
-      approval_id: null,
+      approval_id: command.approval_id ?? null,
     };
 
-    let messageId: string;
+    let outbound: PreparedOutboundFrame;
     try {
-      messageId = this.send(
-        active,
+      outbound = this.prepareOutboundFrame(
         attachment,
         "command.request",
         null,
         payload,
         command.deadline_at,
+        command.session_id,
       );
     } catch {
       return failure(
@@ -450,21 +589,272 @@ export class DeviceCoordinator {
         413,
       );
     }
-    active.serializeAttachment(attachment);
+
+    // Persist correlation before releasing a side effect to the device. If
+    // Durable Object storage fails, no command frame has been sent.
     await this.state.storage.put<CorrelatedCommandState>(
       `command:${command.command_id}`,
       {
         command_id: command.command_id,
         message_type: "command.request",
-        message_id: messageId,
-        sequence: attachment.nextOutboundSequence - 1,
+        message_id: outbound.messageId,
+        sequence: outbound.sequence,
         received_at: new Date().toISOString(),
+        request: command,
       },
     );
+    attachment.nextOutboundSequence += 1;
+    active.serializeAttachment(attachment);
+    active.send(outbound.encoded);
 
     return success({
       command_id: command.command_id,
       state: "dispatched",
+    });
+  }
+
+  private async decideApproval(
+    request: Request,
+    approvalId: string,
+  ): Promise<Response> {
+    const expectedDeviceId = request.headers.get("x-telechir-device-id");
+    if (!expectedDeviceId) {
+      return failure(
+        "UNAUTHENTICATED",
+        "Internal device identity missing",
+        401,
+      );
+    }
+
+    let body: {
+      user_id?: unknown;
+      session_id?: unknown;
+      decision?: unknown;
+      scope?: unknown;
+    };
+    try {
+      body = (await request.json()) as typeof body;
+    } catch {
+      return failure("INVALID_ARGUMENT", "Invalid approval decision", 400);
+    }
+
+    if (
+      typeof body.user_id !== "string" ||
+      typeof body.session_id !== "string" ||
+      (body.decision !== "APPROVE" && body.decision !== "DENY") ||
+      (body.scope !== "once" && body.scope !== "session")
+    ) {
+      return failure("INVALID_ARGUMENT", "Invalid approval decision", 400);
+    }
+
+    const governance = new GovernanceService(this.env.DB);
+    const existing = await governance.approval(approvalId);
+    if (
+      !existing ||
+      existing.device_id !== expectedDeviceId ||
+      existing.user_id !== body.user_id ||
+      existing.session_id !== body.session_id
+    ) {
+      return failure("NOT_FOUND", "Approval not found", 404);
+    }
+
+    const commandState = existing.command_id
+      ? await this.state.storage.get<CorrelatedCommandState>(
+          `command:${existing.command_id}`,
+        )
+      : undefined;
+
+    // Agent-issued approvals require the original bounded command context.
+    if (commandState?.request) {
+      const original = commandState.request;
+      if (
+        original.user_id !== existing.user_id ||
+        original.session_id !== existing.session_id ||
+        original.argument_digest !== existing.argument_digest ||
+        original.command_id !== existing.command_id
+      ) {
+        return failure(
+          "CONFLICT",
+          "Approval does not match the correlated command",
+          409,
+        );
+      }
+    }
+
+    const sockets = this.state
+      .getWebSockets("active")
+      .filter((socket) => socket.readyState === WebSocket.OPEN);
+    const active = sockets.find((socket) => {
+      const attachment =
+        socket.deserializeAttachment() as ConnectionAttachment | null;
+      return (
+        attachment?.helloReceived === true &&
+        attachment.deviceId === expectedDeviceId
+      );
+    });
+
+    // A remote-policy-only approval does not need a live device. The next
+    // tool attempt will consume it before any local dispatch.
+    if (commandState?.request && !active) {
+      return failure("DEVICE_OFFLINE", "Device is offline", 409);
+    }
+
+    let decided;
+    try {
+      decided = await governance.decideApproval({
+        approvalId,
+        userId: body.user_id,
+        deviceId: expectedDeviceId,
+        sessionId: body.session_id,
+        decision: body.decision,
+        scope: body.scope,
+      });
+    } catch (error) {
+      if (error instanceof GovernanceError) {
+        return failure(error.code, error.message, 409);
+      }
+      return failure("INTERNAL_ERROR", "Approval decision failed", 500);
+    }
+
+    if (!commandState?.request) {
+      if (body.decision === "APPROVE" && existing.command_id) {
+        await governance.markApprovalGrantedForRetry(existing.command_id);
+      } else if (body.decision === "DENY" && existing.command_id) {
+        await governance.markFailed(
+          existing.command_id,
+          "POLICY_DENIED",
+          decided.decided_at ?? new Date().toISOString(),
+        );
+      }
+      return success({
+        approval_id: approvalId,
+        decision: decided.decision,
+        state:
+          body.decision === "APPROVE"
+            ? "remote_policy_retry_required"
+            : "denied",
+      });
+    }
+
+    const attachment =
+      active!.deserializeAttachment() as ConnectionAttachment | null;
+    if (!attachment || attachment.deviceId !== expectedDeviceId) {
+      return failure("DEVICE_OFFLINE", "Device is offline", 409);
+    }
+
+    if (body.decision === "APPROVE") {
+      try {
+        await governance.consumeApproval(approvalId);
+      } catch (error) {
+        if (error instanceof GovernanceError) {
+          return failure(error.code, error.message, 409);
+        }
+        return failure("INTERNAL_ERROR", "Approval consumption failed", 500);
+      }
+    }
+
+    this.send(
+      active!,
+      attachment,
+      "approval.decision",
+      commandState.message_id,
+      {
+        approval_id: approvalId,
+        decision: body.decision,
+        decided_at: decided.decided_at,
+        scope: body.scope,
+      },
+      null,
+      decided.session_id,
+    );
+
+    if (body.decision === "DENY") {
+      await governance.markFailed(
+        commandState.command_id,
+        "POLICY_DENIED",
+        decided.decided_at ?? new Date().toISOString(),
+      );
+      await this.state.storage.put<CorrelatedCommandState>(
+        `command:${commandState.command_id}`,
+        {
+          ...commandState,
+          message_type: "command.failed",
+          received_at: new Date().toISOString(),
+          payload: {
+            command_id: commandState.command_id,
+            failed_at: decided.decided_at ?? new Date().toISOString(),
+            error: {
+              code: "POLICY_DENIED",
+              message: "Approval was denied",
+              retryable: false,
+              retry_after_ms: null,
+              details: null,
+            },
+          },
+        },
+      );
+      active!.serializeAttachment(attachment);
+      return success({
+        approval_id: approvalId,
+        decision: body.decision,
+        state: "denied",
+      });
+    }
+
+    const now = Date.now();
+    const expiry = Date.parse(decided.expires_at);
+    if (!Number.isFinite(expiry) || expiry <= now) {
+      return failure("CONFLICT", "Approval expired before dispatch", 409);
+    }
+
+    const approvedCommand: InternalCommandRequest = {
+      ...commandState.request,
+      approval_id: approvalId,
+      deadline_at: new Date(
+        Math.min(expiry, now + MAX_COMMAND_DEADLINE_MS),
+      ).toISOString(),
+    };
+    const payload: Record<string, unknown> = {
+      command_id: approvedCommand.command_id,
+      idempotency_key: approvedCommand.idempotency_key,
+      operation: approvedCommand.operation,
+      arguments: approvedCommand.arguments,
+      requested_permissions: approvedCommand.requested_permissions,
+      risk: approvedCommand.risk,
+      workspace_id: null,
+      approval_id: approvalId,
+    };
+
+    const outbound = this.prepareOutboundFrame(
+      attachment,
+      "command.request",
+      null,
+      payload,
+      approvedCommand.deadline_at,
+      approvedCommand.session_id,
+    );
+
+    // Approval consumption already happened above. Persist the redispatch
+    // correlation before releasing the approved side effect to the device.
+    await this.state.storage.put<CorrelatedCommandState>(
+      `command:${approvedCommand.command_id}`,
+      {
+        command_id: approvedCommand.command_id,
+        message_type: "command.request",
+        message_id: outbound.messageId,
+        sequence: outbound.sequence,
+        received_at: new Date().toISOString(),
+        request: approvedCommand,
+      },
+    );
+    attachment.nextOutboundSequence += 1;
+    active!.serializeAttachment(attachment);
+    active!.send(outbound.encoded);
+    return success({
+      approval_id: approvalId,
+      decision: body.decision,
+      state: "redispatched",
+      command_id: approvedCommand.command_id,
     });
   }
 
@@ -553,22 +943,22 @@ export class DeviceCoordinator {
     });
   }
 
-  private send(
-    socket: WebSocket,
+  private prepareOutboundFrame(
     attachment: ConnectionAttachment,
     messageType: string,
     correlationId: string | null,
     payload: Record<string, unknown>,
     deadlineAt: string | null = null,
-  ): string {
+    sessionId: string | null = null,
+  ): PreparedOutboundFrame {
     const sequence = attachment.nextOutboundSequence;
-    attachment.nextOutboundSequence += 1;
     const envelope = serverEnvelope({
       messageType,
       deviceId: attachment.deviceId,
       connectionId: attachment.connectionId,
       sequence,
       correlationId,
+      sessionId,
       deadlineAt,
       payload,
     });
@@ -576,7 +966,32 @@ export class DeviceCoordinator {
     if (new TextEncoder().encode(encoded).byteLength > MAX_FRAME_BYTES) {
       throw new Error("outbound protocol frame exceeds configured limit");
     }
-    socket.send(encoded);
-    return envelope.message_id;
+    return {
+      encoded,
+      messageId: envelope.message_id,
+      sequence,
+    };
+  }
+
+  private send(
+    socket: WebSocket,
+    attachment: ConnectionAttachment,
+    messageType: string,
+    correlationId: string | null,
+    payload: Record<string, unknown>,
+    deadlineAt: string | null = null,
+    sessionId: string | null = null,
+  ): string {
+    const outbound = this.prepareOutboundFrame(
+      attachment,
+      messageType,
+      correlationId,
+      payload,
+      deadlineAt,
+      sessionId,
+    );
+    attachment.nextOutboundSequence += 1;
+    socket.send(outbound.encoded);
+    return outbound.messageId;
   }
 }

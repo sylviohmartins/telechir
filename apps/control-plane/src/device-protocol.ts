@@ -1,3 +1,5 @@
+import { isPermission, isRisk } from "./policy";
+
 export const DEVICE_PROTOCOL_VERSION = "0.1";
 export const MAX_FRAME_BYTES = 256 * 1024;
 export const HEARTBEAT_INTERVAL_SECONDS = 30;
@@ -128,9 +130,38 @@ function validatePayload(
     case "command.completed":
     case "command.failed":
     case "command.cancelled":
-    case "approval.request":
       stringField(payload, "command_id", 1, 160);
       return;
+    case "approval.request": {
+      stringField(payload, "approval_id", 8, 160);
+      stringField(payload, "command_id", 1, 160);
+      if (!isPermission(payload.permission)) {
+        throw new DeviceProtocolError(
+          "permission must be a known permission domain",
+        );
+      }
+      if (!isRisk(payload.risk)) {
+        throw new DeviceProtocolError("risk must be a known risk level");
+      }
+      const digest = stringField(payload, "argument_digest", 43, 43);
+      if (!/^[A-Za-z0-9_-]{43}$/u.test(digest)) {
+        throw new DeviceProtocolError(
+          "argument_digest must be a SHA-256 base64url digest",
+        );
+      }
+      timestamp(payload, "expires_at");
+      if (
+        payload.human_summary !== undefined &&
+        payload.human_summary !== null &&
+        (typeof payload.human_summary !== "string" ||
+          payload.human_summary.length > 2000)
+      ) {
+        throw new DeviceProtocolError(
+          "human_summary must be a string with at most 2000 characters",
+        );
+      }
+      return;
+    }
     case "protocol.error":
       object(payload.error, "error");
       return;
@@ -201,6 +232,7 @@ export function serverEnvelope(input: {
   connectionId: string;
   sequence: number;
   correlationId?: string | null;
+  sessionId?: string | null;
   deadlineAt?: string | null;
   payload: Record<string, unknown>;
 }): DeviceEnvelope {
@@ -210,7 +242,7 @@ export function serverEnvelope(input: {
     message_id: `msg_${crypto.randomUUID()}`,
     correlation_id: input.correlationId ?? null,
     device_id: input.deviceId,
-    session_id: null,
+    session_id: input.sessionId ?? null,
     connection_id: input.connectionId,
     sequence: input.sequence,
     sent_at: new Date().toISOString(),
