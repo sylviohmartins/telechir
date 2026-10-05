@@ -141,7 +141,7 @@ Isso evita que agentes ou colaboradores futuros confundam o documento mais recen
 
 ## 10. Da especificação ao vertical slice executável (2026-10-02 → 2026-10-05)
 
-Após o discovery, o projeto atravessou as Phases 0–11 em sequência gated:
+Após o discovery, o projeto atravessou as Phases 0–12 em sequência gated:
 
 - Phase 0 congelou repository/protocol specifications;
 - Phase 1 implementou o Local Agent Core;
@@ -150,7 +150,8 @@ Após o discovery, o projeto atravessou as Phases 0–11 em sequência gated:
 - Phases 6–8 adicionaram filesystem, process lifecycle e Git read-only;
 - Phase 9 materializou policy/approvals/audit com autoridade final local;
 - Phase 10 adicionou o Dashboard MVP;
-- Phase 11 revalidou a distribuição pública OpenAI e criou package/review tooling fail-closed.
+- Phase 11 revalidou a distribuição pública OpenAI e criou package/review tooling fail-closed;
+- Phase 12 adicionou sandbox Docker opt-in para process tools sem ampliar a autoridade local.
 
 A Phase 11 confirmou que a arquitetura definida na correção de viabilidade continuava válida, mas atualizou o processo de release para o fluxo corrente de package ZIP, `plugin.json + mcp.json`, domain verification, tool scan e review estruturado.
 
@@ -159,9 +160,20 @@ Registros:
 - `docs/testing/acceptance/phase11-exit-review-2026-10-05.md`
 - `docs/research/openai/phase11-public-plugin-revalidation-2026-10-05.md`
 
-## 11. Estado atual
+## 11. Sandbox como defense-in-depth (2026-10-05)
 
-O projeto está em **`PHASE_11_SUBMISSION_READY`** no nível do repositório: runtime local/control plane/Dashboard existem e os materiais versionáveis de package/review OpenAI estão preparados.
+A Phase 12 adicionou uma distinção operacional que já existia conceitualmente no blueprint: execução protegida no host e execução em sandbox não são a mesma boundary.
+
+O primeiro provider de sandbox usa Docker local opt-in, image imutável já presente, rede desabilitada, rootfs read-only, capabilities removidas e apenas o workspace autorizado como bind gravável. Policy e approval continuam fora do container e permanecem a autoridade real.
+
+Registros:
+- `docs/testing/acceptance/phase12-exit-review-2026-10-05.md`
+- `docs/security/threat-model/phase12-sandbox-mode-2026-10-05.md`
+- `docs/research/docker/phase12-sandbox-revalidation-2026-10-05.md`
+
+## 12. Estado atual
+
+O projeto está em **`PHASE_12_COMPLETE`** no nível do repositório: runtime local/control plane/Dashboard existem, os materiais versionáveis de package/review OpenAI estão preparados e as process tools podem selecionar explicitamente `guarded_host` ou sandbox Docker em devices configurados.
 
 Isso não significa produção ou publicação. Permanecem abertos:
 
@@ -175,8 +187,9 @@ Isso não significa produção ou publicação. Permanecem abertos:
 8. submission/review/approval/publicação;
 9. validação de availability do plugin próprio no Plus;
 10. quota/metering;
-11. code signing/update path e demais release hardening.
+11. code signing/update path e demais release hardening;
+12. hardening adicional de sandbox, como rootless/userns, quota de storage e orphan reconciliation, antes de tratar código arbitrário hostil como caso forte.
 
-O próximo item de implementação do roadmap é **Phase 12 — Sandbox mode**.
+O próximo item de implementação do roadmap é **Phase 13 — Computer use**.
 
 Artefatos históricos nunca devem ser silenciosamente reescritos para refletir decisões novas. Conclusões novas substituem antigas por documentação viva, exit reviews e ADRs.

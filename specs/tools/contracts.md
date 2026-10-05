@@ -154,16 +154,18 @@ Request:
 - \`command: string\`;
 - \`cwd?: string|null\`;
 - \`timeout_seconds?: integer\`, 1–120, default 30;
-- \`env_refs?: string[]\`, máximo 20 referências de secret/config — nunca valores secretos.
+- \`env_refs?: string[]\`, máximo 20 referências de secret/config — nunca valores secretos;
+- \`execution_mode?: guarded_host|sandbox\`, default \`guarded_host\`.
 
 Result:
 - \`exit_code: integer|null\`;
 - \`stdout: string\`;
 - \`stderr: string\`;
 - \`truncated: boolean\`;
-- \`artifact_id?: string|null\`.
+- \`artifact_id?: string|null\`;
+- \`execution_mode?: guarded_host|sandbox\`.
 
-O comando passa por risk classification e policy no agent.
+\`guarded_host\` preserva as regras SHELL_SAFE existentes. \`sandbox\` é opt-in e só pode ser despachado quando o device anuncia \`sandbox.docker\`; ausência de runtime nunca faz fallback para host. O comando continua passando por risk classification, policy e approval local.
 
 ## start_process
 
@@ -172,14 +174,16 @@ Request:
 - \`command\`;
 - \`cwd?: string|null\`;
 - \`idempotency_key: string\`;
-- \`env_refs?: string[]\`.
+- \`env_refs?: string[]\`;
+- \`execution_mode?: guarded_host|sandbox\`, default \`guarded_host\`.
 
 Result:
 - \`process_id: string\`;
 - \`state: starting|running\`;
-- \`started_at: timestamp\`.
+- \`started_at: timestamp\`;
+- \`execution_mode?: guarded_host|sandbox\`.
 
-Mesmo \`idempotency_key\` + mesmo command digest deve retornar o handle conhecido enquanto a janela de idempotência existir.
+Mesmo \`idempotency_key\` + mesmo command digest deve retornar o handle conhecido enquanto a janela de idempotência existir. Como \`execution_mode\` participa dos argumentos normalizados, trocar de modo produz digest distinto e não reutiliza approval/idempotency de forma silenciosa.
 
 ## read_process_output
 
@@ -197,7 +201,8 @@ Result:
 - \`next_cursor?: string|null\`;
 - \`exit_code?: integer|null\`;
 - \`truncated: boolean\`;
-- \`artifact_id?: string|null\`.
+- \`artifact_id?: string|null\`;
+- \`execution_mode?: guarded_host|sandbox\`.
 
 ## write_process_input
 
@@ -210,7 +215,7 @@ Request:
 Result:
 - \`accepted: boolean\`.
 
-Payload precisa de hard size limit na implementação. O input pode causar side effects e passa por policy.
+Payload precisa de hard size limit na implementação. O input pode causar side effects e passa por policy. Para processos sandbox, stdin continua atravessando somente o processo Docker gerenciado correspondente.
 
 ## cancel_process
 
@@ -221,9 +226,10 @@ Request:
 
 Result:
 - \`process_id\`;
-- \`state: cancelling|cancelled|already_finished\`.
+- \`state: cancelling|cancelled|already_finished\`;
+- \`execution_mode?: guarded_host|sandbox\`.
 
-É idempotente. No MVP só alcança processos gerenciados pelo Telechir.
+É idempotente. No modo sandbox, o caminho normal de cancelamento exige cleanup do container antes de reportar sucesso; falha de cleanup não é convertida em sucesso silencioso.
 
 ## list_managed_processes
 
@@ -232,9 +238,9 @@ Request:
 - filtro opcional de \`state\`.
 
 Result:
-- \`processes[]\`: \`process_id\`, \`state\`, \`started_at\`, \`cwd?\`.
+- \`processes[]\`: \`process_id\`, \`state\`, \`started_at\`, \`cwd?\`, \`execution_mode?\`.
 
-Não retorna environment completo nem lista arbitrária de processos do SO.
+Não retorna environment completo, nome interno do container nem lista arbitrária de processos do SO.
 
 ## get_git_status
 

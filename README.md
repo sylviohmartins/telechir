@@ -2,7 +2,7 @@
 
 Repositório de pesquisa, discovery de produto e arquitetura para uma futura plataforma que permita que clientes de IA autorizados operem computadores e ambientes executáveis por meio de uma camada de controle segura e auditável.
 
-> **Estado do projeto:** discovery e **Phases 0–11 concluídas**, incluindo Local Agent Core, control plane, Pairing/Device Identity, Device Realtime Channel, Remote MCP/OAuth, Filesystem Tools, Shell/Process Lifecycle, Basic Git read-only, Policy/Approvals/Audit, Dashboard MVP e readiness técnica para package/submission do plugin público OpenAI. Não existe deploy de produção nem plugin submetido/aprovado; **Phase 12 — Sandbox mode** é a próxima fase de implementação. Os gates externos de publicação OpenAI e o `COMMERCIAL_CLEARANCE_PENDING` da marca permanecem abertos.
+> **Estado do projeto:** discovery e **Phases 0–12 concluídas**, incluindo Local Agent Core, control plane, Pairing/Device Identity, Device Realtime Channel, Remote MCP/OAuth, Filesystem Tools, Shell/Process Lifecycle, Basic Git read-only, Policy/Approvals/Audit, Dashboard MVP, readiness técnica do plugin público OpenAI e Sandbox mode Docker opt-in. Não existe deploy de produção nem plugin submetido/aprovado; **Phase 13 — Computer use** é a próxima fase de implementação. Os gates externos de publicação OpenAI e o `COMMERCIAL_CLEARANCE_PENDING` da marca permanecem abertos.
 
 ## Por que este repositório existe
 
@@ -35,7 +35,7 @@ Este repositório é a fonte de verdade para:
 
 - `PROJECT_STATE.md` — fase atual, gates e estado da implementação.
 - `AGENTS.md` — regras para agentes de IA que trabalhem neste repositório.
-- `agent/` — core Rust do Local Agent, identidade Ed25519, cliente realtime outbound, filesystem executor, shell/process lifecycle, Basic Git read-only e policy/approval local, implementados nas Phases 1, 3, 4, 6, 7, 8 e 9.
+- `agent/` — core Rust do Local Agent, identidade Ed25519, cliente realtime outbound, filesystem executor, shell/process lifecycle, Basic Git read-only, policy/approval local e sandbox Docker opt-in, implementados nas Phases 1, 3, 4, 6, 7, 8, 9 e 12.
 - `apps/control-plane/` — control plane TypeScript/Cloudflare com D1, pairing, Durable Object/WebSocket realtime, Remote MCP/OAuth, dispatch de filesystem/process/Git read-only, governança de policy/approvals/audit e API autenticada do Dashboard, implementado nas Phases 2–10.
 - `apps/dashboard/` — Dashboard MVP React/TypeScript para devices, approvals, command/audit timeline, usage/health e revogação, implementado na Phase 10.
 - `plugins/openai/telechir/` — fonte do package público OpenAI, builder fail-closed, review cases e checklists de submission da Phase 11; não contém credentials nem release ZIP versionado.
@@ -75,7 +75,7 @@ A estratégia de licenciamento do core foi definida em `docs/architecture/adr/00
 
 ## Contribuição
 
-O projeto concluiu discovery e as Phases 0–11. Consulte `CONTRIBUTING.md` e `PROJECT_STATE.md` antes de propor implementação ou avançar para uma nova fase.
+O projeto concluiu discovery e as Phases 0–12. Consulte `CONTRIBUTING.md` e `PROJECT_STATE.md` antes de propor implementação ou avançar para uma nova fase.
 
 ## Segurança
 

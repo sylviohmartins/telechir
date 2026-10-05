@@ -124,9 +124,20 @@ Control plane do Telechir em TypeScript para Cloudflare Workers.
 - package público e materiais de review vivem em `../../plugins/openai/telechir/`;
 - nenhum deploy, domain verification ou submission real é executado nesta fase.
 
+### Phase 12 — Sandbox Mode
+
+- superfície MCP continua com 16 tools;
+- `run_command` e `start_process` aceitam `execution_mode=guarded_host|sandbox`;
+- ausência de `execution_mode` normaliza para `guarded_host`, preservando compatibilidade;
+- `sandbox` exige presence capability `sandbox.docker` antes do dispatch;
+- `execution_mode` entra nos argumentos governados e portanto no argument digest/approval binding existente;
+- troca de `sandbox` para `guarded_host` não reutiliza approval anterior;
+- o control plane nunca decide que Docker está disponível a partir de OS/version; confia somente na capability anunciada pelo agent;
+- nenhum bearer, Docker config ou container identifier é encaminhado como nova autoridade.
+
 ## Boundaries de autenticação
 
-A Phase 5 implementa o resource-server boundary, e as Phases 6–11 reutilizam esse boundary para filesystem, process lifecycle, Git read-only, governança de policy/approvals/audit, Dashboard e preparação do plugin público. O projeto não implementa authorization server próprio nem browser login.
+A Phase 5 implementa o resource-server boundary, e as Phases 6–12 reutilizam esse boundary para filesystem, process lifecycle, Git read-only, governança de policy/approvals/audit, Dashboard, preparação do plugin público e seleção explícita de sandbox. O projeto não implementa authorization server próprio nem browser login.
 
 `PairingService.verifyUser(...)` recebe um `user_id` já autenticado. O futuro adapter browser/OAuth deverá chamar esse domínio sem alterar suas invariantes.
 

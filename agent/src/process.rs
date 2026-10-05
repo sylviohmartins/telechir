@@ -19,6 +19,7 @@ use crate::ports::{CommandExecutor, ExecutionOutcome};
 use crate::protocol::{
     CommandOperation, CommandRequest, ErrorCode, PermissionDomain, RiskLevel, TelechirError,
 };
+use crate::sandbox::{DockerSandboxConfig, ExecutionMode};
 
 pub const PROCESS_CAPABILITIES: [&str; 6] = [
     "shell.exec",
@@ -89,6 +90,7 @@ impl ProcessPolicy {
         &self,
         request: &CommandRequest,
         command: &str,
+        execution_mode: ExecutionMode,
         approval_verified: bool,
     ) -> Result<(), TelechirError> {
         if !request
@@ -123,7 +125,10 @@ impl ProcessPolicy {
                 "shell execution must be classified at least MEDIUM",
             ));
         }
-        classify_safe_command(command, approval_verified)
+        match execution_mode {
+            ExecutionMode::GuardedHost => classify_safe_command(command, approval_verified),
+            ExecutionMode::Sandbox => classify_sandbox_command(command, approval_verified),
+        }
     }
 }
 
@@ -225,6 +230,8 @@ struct ManagedProcess {
     process_id: String,
     cwd: PathBuf,
     started_at: DateTime<Utc>,
+    execution_mode: ExecutionMode,
+    sandbox_container: Option<String>,
     child: Child,
     stdin: Option<ChildStdin>,
     stdout: Arc<Mutex<ByteRing>>,
@@ -313,6 +320,7 @@ struct CachedOutcome {
 #[derive(Debug)]
 pub struct ProcessExecutor {
     policy: ProcessPolicy,
+    sandbox: Option<DockerSandboxConfig>,
     processes: HashMap<String, ManagedProcess>,
     process_order: VecDeque<String>,
     idempotency: HashMap<String, CachedOutcome>,
@@ -323,6 +331,7 @@ impl ProcessExecutor {
     pub fn new(policy: ProcessPolicy) -> Self {
         Self {
             policy,
+            sandbox: None,
             processes: HashMap::new(),
             process_order: VecDeque::new(),
             idempotency: HashMap::new(),
@@ -330,8 +339,42 @@ impl ProcessExecutor {
         }
     }
 
+    pub fn with_docker_sandbox(
+        policy: ProcessPolicy,
+        sandbox: DockerSandboxConfig,
+    ) -> Result<Self, TelechirError> {
+        sandbox.validate().map_err(|message| {
+            error(
+                ErrorCode::InvalidArgument,
+                format!("invalid sandbox configuration: {message}"),
+            )
+        })?;
+        Ok(Self {
+            policy,
+            sandbox: Some(sandbox),
+            processes: HashMap::new(),
+            process_order: VecDeque::new(),
+            idempotency: HashMap::new(),
+            idempotency_order: VecDeque::new(),
+        })
+    }
+
     pub fn policy(&self) -> &ProcessPolicy {
         &self.policy
+    }
+
+    pub fn sandbox_enabled(&self) -> bool {
+        self.sandbox.is_some()
+    }
+
+    fn require_execution_mode(&self, mode: ExecutionMode) -> Result<(), TelechirError> {
+        if mode == ExecutionMode::Sandbox && self.sandbox.is_none() {
+            return Err(error(
+                ErrorCode::UnsupportedCapability,
+                "sandbox execution is not configured on this device",
+            ));
+        }
+        Ok(())
     }
 
     pub(crate) fn preflight_shell(
@@ -342,8 +385,13 @@ impl ProcessExecutor {
         match request.operation {
             CommandOperation::ShellExec => {
                 let input: RunCommandInput = parse_arguments(&request.arguments)?;
-                self.policy
-                    .authorize_shell(request, &input.command, approval_verified)?;
+                self.require_execution_mode(input.execution_mode)?;
+                self.policy.authorize_shell(
+                    request,
+                    &input.command,
+                    input.execution_mode,
+                    approval_verified,
+                )?;
                 reject_env_refs(&input.env_refs)?;
                 let _ = self.policy.resolve_cwd(input.cwd.as_deref())?;
                 Ok(())
@@ -351,8 +399,13 @@ impl ProcessExecutor {
             CommandOperation::ProcessStart => {
                 require_permission(request, PermissionDomain::ProcessControl)?;
                 let input: StartProcessInput = parse_arguments(&request.arguments)?;
-                self.policy
-                    .authorize_shell(request, &input.command, approval_verified)?;
+                self.require_execution_mode(input.execution_mode)?;
+                self.policy.authorize_shell(
+                    request,
+                    &input.command,
+                    input.execution_mode,
+                    approval_verified,
+                )?;
                 reject_env_refs(&input.env_refs)?;
                 let _ = self.policy.resolve_cwd(input.cwd.as_deref())?;
                 Ok(())
@@ -451,20 +504,30 @@ impl ProcessExecutor {
         match request.operation {
             CommandOperation::ShellExec => {
                 let input: RunCommandInput = parse_arguments(&request.arguments)?;
-                self.policy
-                    .authorize_shell(request, &input.command, approval_verified)?;
+                self.require_execution_mode(input.execution_mode)?;
+                self.policy.authorize_shell(
+                    request,
+                    &input.command,
+                    input.execution_mode,
+                    approval_verified,
+                )?;
                 reject_env_refs(&input.env_refs)?;
                 let cwd = self.policy.resolve_cwd(input.cwd.as_deref())?;
-                run_short_command(input, &cwd)
+                run_short_command(input, &cwd, self.sandbox.as_ref())
             }
             CommandOperation::ProcessStart => {
                 require_permission(request, PermissionDomain::ProcessControl)?;
                 let input: StartProcessInput = parse_arguments(&request.arguments)?;
-                self.policy
-                    .authorize_shell(request, &input.command, approval_verified)?;
+                self.require_execution_mode(input.execution_mode)?;
+                self.policy.authorize_shell(
+                    request,
+                    &input.command,
+                    input.execution_mode,
+                    approval_verified,
+                )?;
                 reject_env_refs(&input.env_refs)?;
                 let cwd = self.policy.resolve_cwd(input.cwd.as_deref())?;
-                self.start_process(input.command, cwd)
+                self.start_process(input.command, cwd, input.execution_mode)
             }
             CommandOperation::ProcessRead => {
                 require_permission(request, PermissionDomain::ProcessControl)?;
@@ -540,7 +603,12 @@ impl ProcessExecutor {
         ))
     }
 
-    fn start_process(&mut self, command: String, cwd: PathBuf) -> Result<Value, TelechirError> {
+    fn start_process(
+        &mut self,
+        command: String,
+        cwd: PathBuf,
+        execution_mode: ExecutionMode,
+    ) -> Result<Value, TelechirError> {
         if self.running_count() >= MAX_CONCURRENT_PROCESSES {
             return Err(error(
                 ErrorCode::RateLimited,
@@ -551,11 +619,20 @@ impl ProcessExecutor {
 
         let process_id = format!("proc_{}", Uuid::new_v4());
         let started_at = Utc::now();
-        let spawned = spawn_command(&command, &cwd, true, MANAGED_STREAM_RING_BYTES)?;
+        let spawned = spawn_command(
+            &command,
+            &cwd,
+            true,
+            MANAGED_STREAM_RING_BYTES,
+            execution_mode,
+            self.sandbox.as_ref(),
+        )?;
         let record = ManagedProcess {
             process_id: process_id.clone(),
             cwd,
             started_at,
+            execution_mode,
+            sandbox_container: spawned.sandbox_container,
             child: spawned.child,
             stdin: spawned.stdin,
             stdout: spawned.stdout,
@@ -571,7 +648,8 @@ impl ProcessExecutor {
         Ok(json!({
             "process_id": process_id,
             "state": "running",
-            "started_at": started_at
+            "started_at": started_at,
+            "execution_mode": execution_mode.as_str()
         }))
     }
 
@@ -630,7 +708,8 @@ impl ProcessExecutor {
             "next_cursor": next_cursor,
             "exit_code": process.exit_code,
             "truncated": truncated,
-            "artifact_id": null
+            "artifact_id": null,
+            "execution_mode": process.execution_mode.as_str()
         }))
     }
 
@@ -681,6 +760,7 @@ impl ProcessExecutor {
     }
 
     fn cancel_process(&mut self, input: CancelProcessInput) -> Result<Value, TelechirError> {
+        let sandbox = self.sandbox.clone();
         let process = self
             .processes
             .get_mut(&input.process_id)
@@ -689,11 +769,19 @@ impl ProcessExecutor {
         if process.state.terminal() {
             return Ok(json!({
                 "process_id": process.process_id,
-                "state": "already_finished"
+                "state": "already_finished",
+                "execution_mode": process.execution_mode.as_str()
             }));
         }
 
-        terminate_process_tree(&mut process.child, input.force.unwrap_or(false))?;
+        let force = input.force.unwrap_or(false);
+        let cleanup = cleanup_sandbox_container(
+            sandbox.as_ref(),
+            process.sandbox_container.as_deref(),
+            force,
+            "cancellation",
+        );
+        let termination = terminate_process_tree(&mut process.child, force);
         process.stdin.take();
         process.settle_capture_threads(Duration::from_millis(50));
         process.state = ManagedProcessState::Cancelled;
@@ -703,10 +791,13 @@ impl ProcessExecutor {
             .ok()
             .flatten()
             .and_then(|status| status.code());
+        cleanup?;
+        termination?;
 
         Ok(json!({
             "process_id": process.process_id,
-            "state": "cancelled"
+            "state": "cancelled",
+            "execution_mode": process.execution_mode.as_str()
         }))
     }
 
@@ -724,7 +815,8 @@ impl ProcessExecutor {
                     "process_id": process.process_id,
                     "state": process.state.as_str(),
                     "started_at": process.started_at,
-                    "cwd": process.cwd.to_string_lossy()
+                    "cwd": process.cwd.to_string_lossy(),
+                    "execution_mode": process.execution_mode.as_str()
                 })
             })
             .collect::<Vec<_>>();
@@ -763,6 +855,8 @@ struct RunCommandInput {
     timeout_seconds: Option<u64>,
     #[serde(default)]
     env_refs: Vec<String>,
+    #[serde(default)]
+    execution_mode: ExecutionMode,
 }
 
 #[derive(Debug, Deserialize)]
@@ -773,6 +867,8 @@ struct StartProcessInput {
     cwd: Option<String>,
     #[serde(default)]
     env_refs: Vec<String>,
+    #[serde(default)]
+    execution_mode: ExecutionMode,
 }
 
 #[derive(Debug, Deserialize)]
@@ -822,9 +918,14 @@ struct SpawnedCommand {
     stderr: Arc<Mutex<ByteRing>>,
     stdout_thread: JoinHandle<()>,
     stderr_thread: JoinHandle<()>,
+    sandbox_container: Option<String>,
 }
 
-fn run_short_command(input: RunCommandInput, cwd: &Path) -> Result<Value, TelechirError> {
+fn run_short_command(
+    input: RunCommandInput,
+    cwd: &Path,
+    sandbox: Option<&DockerSandboxConfig>,
+) -> Result<Value, TelechirError> {
     let timeout_seconds = input.timeout_seconds.unwrap_or(DEFAULT_RUN_TIMEOUT_SECONDS);
     if !(1..=MAX_RUN_TIMEOUT_SECONDS).contains(&timeout_seconds) {
         return Err(error(
@@ -833,16 +934,32 @@ fn run_short_command(input: RunCommandInput, cwd: &Path) -> Result<Value, Telech
         ));
     }
 
-    let mut spawned = spawn_command(&input.command, cwd, false, SHORT_COMMAND_STREAM_BYTES)?;
+    let execution_mode = input.execution_mode;
+    let mut spawned = spawn_command(
+        &input.command,
+        cwd,
+        false,
+        SHORT_COMMAND_STREAM_BYTES,
+        execution_mode,
+        sandbox,
+    )?;
     let deadline = Instant::now() + Duration::from_secs(timeout_seconds);
     let status = loop {
         match spawned.child.try_wait() {
             Ok(Some(status)) => break status,
             Ok(None) if Instant::now() < deadline => thread::sleep(WAIT_POLL),
             Ok(None) => {
-                terminate_process_tree(&mut spawned.child, true)?;
+                let cleanup = cleanup_sandbox_container(
+                    sandbox,
+                    spawned.sandbox_container.as_deref(),
+                    true,
+                    "timeout",
+                );
+                let termination = terminate_process_tree(&mut spawned.child, true);
                 let _ = spawned.stdout_thread.join();
                 let _ = spawned.stderr_thread.join();
+                cleanup?;
+                termination?;
                 return Err(error(
                     ErrorCode::Timeout,
                     "short command exceeded its local execution timeout",
@@ -880,7 +997,8 @@ fn run_short_command(input: RunCommandInput, cwd: &Path) -> Result<Value, Telech
         "stdout": String::from_utf8_lossy(&stdout),
         "stderr": String::from_utf8_lossy(&stderr),
         "truncated": stdout_dropped || stderr_dropped,
-        "artifact_id": null
+        "artifact_id": null,
+        "execution_mode": execution_mode.as_str()
     }))
 }
 
@@ -889,11 +1007,38 @@ fn spawn_command(
     cwd: &Path,
     interactive: bool,
     stream_capacity: usize,
+    execution_mode: ExecutionMode,
+    sandbox: Option<&DockerSandboxConfig>,
 ) -> Result<SpawnedCommand, TelechirError> {
-    let mut process = shell_command(command)?;
-    process.current_dir(cwd);
-    process.env_clear();
-    copy_safe_environment(&mut process);
+    let (mut process, sandbox_container) = match execution_mode {
+        ExecutionMode::GuardedHost => {
+            let mut process = shell_command(command)?;
+            process.current_dir(cwd);
+            process.env_clear();
+            copy_safe_environment(&mut process);
+            (process, None)
+        }
+        ExecutionMode::Sandbox => {
+            let sandbox = sandbox.ok_or_else(|| {
+                error(
+                    ErrorCode::UnsupportedCapability,
+                    "sandbox execution is not configured on this device",
+                )
+            })?;
+            let container_name = format!("telechir-sbx-{}", Uuid::new_v4().simple());
+            let mut process = sandbox
+                .build_run_command(command, cwd, interactive, &container_name)
+                .map_err(|_| {
+                    error(
+                        ErrorCode::PolicyDenied,
+                        "sandbox command could not be prepared safely",
+                    )
+                })?;
+            process.current_dir(cwd);
+            (process, Some(container_name))
+        }
+    };
+
     process.stdin(if interactive {
         Stdio::piped()
     } else {
@@ -911,7 +1056,10 @@ fn spawn_command(
     let mut child = process.spawn().map_err(|source| {
         process_io_error(
             ErrorCode::InternalError,
-            "authorized command could not be started",
+            match execution_mode {
+                ExecutionMode::GuardedHost => "authorized command could not be started",
+                ExecutionMode::Sandbox => "sandbox Docker command could not be started",
+            },
             source,
         )
     })?;
@@ -941,6 +1089,35 @@ fn spawn_command(
         stderr,
         stdout_thread,
         stderr_thread,
+        sandbox_container,
+    })
+}
+
+fn cleanup_sandbox_container(
+    sandbox: Option<&DockerSandboxConfig>,
+    container_name: Option<&str>,
+    force: bool,
+    reason: &str,
+) -> Result<(), TelechirError> {
+    let Some(container_name) = container_name else {
+        return Ok(());
+    };
+    let sandbox = sandbox.ok_or_else(|| {
+        error(
+            ErrorCode::InternalError,
+            "sandbox runtime metadata is inconsistent",
+        )
+    })?;
+    let result = if force {
+        sandbox.force_remove(container_name)
+    } else {
+        sandbox.stop_then_remove(container_name)
+    };
+    result.map_err(|_| {
+        error(
+            ErrorCode::InternalError,
+            format!("sandbox container cleanup could not be confirmed after {reason}"),
+        )
     })
 }
 
@@ -1239,6 +1416,18 @@ fn classify_safe_command(command: &str, approval_verified: bool) -> Result<(), T
     Ok(())
 }
 
+fn classify_sandbox_command(command: &str, approval_verified: bool) -> Result<(), TelechirError> {
+    match classify_safe_command(command, false) {
+        Ok(()) => Ok(()),
+        Err(error) if error.code == ErrorCode::InvalidArgument => Err(error),
+        Err(_) if approval_verified => Ok(()),
+        Err(_) => Err(error(
+            ErrorCode::ApprovalRequired,
+            "sandbox command is outside the guarded-host allowlist and requires a bound approval",
+        )),
+    }
+}
+
 fn validate_safe_arguments(args: &[&str]) -> Result<(), TelechirError> {
     const WORKSPACE_OVERRIDE_FLAGS: &[&str] = &[
         "-f",
@@ -1458,6 +1647,32 @@ mod tests {
     }
 
     #[cfg(unix)]
+    fn setup_fake_sandbox() -> (TempDir, ProcessExecutor, PathBuf) {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = tempfile::tempdir().unwrap();
+        let docker = root.path().join("fake-docker");
+        let log = root.path().join("docker.log");
+        let script = format!(
+            "#!/bin/sh\nprintf '%s\\n' \"$*\" >> '{}'\nif [ \"$3\" = run ]; then\n  for arg in \"$@\"; do last=\"$arg\"; done\n  exec /bin/sh -lc \"$last\"\nfi\nexit 0\n",
+            log.display()
+        );
+        fs::write(&docker, script).unwrap();
+        let mut permissions = fs::metadata(&docker).unwrap().permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&docker, permissions).unwrap();
+
+        let filesystem = FilesystemPolicy::new([root.path()]).unwrap();
+        let sandbox = DockerSandboxConfig::new(
+            docker,
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        );
+        let executor =
+            ProcessExecutor::with_docker_sandbox(ProcessPolicy::new(filesystem), sandbox).unwrap();
+        (root, executor, log)
+    }
+
+    #[cfg(unix)]
     fn wait_until_terminal(executor: &mut ProcessExecutor, process_id: &str) {
         let deadline = Instant::now() + Duration::from_secs(2);
         loop {
@@ -1596,6 +1811,18 @@ mod tests {
             classify_safe_command("./tool", true).unwrap_err().code,
             ErrorCode::PolicyDenied
         );
+
+        assert_eq!(
+            classify_sandbox_command("curl https://example.invalid", false)
+                .unwrap_err()
+                .code,
+            ErrorCode::ApprovalRequired
+        );
+        assert!(classify_sandbox_command("curl https://example.invalid", true).is_ok());
+        assert_eq!(
+            classify_sandbox_command("", true).unwrap_err().code,
+            ErrorCode::InvalidArgument
+        );
     }
 
     #[test]
@@ -1684,6 +1911,100 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
+    fn sandbox_short_command_timeout_and_managed_cancel_use_docker_cleanup() {
+        let (_root, mut executor, log) = setup_fake_sandbox();
+
+        let short = request(
+            CommandOperation::ShellExec,
+            json!({
+                "command":"echo phase12-sandbox",
+                "timeout_seconds":2,
+                "execution_mode":"sandbox"
+            }),
+            &[PermissionDomain::ShellSafe],
+            RiskLevel::Medium,
+            Some("idem_phase12_sandbox_short"),
+        );
+        let output = completed(&mut executor, &short);
+        assert_eq!(output["exit_code"], 0);
+        assert_eq!(output["execution_mode"], "sandbox");
+        assert!(
+            output["stdout"]
+                .as_str()
+                .unwrap()
+                .contains("phase12-sandbox")
+        );
+
+        let timeout = request(
+            CommandOperation::ShellExec,
+            json!({
+                "command":"sleep 2",
+                "timeout_seconds":1,
+                "execution_mode":"sandbox"
+            }),
+            &[PermissionDomain::ShellSafe],
+            RiskLevel::Medium,
+            Some("idem_phase12_sandbox_timeout"),
+        );
+        assert_eq!(failed(&mut executor, &timeout).code, ErrorCode::Timeout);
+
+        let start = request(
+            CommandOperation::ProcessStart,
+            json!({
+                "command":"sleep 30",
+                "execution_mode":"sandbox"
+            }),
+            &[
+                PermissionDomain::ShellSafe,
+                PermissionDomain::ProcessControl,
+            ],
+            RiskLevel::Medium,
+            Some("idem_phase12_sandbox_start"),
+        );
+        let started = completed(&mut executor, &start);
+        let process_id = started["process_id"].as_str().unwrap().to_owned();
+        assert_eq!(started["execution_mode"], "sandbox");
+
+        let write = request(
+            CommandOperation::ProcessWrite,
+            json!({"process_id":process_id,"input":"ignored","append_newline":true}),
+            &[PermissionDomain::ProcessControl],
+            RiskLevel::Medium,
+            Some("idem_phase12_sandbox_write"),
+        );
+        assert_eq!(completed(&mut executor, &write)["accepted"], true);
+
+        let list = completed(
+            &mut executor,
+            &request(
+                CommandOperation::ProcessList,
+                json!({}),
+                &[PermissionDomain::ProcessControl],
+                RiskLevel::Low,
+                None,
+            ),
+        );
+        assert_eq!(list["processes"][0]["execution_mode"], "sandbox");
+
+        let cancel = request(
+            CommandOperation::ProcessCancel,
+            json!({"process_id":process_id,"force":false}),
+            &[PermissionDomain::ProcessControl],
+            RiskLevel::Medium,
+            Some("idem_phase12_sandbox_cancel"),
+        );
+        let cancelled = completed(&mut executor, &cancel);
+        assert_eq!(cancelled["state"], "cancelled");
+        assert_eq!(cancelled["execution_mode"], "sandbox");
+
+        let log = fs::read_to_string(log).unwrap();
+        assert!(log.contains(" --network none "));
+        assert!(log.contains(" --pull never "));
+        assert!(log.contains("rm -f telechir-sbx-"));
+    }
+
+    #[cfg(unix)]
+    #[test]
     fn process_start_is_non_blocking_idempotent_and_listed() {
         let (_root, mut executor) = setup();
         let req = request(
@@ -1737,8 +2058,15 @@ mod tests {
     #[test]
     fn process_output_cursor_and_terminal_state_survive_original_request() {
         let (_root, mut executor) = setup();
-        let spawned =
-            spawn_command("echo first; echo second", Path::new("/tmp"), false, 1024).unwrap();
+        let spawned = spawn_command(
+            "echo first; echo second",
+            Path::new("/tmp"),
+            false,
+            1024,
+            ExecutionMode::GuardedHost,
+            None,
+        )
+        .unwrap();
         let process_id = format!("proc_{}", Uuid::new_v4());
         let started_at = Utc::now();
         executor.process_order.push_back(process_id.clone());
@@ -1748,6 +2076,8 @@ mod tests {
                 process_id: process_id.clone(),
                 cwd: PathBuf::from("/tmp"),
                 started_at,
+                execution_mode: ExecutionMode::GuardedHost,
+                sandbox_container: None,
                 child: spawned.child,
                 stdin: spawned.stdin,
                 stdout: spawned.stdout,
@@ -1806,6 +2136,8 @@ mod tests {
             Path::new("/tmp"),
             true,
             1024,
+            ExecutionMode::GuardedHost,
+            None,
         )
         .unwrap();
         let process_id = format!("proc_{}", Uuid::new_v4());
@@ -1816,6 +2148,8 @@ mod tests {
                 process_id: process_id.clone(),
                 cwd: PathBuf::from("/tmp"),
                 started_at: Utc::now(),
+                execution_mode: ExecutionMode::GuardedHost,
+                sandbox_container: None,
                 child: spawned.child,
                 stdin: spawned.stdin,
                 stdout: spawned.stdout,
@@ -1929,7 +2263,15 @@ mod tests {
     #[test]
     fn process_input_after_terminal_state_is_rejected() {
         let (_root, mut executor) = setup();
-        let spawned = spawn_command("echo done", Path::new("/tmp"), true, 1024).unwrap();
+        let spawned = spawn_command(
+            "echo done",
+            Path::new("/tmp"),
+            true,
+            1024,
+            ExecutionMode::GuardedHost,
+            None,
+        )
+        .unwrap();
         let process_id = format!("proc_{}", Uuid::new_v4());
         executor.process_order.push_back(process_id.clone());
         executor.processes.insert(
@@ -1938,6 +2280,8 @@ mod tests {
                 process_id: process_id.clone(),
                 cwd: PathBuf::from("/tmp"),
                 started_at: Utc::now(),
+                execution_mode: ExecutionMode::GuardedHost,
+                sandbox_container: None,
                 child: spawned.child,
                 stdin: spawned.stdin,
                 stdout: spawned.stdout,
@@ -1982,6 +2326,8 @@ mod tests {
             Path::new("/tmp"),
             true,
             1024,
+            ExecutionMode::GuardedHost,
+            None,
         )
         .unwrap();
         let process_id = format!("proc_{}", Uuid::new_v4());
@@ -1993,6 +2339,8 @@ mod tests {
                 process_id: process_id.clone(),
                 cwd: PathBuf::from("/tmp"),
                 started_at: Utc::now(),
+                execution_mode: ExecutionMode::GuardedHost,
+                sandbox_container: None,
                 child: spawned.child,
                 stdin: spawned.stdin,
                 stdout: spawned.stdout,

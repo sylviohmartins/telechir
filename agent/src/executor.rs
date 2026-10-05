@@ -2,6 +2,7 @@ use std::convert::Infallible;
 
 use chrono::Utc;
 
+use crate::config::AgentConfig;
 use crate::filesystem::{FilesystemExecutor, FilesystemPolicy};
 use crate::git::GitExecutor;
 use crate::policy::LocalPolicyEngine;
@@ -11,6 +12,7 @@ use crate::protocol::{
     ApprovalDecision, CommandOperation, CommandRequest, ErrorCode, PermissionDomain, RiskLevel,
     TelechirError,
 };
+use crate::sandbox::DockerSandboxConfig;
 
 pub struct LocalCommandExecutor {
     filesystem: FilesystemExecutor,
@@ -29,6 +31,30 @@ impl LocalCommandExecutor {
             git,
             policy: LocalPolicyEngine::default(),
         }
+    }
+
+    pub fn from_config(
+        filesystem_policy: FilesystemPolicy,
+        config: &AgentConfig,
+    ) -> Result<Self, TelechirError> {
+        match config.sandbox.clone() {
+            Some(sandbox) => Self::with_docker_sandbox(filesystem_policy, sandbox),
+            None => Ok(Self::new(filesystem_policy)),
+        }
+    }
+
+    pub fn with_docker_sandbox(
+        filesystem_policy: FilesystemPolicy,
+        sandbox: DockerSandboxConfig,
+    ) -> Result<Self, TelechirError> {
+        let process_policy = ProcessPolicy::new(filesystem_policy.clone());
+        let git = GitExecutor::new(filesystem_policy.clone());
+        Ok(Self {
+            filesystem: FilesystemExecutor::new(filesystem_policy),
+            process: ProcessExecutor::with_docker_sandbox(process_policy, sandbox)?,
+            git,
+            policy: LocalPolicyEngine::default(),
+        })
     }
 
     pub fn filesystem(&self) -> &FilesystemExecutor {
@@ -146,9 +172,32 @@ impl CommandExecutor for LocalCommandExecutor {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+
     use serde_json::{Map, json};
 
+    use crate::protocol::{ApprovalDecisionKind, ApprovalScope};
+
     use super::*;
+
+    fn sandbox_executor() -> (tempfile::TempDir, LocalCommandExecutor) {
+        let root = tempfile::tempdir().unwrap();
+        let docker = root.path().join(if cfg!(windows) {
+            "docker.exe"
+        } else {
+            "docker"
+        });
+        fs::write(&docker, b"fake docker").unwrap();
+        let sandbox = DockerSandboxConfig::new(
+            docker,
+            "telechir/sandbox@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        );
+        let policy = FilesystemPolicy::new([root.path()]).unwrap();
+        (
+            root,
+            LocalCommandExecutor::with_docker_sandbox(policy, sandbox).unwrap(),
+        )
+    }
 
     #[test]
     fn composite_executor_keeps_later_operations_disabled() {
@@ -208,6 +257,134 @@ mod tests {
         request.approval_id = Some("approval_forged".to_owned());
         assert!(matches!(
             executor.authorize(&request, Some("session_phase9")),
+            AuthorizationOutcome::Deny(_)
+        ));
+    }
+
+    #[test]
+    fn sandbox_request_fails_closed_when_runtime_is_not_configured() {
+        let root = tempfile::tempdir().unwrap();
+        let policy = FilesystemPolicy::new([root.path()]).unwrap();
+        let mut executor = LocalCommandExecutor::new(policy);
+        let request = CommandRequest {
+            command_id: "cmd_phase12_sandbox_disabled".to_owned(),
+            idempotency_key: Some("idem_phase12_sandbox_disabled".to_owned()),
+            operation: CommandOperation::ShellExec,
+            arguments: json!({
+                "command": "echo safe",
+                "cwd": root.path().to_string_lossy(),
+                "execution_mode": "sandbox"
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+            requested_permissions: vec![PermissionDomain::ShellSafe],
+            risk: RiskLevel::Medium,
+            workspace_id: None,
+            approval_id: None,
+        };
+
+        match executor.authorize(&request, Some("session_phase12")) {
+            AuthorizationOutcome::Deny(error) => {
+                assert_eq!(error.code, ErrorCode::UnsupportedCapability);
+            }
+            other => panic!("expected sandbox fail-closed denial, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn sandbox_turns_host_hard_deny_into_bound_approval_only() {
+        let (root, mut executor) = sandbox_executor();
+        let guarded = CommandRequest {
+            command_id: "cmd_phase12_guarded_curl".to_owned(),
+            idempotency_key: Some("idem_phase12_guarded_curl".to_owned()),
+            operation: CommandOperation::ShellExec,
+            arguments: json!({
+                "command": "curl https://example.invalid",
+                "cwd": root.path().to_string_lossy(),
+                "execution_mode": "guarded_host"
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+            requested_permissions: vec![PermissionDomain::ShellSafe],
+            risk: RiskLevel::Medium,
+            workspace_id: None,
+            approval_id: None,
+        };
+
+        match executor.authorize(&guarded, Some("session_phase12")) {
+            AuthorizationOutcome::Deny(error) => {
+                assert_eq!(error.code, ErrorCode::PolicyDenied);
+            }
+            other => panic!("expected guarded-host hard deny, got {other:?}"),
+        }
+
+        let sandbox = CommandRequest {
+            command_id: "cmd_phase12_sandbox_curl".to_owned(),
+            idempotency_key: Some("idem_phase12_sandbox_curl".to_owned()),
+            arguments: json!({
+                "command": "curl https://example.invalid",
+                "cwd": root.path().to_string_lossy(),
+                "execution_mode": "sandbox"
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+            ..guarded
+        };
+
+        let approval = match executor.authorize(&sandbox, Some("session_phase12")) {
+            AuthorizationOutcome::Ask(approval) => approval,
+            other => panic!("expected sandbox approval request, got {other:?}"),
+        };
+        assert_eq!(approval.command_id, sandbox.command_id);
+        assert_eq!(approval.risk, RiskLevel::High);
+    }
+
+    #[test]
+    fn sandbox_approval_cannot_be_replayed_after_execution_mode_swap() {
+        let (root, mut executor) = sandbox_executor();
+        let mut request = CommandRequest {
+            command_id: "cmd_phase12_mode_bound".to_owned(),
+            idempotency_key: Some("idem_phase12_mode_bound".to_owned()),
+            operation: CommandOperation::ShellExec,
+            arguments: json!({
+                "command": "curl https://example.invalid",
+                "cwd": root.path().to_string_lossy(),
+                "execution_mode": "sandbox"
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+            requested_permissions: vec![PermissionDomain::ShellSafe],
+            risk: RiskLevel::Medium,
+            workspace_id: None,
+            approval_id: None,
+        };
+
+        let approval = match executor.authorize(&request, Some("session_phase12")) {
+            AuthorizationOutcome::Ask(approval) => approval,
+            other => panic!("expected sandbox approval request, got {other:?}"),
+        };
+        executor.apply_approval_decision(
+            &ApprovalDecision {
+                approval_id: approval.approval_id.clone(),
+                decision: ApprovalDecisionKind::Approve,
+                decided_at: Utc::now(),
+                scope: ApprovalScope::Once,
+            },
+            Some("session_phase12"),
+        );
+
+        request.approval_id = Some(approval.approval_id);
+        request.arguments.insert(
+            "execution_mode".to_owned(),
+            serde_json::Value::String("guarded_host".to_owned()),
+        );
+
+        assert!(matches!(
+            executor.authorize(&request, Some("session_phase12")),
             AuthorizationOutcome::Deny(_)
         ));
     }
