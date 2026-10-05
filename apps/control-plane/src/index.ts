@@ -5,6 +5,7 @@ import { failure, success } from "./http";
 import { mcpHttpRoute } from "./mcp-http";
 import { PROJECT_PHASE, SERVICE_NAME, SERVICE_VERSION } from "./meta";
 import { protectedResourceMetadataResponse } from "./oauth";
+import { openAiSubmissionRoute } from "./openai-submission";
 import { pairingHttpRoute } from "./pairing-http";
 import { realtimeHttpRoute } from "./realtime-http";
 
@@ -46,6 +47,11 @@ async function route(request: Request, env: Env): Promise<Response> {
 
   if (url.pathname === "/.well-known/oauth-protected-resource") {
     return protectedResourceMetadataResponse(env, request);
+  }
+
+  const openAiSubmissionResponse = openAiSubmissionRoute(request, env, url);
+  if (openAiSubmissionResponse) {
+    return openAiSubmissionResponse;
   }
 
   const mcpResponse = await mcpHttpRoute(request, env, url);

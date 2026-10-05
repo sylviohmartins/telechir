@@ -139,16 +139,44 @@ Ele preserva:
 
 Isso evita que agentes ou colaboradores futuros confundam o documento mais recente com toda a história de por que o produto existe.
 
-## 10. Estado atual
+## 10. Da especificação ao vertical slice executável (2026-10-02 → 2026-10-05)
 
-O discovery técnico/de produto foi concluído o suficiente para **`READY_FOR_PHASE_0`**; runtime/produção ainda não começou.
+Após o discovery, o projeto atravessou as Phases 0–11 em sequência gated:
 
-Gates atuais:
-1. naming concluído: **Telechir / `NAME_READY`**;
-2. repositório renomeado para `telechir`;
-3. estratégia de licenciamento do core definida em ADR-0005;
-4. completar `COMMERCIAL_CLEARANCE_PENDING` antes de lançamento comercial;
-5. caminho ChatGPT Plus + plugin público continua como release gate do plugin próprio;
-6. executar Phase 0 documental/especificativa antes de qualquer Phase 1/runtime.
+- Phase 0 congelou repository/protocol specifications;
+- Phase 1 implementou o Local Agent Core;
+- Phase 2 implementou o control plane Cloudflare;
+- Phases 3–5 materializaram identity/pairing, realtime e Remote MCP/OAuth;
+- Phases 6–8 adicionaram filesystem, process lifecycle e Git read-only;
+- Phase 9 materializou policy/approvals/audit com autoridade final local;
+- Phase 10 adicionou o Dashboard MVP;
+- Phase 11 revalidou a distribuição pública OpenAI e criou package/review tooling fail-closed.
 
-Artefatos históricos nunca devem ser silenciosamente reescritos para refletir decisões novas. Conclusões novas substituem antigas por documentação viva e ADRs.
+A Phase 11 confirmou que a arquitetura definida na correção de viabilidade continuava válida, mas atualizou o processo de release para o fluxo corrente de package ZIP, `plugin.json + mcp.json`, domain verification, tool scan e review estruturado.
+
+Registros:
+- `PROJECT_STATE.md`
+- `docs/testing/acceptance/phase11-exit-review-2026-10-05.md`
+- `docs/research/openai/phase11-public-plugin-revalidation-2026-10-05.md`
+
+## 11. Estado atual
+
+O projeto está em **`PHASE_11_SUBMISSION_READY`** no nível do repositório: runtime local/control plane/Dashboard existem e os materiais versionáveis de package/review OpenAI estão preparados.
+
+Isso não significa produção ou publicação. Permanecem abertos:
+
+1. `COMMERCIAL_CLEARANCE_PENDING`;
+2. publisher verification/permissões OpenAI;
+3. domínio, URLs legais e assets finais;
+4. MCP HTTPS de produção;
+5. domain verification e tool scan reais;
+6. OIDC/UserInfo no IdP externo quando aplicável;
+7. reviewer account/demo recording;
+8. submission/review/approval/publicação;
+9. validação de availability do plugin próprio no Plus;
+10. quota/metering;
+11. code signing/update path e demais release hardening.
+
+O próximo item de implementação do roadmap é **Phase 12 — Sandbox mode**.
+
+Artefatos históricos nunca devem ser silenciosamente reescritos para refletir decisões novas. Conclusões novas substituem antigas por documentação viva, exit reviews e ADRs.

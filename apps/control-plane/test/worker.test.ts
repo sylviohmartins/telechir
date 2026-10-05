@@ -23,7 +23,7 @@ describe("control-plane worker", () => {
     expect(body.data).toMatchObject({
       service: "telechir-control-plane",
       status: "ok",
-      phase: "phase10-dashboard",
+      phase: "phase11-openai-plugin-readiness",
       version: "0.1.0",
     });
   });
@@ -63,7 +63,7 @@ describe("control-plane worker", () => {
     expect(body.data).toEqual({
       service: "telechir-control-plane",
       version: "0.1.0",
-      phase: "phase10-dashboard",
+      phase: "phase11-openai-plugin-readiness",
     });
   });
 
@@ -72,6 +72,79 @@ describe("control-plane worker", () => {
       const response = await fetch(route);
       expect(response.status).toBe(404);
     }
+  });
+
+  it("serves the OpenAI domain challenge as exact plain text", async () => {
+    const response = await fetch("/.well-known/openai-apps-challenge");
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/plain");
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    await expect(response.text()).resolves.toBe(
+      "openai-phase11-domain-challenge-test-token",
+    );
+  });
+
+  it("preserves the exact OpenAI domain challenge token without assuming URL-safe characters", async () => {
+    const exact = "openai.challenge+abc/xyz==";
+    const configured = {
+      ...bindings,
+      OPENAI_APPS_CHALLENGE_TOKEN: exact,
+    } as unknown as Env;
+
+    const response = await worker.fetch(
+      new Request("https://telechir.test/.well-known/openai-apps-challenge"),
+      configured,
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toBe(exact);
+  });
+
+  it("fails the OpenAI domain challenge closed when the token is unavailable or malformed", async () => {
+    for (const token of [
+      undefined,
+      "invalid\ntoken-value-that-is-long-enough",
+    ]) {
+      const incomplete = {
+        ...bindings,
+        OPENAI_APPS_CHALLENGE_TOKEN: token,
+      } as unknown as Env;
+
+      const response = await worker.fetch(
+        new Request("https://telechir.test/.well-known/openai-apps-challenge"),
+        incomplete,
+      );
+
+      expect(response.status).toBe(404);
+      await expect(response.text()).resolves.toBe("Not found");
+    }
+  });
+
+  it("allows only GET for the OpenAI domain challenge", async () => {
+    const response = await worker.fetch(
+      new Request("https://telechir.test/.well-known/openai-apps-challenge", {
+        method: "POST",
+      }),
+      bindings,
+    );
+
+    expect(response.status).toBe(405);
+    expect(response.headers.get("allow")).toBe("GET");
+  });
+
+  it("does not expose the OpenAI domain challenge token through health or version", async () => {
+    const [health, version] = await Promise.all([
+      fetch("/health"),
+      fetch("/version"),
+    ]);
+
+    expect(await health.text()).not.toContain(
+      "openai-phase11-domain-challenge-test-token",
+    );
+    expect(await version.text()).not.toContain(
+      "openai-phase11-domain-challenge-test-token",
+    );
   });
 
   it("publishes OAuth protected-resource metadata", async () => {

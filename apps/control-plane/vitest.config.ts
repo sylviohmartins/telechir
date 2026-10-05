@@ -27,6 +27,8 @@ export default defineConfig(async () => {
             OAUTH_JWKS_URI: "https://auth.telechir.test/jwks.json",
             OAUTH_SUBJECT_CLAIM: "sub",
             OAUTH_SCOPE_CLAIM: "scope",
+            OPENAI_APPS_CHALLENGE_TOKEN:
+              "openai-phase11-domain-challenge-test-token",
           },
         },
       }),

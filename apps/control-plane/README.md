@@ -113,9 +113,20 @@ Control plane do Telechir em TypeScript para Cloudflare Workers.
 - Dashboard React/TypeScript em `../dashboard/`;
 - nenhum endpoint cria autoridade local no agent.
 
+### Phase 11 — OpenAI Public Plugin Readiness
+
+- Remote MCP público permanece com as mesmas 16 tools;
+- annotations e `securitySchemes` são revalidados no descriptor MCP real;
+- `GET /.well-known/openai-apps-challenge` serve o token de domain verification em plain text;
+- challenge usa `OPENAI_APPS_CHALLENGE_TOKEN` somente por configuração externa;
+- token ausente/malformado retorna 404 e métodos diferentes de GET retornam 405;
+- o challenge não participa do `/ready` porque é um gate temporário de submission, não uma dependência do runtime;
+- package público e materiais de review vivem em `../../plugins/openai/telechir/`;
+- nenhum deploy, domain verification ou submission real é executado nesta fase.
+
 ## Boundaries de autenticação
 
-A Phase 5 implementa o resource-server boundary, e as Phases 6–10 reutilizam esse boundary para filesystem, process lifecycle, Git read-only, governança de policy/approvals/audit e Dashboard. O projeto não implementa authorization server próprio nem browser login.
+A Phase 5 implementa o resource-server boundary, e as Phases 6–11 reutilizam esse boundary para filesystem, process lifecycle, Git read-only, governança de policy/approvals/audit, Dashboard e preparação do plugin público. O projeto não implementa authorization server próprio nem browser login.
 
 `PairingService.verifyUser(...)` recebe um `user_id` já autenticado. O futuro adapter browser/OAuth deverá chamar esse domínio sem alterar suas invariantes.
 
@@ -129,7 +140,8 @@ O serviço requer, quando pairing, realtime e integração pública estão habil
 - `PAIRING_VERIFICATION_URI` — HTTPS;
 - `REALTIME_SERVER_SECRET` — pelo menos 32 bytes para connection credentials;
 - `MCP_RESOURCE_URI` — URI HTTPS canônica da integração;
-- `OAUTH_ISSUER` — issuer HTTPS do provedor externo.
+- `OAUTH_ISSUER` — issuer HTTPS do provedor externo;
+- `OPENAI_APPS_CHALLENGE_TOKEN` — token temporário de domain verification do portal OpenAI; opcional fora de um challenge ativo.
 
 Nenhum valor operacional é commitado em `wrangler.jsonc`.
 

@@ -1,0 +1,22 @@
+{
+  "source": "specs/tools/tool-catalog.json",
+  "reviewed_at": "2026-10-05",
+  "tools": {
+    "list_devices": "Read-only lookup of devices owned by the authenticated account. No external state change and no open-ended public entity access.",
+    "get_device": "Read-only lookup of one authenticated account device. No state change and no open-world access.",
+    "list_files": "Read-only listing inside an authorized private device root. It is bounded to the user's device rather than the public internet.",
+    "get_file_metadata": "Read-only metadata lookup inside an authorized private device root.",
+    "read_file": "Read-only content retrieval from an authorized private device path.",
+    "write_file": "Writes or overwrites an authorized file, so it is not read-only and is potentially destructive. It remains bounded to the private device root.",
+    "patch_file": "Modifies existing file content and can overwrite prior data, so it is destructive. Hash preconditions reduce but do not remove that property.",
+    "search_files": "Read-only search within authorized private roots; it does not search the public internet.",
+    "run_command": "Starts a local command that may change host state and, after explicit bounded approval, code can interact with external entities. Conservative destructive/open-world annotations are intentional.",
+    "start_process": "Starts a stateful local process that may have irreversible side effects and approved code can interact externally. Conservative destructive/open-world annotations are intentional.",
+    "read_process_output": "Read-only retrieval of output/state from a managed private process.",
+    "write_process_input": "Sends input to a running process and can trigger irreversible behavior, including behavior that reaches external entities; conservative destructive/open-world annotations are intentional.",
+    "cancel_process": "Cancels a managed process. Cancellation can be irreversible, so destructive is true; the action itself is bounded to a private managed process.",
+    "list_managed_processes": "Read-only listing of Telechir-managed processes on an authorized private device.",
+    "get_git_status": "Read-only local Git inspection. Network and remote Git writes are outside the capability.",
+    "get_git_diff": "Read-only local Git diff inspection. It does not modify the repository or access open-ended public entities."
+  }
+}

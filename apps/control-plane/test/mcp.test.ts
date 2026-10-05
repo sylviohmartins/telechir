@@ -290,6 +290,10 @@ describe("Remote MCP 2026-07-28", () => {
       );
       expect(descriptor).toBeDefined();
       expect(descriptor?.securitySchemes).toEqual(tool.securitySchemes);
+      expect(descriptor?.annotations).toEqual(tool.annotations);
+      expect(typeof tool.annotations.readOnlyHint).toBe("boolean");
+      expect(typeof tool.annotations.destructiveHint).toBe("boolean");
+      expect(typeof tool.annotations.openWorldHint).toBe("boolean");
       expect(
         (descriptor?._meta as Record<string, unknown> | undefined)
           ?.securitySchemes,

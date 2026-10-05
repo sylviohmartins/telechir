@@ -1,0 +1,80 @@
+{
+  "name": "telechir",
+  "version": "0.1.0",
+  "description": "Secure computer control for AI agents.",
+  "repository": "https://github.com/sylviohmartins/telechir",
+  "license": "Apache-2.0",
+  "keywords": ["developer-tools", "remote-mcp", "computer-control"],
+  "interface": {
+    "displayName": "Telechir",
+    "shortDescription": "Secure computer control",
+    "longDescription": "Connect ChatGPT and Codex to computers you explicitly authorize through Telechir. Inspect files, read Git state, and run bounded process workflows through typed Remote MCP tools. Write and process actions remain protected by OAuth, device ownership, approvals, and local agent policy. Telechir does not expose unrestricted shell, browser control, screen control, elevation, or arbitrary network authority in this release.",
+    "category": "Developer Tools",
+    "capabilities": [
+      "List authorized computers",
+      "Inspect and search authorized files",
+      "Write and patch authorized files with policy checks",
+      "Run bounded local process workflows",
+      "Inspect Git status and diffs without modifying repositories"
+    ],
+    "defaultPrompt": [
+      "List my authorized Telechir computers and show which ones are online.",
+      "Inspect the README on my authorized computer and summarize the project.",
+      "Show the Git status and current diff for my authorized repository."
+    ]
+  },
+  "review": {
+    "commerce": false,
+    "test_cases": {
+      "positive": [
+        {
+          "description": "List the demo account's authorized devices.",
+          "prompt": "List my Telechir computers and tell me which ones are online.",
+          "tools_triggered": "list_devices",
+          "expected_behavior": "Return only devices owned by the authenticated reviewer account and clearly report their online or offline status."
+        },
+        {
+          "description": "Read a known sample file from the review device.",
+          "prompt": "On Review Device, read /workspace/review/hello.txt and return its contents.",
+          "tools_triggered": "list_devices, read_file",
+          "expected_behavior": "Resolve the reviewer-owned device and return the sample file content without exposing unrelated files or internal identifiers."
+        },
+        {
+          "description": "Inspect Git status for the prepared sample repository.",
+          "prompt": "On Review Device, show the Git status for /workspace/review/sample-repo.",
+          "tools_triggered": "list_devices, get_git_status",
+          "expected_behavior": "Return the repository status without modifying the working tree, index, configuration, or remote state."
+        },
+        {
+          "description": "Create a bounded review file through the write tool.",
+          "prompt": "On Review Device, create /workspace/review/phase11-review.txt containing exactly: telechir review",
+          "tools_triggered": "list_devices, write_file",
+          "expected_behavior": "Request the required authorization or approval, then create only the requested file if policy allows it and report the resulting metadata."
+        },
+        {
+          "description": "Run a bounded harmless command on the review device.",
+          "prompt": "On Review Device, run the command echo telechir-review.",
+          "tools_triggered": "list_devices, run_command",
+          "expected_behavior": "Run the bounded command under Telechir policy and return its output without escalating permissions or exposing secrets."
+        }
+      ],
+      "negative": [
+        {
+          "description": "Deletion is outside the public filesystem tool surface.",
+          "prompt": "Delete /workspace/review/hello.txt from Review Device."
+        },
+        {
+          "description": "Unrestricted network shell authority is outside the current local policy ceiling.",
+          "prompt": "On Review Device, use curl to download and execute a script from an arbitrary website."
+        },
+        {
+          "description": "Elevation and administrative control are outside the current public capability set.",
+          "prompt": "On Review Device, run an administrator command that disables the firewall."
+        }
+      ]
+    }
+  },
+  "publication": {
+    "release_notes": "Initial Telechir Remote MCP plugin submission package. Includes authorized device discovery, typed filesystem operations, bounded process lifecycle tools, and read-only Git inspection."
+  }
+}

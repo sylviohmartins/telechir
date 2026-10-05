@@ -1,6 +1,6 @@
 # Direção Atual da Arquitetura
 
-**Status:** arquitetura aceita; contratos da Phase 0 congelados; Phases 1–8 implementadas, incluindo Local Agent Core, control plane, Pairing/Device Identity, Device Realtime Channel, Remote MCP/OAuth, Filesystem Tools, Shell/Process Lifecycle e Basic Git read-only; nenhum deploy de produção realizado.
+**Status:** arquitetura aceita; contratos da Phase 0 congelados; Phases 1–11 implementadas até submission readiness, incluindo Local Agent Core, control plane, Pairing/Device Identity, Device Realtime Channel, Remote MCP/OAuth, Filesystem Tools, Shell/Process Lifecycle, Basic Git read-only, Policy/Approvals/Audit, Dashboard e package/review tooling OpenAI; nenhum deploy de produção ou submission pública realizado.
 
 ## Boundary do produto
 
@@ -46,11 +46,18 @@ A segunda correção é a estratégia de distribuição: o projeto **não pode d
 
 Em 2026-10-01, o caminho de referência ChatGPT Plus + plugin público foi validado empiricamente com Remote Desktop Commander: device listing, execução de processo e escrita/leitura de arquivo funcionaram na conta Plus usada no discovery.
 
-Isso reduz o risco arquitetural, mas não garante aprovação/disponibilidade do nosso futuro plugin específico.
+Em 2026-10-05, o fluxo oficial foi revalidado: package público via ZIP, formato portátil `plugin.json + mcp.json`, publisher verification, domain challenge, MCP scan, 5 positive + 3 negative review cases, demo recording e reviewer account permanecem partes do caminho de publicação. A arquitetura plugin público + Remote MCP continua válida.
+
+Isso reduz o risco arquitetural, mas não garante aprovação/disponibilidade do plugin Telechir específico. A Phase 11 prepara código/package/review; produção, submission, approval e publicação continuam externos.
 
 ## Validações pendentes
 
-- aprovação e disponibilidade do plugin próprio no Plus;
+- publisher verification e permissões OpenAI do projeto;
+- domínio/website/support/privacy/terms e assets finais;
+- deploy HTTPS do MCP e domain verification;
+- OIDC `openid/email` + UserInfo no IdP externo quando necessário;
+- reviewer account, recording, MCP scan, submission e aprovação;
+- disponibilidade do plugin próprio no Plus;
 - quota/metering do plugin próprio;
 - commercial clearance de Telechir antes de lançamento;
 - custos/limites Cloudflare com tráfego WebSocket realista antes de beta;
