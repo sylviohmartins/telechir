@@ -13,6 +13,7 @@ import {
 } from "jose";
 
 import type { Env } from "./env";
+import { PHASE10_DASHBOARD_OAUTH_SCOPES } from "./dashboard-scopes";
 import { PHASE8_OAUTH_SCOPES } from "./mcp-catalog";
 import { toBase64Url } from "./pairing-crypto";
 
@@ -123,7 +124,9 @@ export function protectedResourceMetadata(config: OAuthResourceConfig) {
   return {
     resource: config.resourceUri,
     authorization_servers: [config.issuer],
-    scopes_supported: PHASE8_OAUTH_SCOPES,
+    scopes_supported: [
+      ...new Set([...PHASE8_OAUTH_SCOPES, ...PHASE10_DASHBOARD_OAUTH_SCOPES]),
+    ].sort(),
   };
 }
 

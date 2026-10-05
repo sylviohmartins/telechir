@@ -21,6 +21,7 @@ Este roadmap é intencionalmente gated. Ele descreve a ordem de maturação do p
 15. **Phase 7** — Shell/Process Lifecycle concluída em 2026-10-04; exit review em `docs/testing/acceptance/phase7-exit-review-2026-10-04.md`.
 16. **Phase 8** — Basic Git concluída em 2026-10-04; exit review em `docs/testing/acceptance/phase8-exit-review-2026-10-04.md`.
 17. **Phase 9** — Policy, Approvals and Audit concluída em 2026-10-05; exit review em `docs/testing/acceptance/phase9-exit-review-2026-10-05.md`.
+18. **Phase 10** — Dashboard concluída em 2026-10-05; exit review em `docs/testing/acceptance/phase10-exit-review-2026-10-05.md`.
 
 ## Fases após readiness
 
@@ -34,8 +35,8 @@ Este roadmap é intencionalmente gated. Ele descreve a ordem de maturação do p
 7. Shell/process lifecycle — **concluída**
 8. Basic Git — **concluída**
 9. Policy, approvals and audit — **concluída**
-10. Dashboard — **próxima fase**
-11. ChatGPT public-plugin readiness
+10. Dashboard — **concluída**
+11. ChatGPT public-plugin readiness — **próxima fase**
 12. Sandbox mode
 13. Computer use
 14. Browser automation

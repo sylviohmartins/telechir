@@ -1,4 +1,5 @@
 import type { Env } from "./env";
+import { dashboardHttpRoute } from "./dashboard-http";
 import { bindingStatus, coreBindingsReady } from "./env";
 import { failure, success } from "./http";
 import { mcpHttpRoute } from "./mcp-http";
@@ -60,6 +61,11 @@ async function route(request: Request, env: Env): Promise<Response> {
   const realtimeResponse = await realtimeHttpRoute(request, env, url);
   if (realtimeResponse) {
     return realtimeResponse;
+  }
+
+  const dashboardResponse = await dashboardHttpRoute(request, env, url);
+  if (dashboardResponse) {
+    return dashboardResponse;
   }
 
   return failure("ROUTE_NOT_FOUND", "Route not found", 404);
