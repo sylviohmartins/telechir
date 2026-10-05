@@ -94,6 +94,23 @@ Core local do Telechir implementado em Rust.
 - audit local bounded com event IDs imutáveis, policy revision e digests;
 - executáveis por path explícito permanecem hard-denied mesmo com approval.
 
+### Phase 12 — Sandbox Mode
+
+- `execution_mode=guarded_host|sandbox` para `run_command` e `start_process`;
+- `guarded_host` é o default e preserva as regras da Phase 7/9;
+- `sandbox` é opt-in e nunca faz fallback para host;
+- provider inicial via Docker CLI local, invocado diretamente sem host-shell interpolation;
+- image obrigatoriamente imutável por SHA-256 e `--pull=never`;
+- `--network none`, rootfs read-only, `cap-drop=ALL` e `no-new-privileges`;
+- CPU, memória, PIDs, tmpfs e file descriptors bounded;
+- somente o `cwd` autorizado é bind-mounted em `/workspace`;
+- `bind-recursive=disabled` evita exposição automática de submounts;
+- proxy env vars são explicitamente zeradas dentro do container;
+- comandos fora da allowlist de host tornam-se approval-required no sandbox, não implicitamente permitidos;
+- approval/idempotency permanecem vinculados ao digest que inclui `execution_mode`;
+- timeout/cancel tentam remover o container antes de reportar sucesso;
+- process start/read/list/cancel expõem `execution_mode`, sem revelar nome interno do container.
+
 A private key não faz parte de nenhum DTO serializável do agent.
 
 ## Native keyring
@@ -106,15 +123,40 @@ O adapter padrão usa o crate `keyring` e seleciona o backend nativo suportado p
 
 O `MemoryIdentityStore` existe somente para testes e adapters controlados.
 
+## Configuração do sandbox
+
+Sandbox é **desabilitado por padrão**. Para habilitar, a configuração local precisa definir:
+
+```text
+TELECHIR_SANDBOX_ENABLED=true
+TELECHIR_SANDBOX_DOCKER_BINARY=<caminho absoluto para docker/docker.exe>
+TELECHIR_SANDBOX_IMAGE=sha256:<64 hex> | repo@sha256:<64 hex>
+```
+
+Overrides opcionais e bounded:
+
+```text
+TELECHIR_SANDBOX_MEMORY_MIB=512
+TELECHIR_SANDBOX_CPU_MILLIS=1000
+TELECHIR_SANDBOX_PIDS_LIMIT=128
+TELECHIR_SANDBOX_TMPFS_MIB=128
+```
+
+Definir qualquer opção de sandbox sem `TELECHIR_SANDBOX_ENABLED=true` falha fechado. O agent não instala Docker, não faz pull de image, não monta Docker socket e não escolhe image automaticamente.
+
+Quando a configuração é válida, `AgentConfig::augment_capabilities` adiciona `sandbox.docker` à lista anunciada no realtime hello. O control plane também exige essa capability antes de despachar `execution_mode=sandbox`.
+
 ## Limites atuais
 
-O agent já possui realtime outbound, filesystem typed tools, shell/process lifecycle, Basic Git read-only e policy/approvals/audit local com enforcement final no device. Não existe deploy de produção.
+O agent já possui realtime outbound, filesystem typed tools, shell/process lifecycle, Basic Git read-only, policy/approvals/audit local e sandbox Docker opt-in com enforcement final no device. Não existe deploy de produção.
 
-Ficam para fases posteriores:
+Limites/riscos que permanecem:
 
-- Dashboard/UX de approvals sem bypass da pipeline local;
 - policy editável/persistente do usuário;
-- Git mutável permanece fora do MVP atual.
+- Git mutável permanece fora do MVP atual;
+- um bind mount de workspace pode consumir espaço em disco do host porque não há quota por workspace nesta fase;
+- crash abrupto do agent/host pode deixar container em execução até recuperação operacional;
+- a segurança depende também do Docker daemon/runtime e da image pinned configurada localmente.
 
 ## Build e validação
 
@@ -148,4 +190,5 @@ Evidências:
 - `../docs/testing/acceptance/phase6-exit-review-2026-10-03.md`;
 - `../docs/testing/acceptance/phase7-exit-review-2026-10-04.md`;
 - `../docs/testing/acceptance/phase8-exit-review-2026-10-04.md`;
-- `../docs/testing/acceptance/phase9-exit-review-2026-10-05.md`.
+- `../docs/testing/acceptance/phase9-exit-review-2026-10-05.md`;
+- `../docs/testing/acceptance/phase12-exit-review-2026-10-05.md`.

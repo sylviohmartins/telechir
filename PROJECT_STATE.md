@@ -4,9 +4,9 @@
 
 ## Fase atual
 
-**Discovery concluído / Phases 0–11 concluídas / Phase 11 — OpenAI public-plugin submission readiness concluída**
+**Discovery concluído / Phases 0–12 concluídas / Phase 12 — Sandbox mode concluída**
 
-A implementação possui Local Agent Core, control plane, identidade/pairing Ed25519, canal realtime outbound, Remote MCP/OAuth, seis typed filesystem tools, shell/process lifecycle, Basic Git read-only, governança de policy/approvals/audit, Dashboard MVP e tooling fail-closed para package/review do plugin público OpenAI. A superfície MCP pública permanece com 16 tools. O projeto **não possui deploy de produção**, plugin submetido, aprovado ou publicado.
+A implementação possui Local Agent Core, control plane, identidade/pairing Ed25519, canal realtime outbound, Remote MCP/OAuth, seis typed filesystem tools, shell/process lifecycle, Basic Git read-only, governança de policy/approvals/audit, Dashboard MVP, tooling fail-closed para package/review do plugin público OpenAI e sandbox Docker local opt-in para process tools. A superfície MCP pública permanece com 16 tools. O projeto **não possui deploy de produção**, plugin submetido, aprovado ou publicado.
 
 ## Gates atuais
 
@@ -31,7 +31,8 @@ A implementação possui Local Agent Core, control plane, identidade/pairing Ed2
 - [x] Phase 9 — Policy, Approvals and Audit: **`PHASE_9_COMPLETE`**.
 - [x] Phase 10 — Dashboard: **`PHASE_10_COMPLETE`**.
 - [x] Phase 11 — ChatGPT/Codex public-plugin submission readiness: **`PHASE_11_SUBMISSION_READY`**.
-- [ ] Phase 12 — Sandbox mode iniciada.
+- [x] Phase 12 — Sandbox mode: **`PHASE_12_COMPLETE`**.
+- [ ] Phase 13 — Computer use iniciada.
 
 ## Decisões atuais
 
@@ -44,6 +45,8 @@ A implementação possui Local Agent Core, control plane, identidade/pairing Ed2
 - O agent local aplica a autoridade final de policy.
 - Approval remoto pode restringir o dispatch, mas nunca se transforma em autoridade local do agent.
 - Operações `CRITICAL` permanecem fail-closed enquanto não existir confirmação local dedicada.
+- `guarded_host` permanece o execution mode default; `sandbox` é opt-in, exige `sandbox.docker` e nunca faz fallback para host.
+- Sandbox Docker é defense-in-depth, não VM boundary nem substituto de policy/approval.
 - GUI/browser/computer-use permanecem pós-MVP.
 - O core público usa **Apache License 2.0**, com trademark Telechir separado; `LICENSE` já está na raiz.
 - Artefatos históricos permanecem imutáveis; conclusões atuais vivem em `docs/`.
@@ -86,27 +89,32 @@ As avaliações relevantes estão em:
 - `docs/testing/acceptance/phase9-exit-review-2026-10-05.md`
 - `docs/testing/acceptance/phase10-exit-review-2026-10-05.md`
 - `docs/testing/acceptance/phase11-exit-review-2026-10-05.md`
+- `docs/testing/acceptance/phase12-exit-review-2026-10-05.md`
 - `docs/security/threat-model/phase9-policy-approvals-audit-2026-10-05.md`
 - `docs/security/threat-model/phase10-dashboard-2026-10-05.md`
 - `docs/security/threat-model/phase11-openai-plugin-readiness-2026-10-05.md`
+- `docs/security/threat-model/phase12-sandbox-mode-2026-10-05.md`
 - `docs/research/openai/phase11-public-plugin-revalidation-2026-10-05.md`
+- `docs/research/docker/phase12-sandbox-revalidation-2026-10-05.md`
 - `docs/research/cloudflare/phase2-revalidation-2026-10-02.md`
 - `docs/research/cloudflare/phase4-revalidation-2026-10-02.md`
 - `docs/research/mcp/phase5-revalidation-2026-10-02.md`
 
 Resultado atual:
 
-> **PHASE_11_SUBMISSION_READY**
+> **PHASE_12_COMPLETE**
 
-A Phase 11 revalida o fluxo oficial OpenAI e adiciona domain challenge fail-closed, testes das annotations/security schemes no MCP real e `plugins/openai/telechir/` com package source, 5 positive + 3 negative review cases, builder ZIP determinístico, reviewer checklist/dataset e external readiness checker.
+A Phase 12 adiciona `execution_mode=guarded_host|sandbox` às process tools, mantendo `guarded_host` como default. Sandbox exige capability `sandbox.docker`, configuração local explícita, Docker binary existente, image imutável local e profile com `--pull never`, `--network none`, rootfs read-only, capabilities removidas, no-new-privileges, recursos bounded e somente o cwd autorizado montado.
 
-Esse status é **readiness do repositório**, não publicação. O checker de release mantém 11 gates externos pendentes: publisher identity/permissões, listing URLs, assets finais, MCP de produção, domain verification, OIDC `openid/email`, UserInfo verified email, reviewer account, demo recording e production tool scan. Submission/review/approval/publicação, Plus availability e quota/metering também continuam sem evidência.
+Policy/approval continuam a autoridade. Sandbox não permite permission widening e mode swap altera o argument digest, impedindo replay de approval entre sandbox e host. Ausência/falha do runtime nunca faz fallback para host.
 
-Gates executados: control plane format/typecheck **94 testes** + Wrangler dry-run + audit 0 vulnerabilidades; D1 `0001–0004` em base limpa; plugin tooling **14 testes** + CLI synthetic ZIP; Dashboard **2 testes** + build/audit; agent/protocolo **81 testes**. Nenhum deploy remoto foi executado.
+Gates finais: agent `fmt` + `clippy -D warnings` + **91 testes**; control plane format/typecheck **97 testes** + Wrangler dry-run + audit 0 vulnerabilidades; D1 `0001–0004` em base limpa; Dashboard **2 testes** + build/audit; plugin tooling **14 testes**. Duas provas no Docker 28.1.1 local confirmaram o profile de isolamento e a semântica de graceful cleanup com `--rm + stop`. Nenhum deploy remoto foi executado.
+
+Os 11 gates externos do plugin OpenAI continuam **`EXTERNAL_GATES_PENDING`** e não foram afetados pela Phase 12.
 
 ## Próximos trabalhos
 
-1. Iniciar **Phase 12 — Sandbox mode** como próximo trabalho de implementação, sem ampliar silenciosamente a autoridade do host.
+1. Iniciar **Phase 13 — Computer use** como próximo trabalho de implementação, com threat model próprio e sem reutilizar sandbox como justificativa para ampliar autoridade.
 2. Em paralelo, avançar os 11 gates externos do plugin OpenAI quando publisher, domínio, IdP, assets e produção estiverem disponíveis.
 3. Completar/reservar ativos comerciais de Telechir antes de lançamento e manter os gates de signing, CSP/headers, custos e segurança operacional antes de beta/publicação.
 

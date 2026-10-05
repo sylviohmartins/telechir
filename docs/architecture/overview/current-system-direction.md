@@ -1,6 +1,6 @@
 # Direção Atual da Arquitetura
 
-**Status:** arquitetura aceita; contratos da Phase 0 congelados; Phases 1–11 implementadas até submission readiness, incluindo Local Agent Core, control plane, Pairing/Device Identity, Device Realtime Channel, Remote MCP/OAuth, Filesystem Tools, Shell/Process Lifecycle, Basic Git read-only, Policy/Approvals/Audit, Dashboard e package/review tooling OpenAI; nenhum deploy de produção ou submission pública realizado.
+**Status:** arquitetura aceita; contratos base da Phase 0 preservados e evoluídos por contratos compatíveis; Phases 1–12 implementadas, incluindo Local Agent Core, control plane, Pairing/Device Identity, Device Realtime Channel, Remote MCP/OAuth, Filesystem Tools, Shell/Process Lifecycle, Basic Git read-only, Policy/Approvals/Audit, Dashboard, package/review tooling OpenAI e Sandbox mode Docker opt-in; nenhum deploy de produção ou submission pública realizado.
 
 ## Boundary do produto
 
@@ -24,7 +24,8 @@ Agente local seguro
         +-- filesystem
         +-- processos / terminal
         +-- Git
-        +-- futuros adapters de browser / GUI / sandbox
+        +-- sandbox Docker opt-in
+        +-- futuros adapters de browser / GUI
 ```
 
 ## Correções importantes em relação ao blueprint v1
@@ -49,6 +50,8 @@ Em 2026-10-01, o caminho de referência ChatGPT Plus + plugin público foi valid
 Em 2026-10-05, o fluxo oficial foi revalidado: package público via ZIP, formato portátil `plugin.json + mcp.json`, publisher verification, domain challenge, MCP scan, 5 positive + 3 negative review cases, demo recording e reviewer account permanecem partes do caminho de publicação. A arquitetura plugin público + Remote MCP continua válida.
 
 Isso reduz o risco arquitetural, mas não garante aprovação/disponibilidade do plugin Telechir específico. A Phase 11 prepara código/package/review; produção, submission, approval e publicação continuam externos.
+
+Em 2026-10-05, a Phase 12 adicionou `execution_mode=guarded_host|sandbox` às process tools. `guarded_host` permanece default e preserva o classificador existente. `sandbox` é explicitamente opt-in, requer capability `sandbox.docker`, image local imutável, Docker profile fail-closed e continua subordinado à mesma policy/approval local. Sandbox é defense-in-depth; não é descrito como VM boundary.
 
 ## Validações pendentes
 

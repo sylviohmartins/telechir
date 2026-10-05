@@ -617,6 +617,10 @@
           },
           "maxItems": 20,
           "default": []
+        },
+        "execution_mode": {
+          "$ref": "#/$defs/execution_mode",
+          "default": "guarded_host"
         }
       }
     },
@@ -650,6 +654,9 @@
             "string",
             "null"
           ]
+        },
+        "execution_mode": {
+          "$ref": "#/$defs/execution_mode"
         }
       }
     },
@@ -690,6 +697,10 @@
           },
           "maxItems": 20,
           "default": []
+        },
+        "execution_mode": {
+          "$ref": "#/$defs/execution_mode",
+          "default": "guarded_host"
         }
       }
     },
@@ -717,6 +728,9 @@
         "started_at": {
           "type": "string",
           "format": "date-time"
+        },
+        "execution_mode": {
+          "$ref": "#/$defs/execution_mode"
         }
       }
     },
@@ -804,6 +818,9 @@
             "string",
             "null"
           ]
+        },
+        "execution_mode": {
+          "$ref": "#/$defs/execution_mode"
         }
       }
     },
@@ -892,6 +909,9 @@
             "cancelled",
             "already_finished"
           ]
+        },
+        "execution_mode": {
+          "$ref": "#/$defs/execution_mode"
         }
       }
     },
@@ -958,6 +978,9 @@
                   "string",
                   "null"
                 ]
+              },
+              "execution_mode": {
+                "$ref": "#/$defs/execution_mode"
               }
             }
           }
@@ -1207,6 +1230,13 @@
         "exited",
         "failed",
         "cancelled"
+      ]
+    },
+    "execution_mode": {
+      "type": "string",
+      "enum": [
+        "guarded_host",
+        "sandbox"
       ]
     },
     "permission_domain": {

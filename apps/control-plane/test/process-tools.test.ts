@@ -242,6 +242,7 @@ describe("Phase 7 process dispatch", () => {
       cwd: ".",
       timeout_seconds: 1,
       env_refs: [],
+      execution_mode: "guarded_host",
     });
     expect(JSON.stringify(command)).not.toContain("phase7-test-token");
     const deadlineMs = Date.parse(command.deadline_at as string) - Date.now();
@@ -261,6 +262,82 @@ describe("Phase 7 process dispatch", () => {
       truncated: false,
     });
 
+    device.socket!.close(1000, "test complete");
+  });
+
+  it("normalizes and dispatches sandbox mode only to devices that advertise sandbox.docker", async () => {
+    const device = await seedDevice(["shell.exec", "sandbox.docker"]);
+    const service = new ProcessToolsService(
+      bindings.DB,
+      bindings.DEVICE_COORDINATOR,
+    );
+
+    const commandMessage = nextMessage(device.socket!);
+    const execution = service.execute(device.userId, "run_command", {
+      device_id: device.deviceId,
+      command: "echo sandbox",
+      cwd: ".",
+      timeout_seconds: 1,
+      env_refs: [],
+      execution_mode: "sandbox",
+    });
+
+    const command = JSON.parse(String((await commandMessage).data)) as Record<
+      string,
+      unknown
+    >;
+    const payload = command.payload as Record<string, unknown>;
+    expect(payload.arguments).toEqual({
+      command: "echo sandbox",
+      cwd: ".",
+      timeout_seconds: 1,
+      env_refs: [],
+      execution_mode: "sandbox",
+    });
+
+    await respondCompleted(device, command, {
+      exit_code: 0,
+      stdout: "sandbox\n",
+      stderr: "",
+      truncated: false,
+      artifact_id: null,
+      execution_mode: "sandbox",
+    });
+    await expect(execution).resolves.toMatchObject({
+      exit_code: 0,
+      execution_mode: "sandbox",
+    });
+    device.socket!.close(1000, "test complete");
+
+    const missingCapability = await seedDevice(["shell.exec"]);
+    await expect(
+      service.execute(missingCapability.userId, "run_command", {
+        device_id: missingCapability.deviceId,
+        command: "echo denied",
+        execution_mode: "sandbox",
+      }),
+    ).rejects.toMatchObject({
+      code: "UNSUPPORTED_CAPABILITY",
+    });
+    missingCapability.socket!.close(1000, "test complete");
+  });
+
+  it("rejects unknown execution modes before process dispatch", async () => {
+    const device = await seedDevice(["shell.exec", "sandbox.docker"]);
+    const service = new ProcessToolsService(
+      bindings.DB,
+      bindings.DEVICE_COORDINATOR,
+    );
+
+    await expect(
+      service.execute(device.userId, "run_command", {
+        device_id: device.deviceId,
+        command: "echo denied",
+        execution_mode: "host",
+      }),
+    ).rejects.toMatchObject({
+      code: "INVALID_ARGUMENT",
+    });
     device.socket!.close(1000, "test complete");
   });
 
@@ -297,6 +374,7 @@ describe("Phase 7 process dispatch", () => {
       command: "mvn test",
       cwd: ".",
       env_refs: [],
+      execution_mode: "guarded_host",
     });
     expect(JSON.stringify(payload.arguments)).not.toContain(device.deviceId);
     expect(JSON.stringify(payload.arguments)).not.toContain(

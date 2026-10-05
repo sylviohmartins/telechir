@@ -23,7 +23,7 @@ describe("control-plane worker", () => {
     expect(body.data).toMatchObject({
       service: "telechir-control-plane",
       status: "ok",
-      phase: "phase11-openai-plugin-readiness",
+      phase: "phase12-sandbox-mode",
       version: "0.1.0",
     });
   });
@@ -63,7 +63,7 @@ describe("control-plane worker", () => {
     expect(body.data).toEqual({
       service: "telechir-control-plane",
       version: "0.1.0",
-      phase: "phase11-openai-plugin-readiness",
+      phase: "phase12-sandbox-mode",
     });
   });
 

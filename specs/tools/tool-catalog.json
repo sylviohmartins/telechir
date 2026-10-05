@@ -197,7 +197,7 @@
     {
       "name": "run_command",
       "title": "Run command",
-      "description": "Executa um comando curto no dispositivo sob policy local e timeout.",
+      "description": "Executa um comando curto no dispositivo em guarded_host por padrão ou em sandbox local explicitamente suportado, sempre sob policy e timeout.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": true,
@@ -221,7 +221,7 @@
     {
       "name": "start_process",
       "title": "Start process",
-      "description": "Inicia um processo autorizado de longa duração e retorna handle para acompanhamento.",
+      "description": "Inicia um processo autorizado em guarded_host por padrão ou em sandbox local explicitamente suportado e retorna handle para acompanhamento.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": true,

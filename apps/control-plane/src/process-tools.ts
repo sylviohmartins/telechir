@@ -151,6 +151,20 @@ export class ProcessToolsService {
       );
     }
 
+    const executionMode =
+      toolName === "run_command" || toolName === "start_process"
+        ? normalizedExecutionMode(input.execution_mode)
+        : null;
+    if (
+      executionMode === "sandbox" &&
+      !presence.capabilities.includes("sandbox.docker")
+    ) {
+      throw new ProcessToolsError(
+        "UNSUPPORTED_CAPABILITY",
+        "Device does not advertise Docker sandbox capability",
+      );
+    }
+
     const publicIdempotency =
       toolName === "start_process" ? input.idempotency_key : undefined;
     if (
@@ -165,8 +179,15 @@ export class ProcessToolsService {
       );
     }
 
+    const normalizedInput =
+      executionMode === null
+        ? input
+        : {
+            ...input,
+            execution_mode: executionMode,
+          };
     const argumentsObject = Object.fromEntries(
-      Object.entries(input).filter(
+      Object.entries(normalizedInput).filter(
         ([key]) => key !== "device_id" && key !== "idempotency_key",
       ),
     );
@@ -366,6 +387,19 @@ export class ProcessToolsService {
       "Process operation exceeded its command deadline",
     );
   }
+}
+
+function normalizedExecutionMode(value: unknown): "guarded_host" | "sandbox" {
+  if (value === undefined || value === null || value === "guarded_host") {
+    return "guarded_host";
+  }
+  if (value === "sandbox") {
+    return "sandbox";
+  }
+  throw new ProcessToolsError(
+    "INVALID_ARGUMENT",
+    "execution_mode must be guarded_host or sandbox",
+  );
 }
 
 function commandTimeoutMs(

@@ -309,6 +309,22 @@ describe("Remote MCP 2026-07-28", () => {
     await client.close();
   });
 
+  it("publishes execution_mode as a closed guarded_host or sandbox enum", () => {
+    for (const ref of [
+      "public-tools.schema.json#/$defs/run_command_input",
+      "public-tools.schema.json#/$defs/start_process_input",
+    ]) {
+      const schema = publicSchema(ref) as {
+        properties: Record<string, Record<string, unknown>>;
+      };
+      expect(schema.properties.execution_mode).toEqual({
+        type: "string",
+        enum: ["guarded_host", "sandbox"],
+        default: "guarded_host",
+      });
+    }
+  });
+
   it("lists and reads only devices owned by the authenticated user", async () => {
     const userA = await seedUser("User A");
     const userB = await seedUser("User B");

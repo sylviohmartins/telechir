@@ -11,6 +11,7 @@ pub mod ports;
 pub mod process;
 pub mod protocol;
 pub mod realtime;
+pub mod sandbox;
 
 pub use config::AgentConfig;
 pub use executor::LocalCommandExecutor;
@@ -30,3 +31,4 @@ pub use realtime::{
     DEFAULT_HANDSHAKE_TIMEOUT, RealtimeClientConfig, RealtimeConnection, RealtimeError,
     RealtimeState, ReconnectController, connect_realtime, new_connection_nonce,
 };
+pub use sandbox::{DockerSandboxConfig, ExecutionMode, SANDBOX_CAPABILITY};
