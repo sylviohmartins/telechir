@@ -2,7 +2,7 @@
 
 Repositório de pesquisa, discovery de produto e arquitetura para uma futura plataforma que permita que clientes de IA autorizados operem computadores e ambientes executáveis por meio de uma camada de controle segura e auditável.
 
-> **Estado do projeto:** discovery e **Phases 0–9 concluídas**, incluindo Local Agent Core, control plane, Pairing/Device Identity, Device Realtime Channel, Remote MCP/OAuth, Filesystem Tools, Shell/Process Lifecycle, Basic Git read-only e Policy/Approvals/Audit. Não existe deploy de produção; **Phase 10 — Dashboard** é a próxima fase. **Telechir** é a marca oficial (`NAME_READY`); domínio, packages, handles e trademark permanecem em `COMMERCIAL_CLEARANCE_PENDING` antes do lançamento público/comercial.
+> **Estado do projeto:** discovery e **Phases 0–10 concluídas**, incluindo Local Agent Core, control plane, Pairing/Device Identity, Device Realtime Channel, Remote MCP/OAuth, Filesystem Tools, Shell/Process Lifecycle, Basic Git read-only, Policy/Approvals/Audit e Dashboard MVP. Não existe deploy de produção; **Phase 11 — ChatGPT public-plugin readiness** é a próxima fase. **Telechir** é a marca oficial (`NAME_READY`); domínio, packages, handles e trademark permanecem em `COMMERCIAL_CLEARANCE_PENDING` antes do lançamento público/comercial.
 
 ## Por que este repositório existe
 
@@ -36,7 +36,8 @@ Este repositório é a fonte de verdade para:
 - `PROJECT_STATE.md` — fase atual, gates e estado da implementação.
 - `AGENTS.md` — regras para agentes de IA que trabalhem neste repositório.
 - `agent/` — core Rust do Local Agent, identidade Ed25519, cliente realtime outbound, filesystem executor, shell/process lifecycle, Basic Git read-only e policy/approval local, implementados nas Phases 1, 3, 4, 6, 7, 8 e 9.
-- `apps/control-plane/` — control plane TypeScript/Cloudflare com D1, pairing, Durable Object/WebSocket realtime, Remote MCP/OAuth, dispatch de filesystem/process/Git read-only e governança de policy/approvals/audit, implementado nas Phases 2–9.
+- `apps/control-plane/` — control plane TypeScript/Cloudflare com D1, pairing, Durable Object/WebSocket realtime, Remote MCP/OAuth, dispatch de filesystem/process/Git read-only, governança de policy/approvals/audit e API autenticada do Dashboard, implementado nas Phases 2–10.
+- `apps/dashboard/` — Dashboard MVP React/TypeScript para devices, approvals, command/audit timeline, usage/health e revogação, implementado na Phase 10.
 - `docs/` — documentação viva de produto, discovery, arquitetura, segurança, testes e histórico.
 - `docs/history/research-lineage.md` — narrativa de como o projeto nasceu e por que decisões importantes mudaram.
 - `artifacts/` — snapshots datados, relatórios e datasets estruturados.
@@ -73,7 +74,7 @@ A estratégia de licenciamento do core foi definida em `docs/architecture/adr/00
 
 ## Contribuição
 
-O projeto concluiu discovery e as Phases 0–9. Consulte `CONTRIBUTING.md` e `PROJECT_STATE.md` antes de propor implementação ou avançar para uma nova fase.
+O projeto concluiu discovery e as Phases 0–10. Consulte `CONTRIBUTING.md` e `PROJECT_STATE.md` antes de propor implementação ou avançar para uma nova fase.
 
 ## Segurança
 

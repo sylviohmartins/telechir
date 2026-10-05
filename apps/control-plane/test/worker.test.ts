@@ -23,7 +23,7 @@ describe("control-plane worker", () => {
     expect(body.data).toMatchObject({
       service: "telechir-control-plane",
       status: "ok",
-      phase: "phase9-policy-approvals-audit",
+      phase: "phase10-dashboard",
       version: "0.1.0",
     });
   });
@@ -63,11 +63,11 @@ describe("control-plane worker", () => {
     expect(body.data).toEqual({
       service: "telechir-control-plane",
       version: "0.1.0",
-      phase: "phase9-policy-approvals-audit",
+      phase: "phase10-dashboard",
     });
   });
 
-  it("keeps later-phase public product routes closed in Phase 9", async () => {
+  it("keeps legacy public product routes closed in Phase 10", async () => {
     for (const route of ["/devices", "/pairing", "/ws"]) {
       const response = await fetch(route);
       expect(response.status).toBe(404);
@@ -83,7 +83,10 @@ describe("control-plane worker", () => {
       resource: "https://telechir.test/mcp",
       authorization_servers: ["https://auth.telechir.test"],
       scopes_supported: [
+        "telechir:approvals:decide",
+        "telechir:dashboard:read",
         "telechir:devices:read",
+        "telechir:devices:revoke",
         "telechir:files:read",
         "telechir:files:write",
         "telechir:git:read",
@@ -95,6 +98,15 @@ describe("control-plane worker", () => {
 
   it("protects the MCP endpoint with OAuth", async () => {
     const response = await fetch("/mcp");
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get("www-authenticate")).toContain(
+      "resource_metadata=",
+    );
+  });
+
+  it("protects the Dashboard API with OAuth", async () => {
+    const response = await fetch("/dashboard/api/overview");
 
     expect(response.status).toBe(401);
     expect(response.headers.get("www-authenticate")).toContain(

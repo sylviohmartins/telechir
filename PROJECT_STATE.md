@@ -4,9 +4,9 @@
 
 ## Fase atual
 
-**Discovery concluído / Phases 0–9 concluídas / Phase 9 — Policy, Approvals and Audit concluída**
+**Discovery concluído / Phases 0–10 concluídas / Phase 10 — Dashboard concluída**
 
-A implementação possui Local Agent Core, control plane, identidade/pairing Ed25519, canal realtime outbound, Remote MCP/OAuth, seis typed filesystem tools, shell/process lifecycle, Basic Git read-only e governança de policy/approvals/audit com enforcement final no agent. A superfície MCP pública permanece com 16 tools; o projeto **não possui deploy de produção** e ainda não iniciou Dashboard/Phase 10.
+A implementação possui Local Agent Core, control plane, identidade/pairing Ed25519, canal realtime outbound, Remote MCP/OAuth, seis typed filesystem tools, shell/process lifecycle, Basic Git read-only, governança de policy/approvals/audit com enforcement final no agent e Dashboard MVP React/TypeScript. A superfície MCP pública permanece com 16 tools; o Dashboard adiciona somente uma API administrativa autenticada e ownership-scoped no control plane. O projeto **não possui deploy de produção**.
 
 ## Gates atuais
 
@@ -28,7 +28,8 @@ A implementação possui Local Agent Core, control plane, identidade/pairing Ed2
 - [x] Phase 7 — Shell/Process Lifecycle: **`PHASE_7_COMPLETE`**.
 - [x] Phase 8 — Basic Git: **`PHASE_8_COMPLETE`**.
 - [x] Phase 9 — Policy, Approvals and Audit: **`PHASE_9_COMPLETE`**.
-- [ ] Phase 10 — Dashboard iniciada.
+- [x] Phase 10 — Dashboard: **`PHASE_10_COMPLETE`**.
+- [ ] Phase 11 — ChatGPT public-plugin readiness iniciada.
 
 ## Decisões atuais
 
@@ -81,24 +82,26 @@ As avaliações relevantes estão em:
 - `docs/testing/acceptance/phase7-exit-review-2026-10-04.md`
 - `docs/testing/acceptance/phase8-exit-review-2026-10-04.md`
 - `docs/testing/acceptance/phase9-exit-review-2026-10-05.md`
+- `docs/testing/acceptance/phase10-exit-review-2026-10-05.md`
 - `docs/security/threat-model/phase9-policy-approvals-audit-2026-10-05.md`
+- `docs/security/threat-model/phase10-dashboard-2026-10-05.md`
 - `docs/research/cloudflare/phase2-revalidation-2026-10-02.md`
 - `docs/research/cloudflare/phase4-revalidation-2026-10-02.md`
 - `docs/research/mcp/phase5-revalidation-2026-10-02.md`
 
 Resultado atual:
 
-> **PHASE_9_COMPLETE**
+> **PHASE_10_COMPLETE**
 
-A Phase 9 implementa `ALLOW / ASK / DENY` local, risk floor, hard denies, approvals vinculados a command/session/permission/risk/argument digest/TTL, consumo `once`, `approval.request / approval.decision`, restrictions cloud somente restritivas e audit metadata mínima/redigida. Remote approval nunca vira local authority. O command context atual suporta restrictions account/device/session; workspace policy não é declarada operacional enquanto não existir `workspace_id` confiável no dispatch.
+A Phase 10 adiciona `apps/dashboard/` em React/TypeScript e uma API administrativa em `/dashboard/api/*` sem alterar os contratos ou a autoridade local do agent. Devices, sessions, command/process timeline, approvals, audit e usage/health são ownership-scoped. Approval decision reutiliza a governança da Phase 9; revoke reutiliza o fluxo que invalida identidade e encerra realtime. Os scopes `telechir:dashboard:read`, `telechir:approvals:decide` e `telechir:devices:revoke` impedem que bearer válido porém insuficiente ganhe autoridade administrativa.
 
-O agent passou em fmt/clippy, **81 testes** e compile checks Windows/macOS. O control plane passou em format/typecheck, **81 testes**, migrations `0001 + 0002 + 0003 + 0004` em D1 local limpa, Wrangler dry-run e `npm audit` sem vulnerabilidades. Nenhum deploy remoto foi executado e a Phase 10 não foi iniciada.
+O agent não sofreu mudanças e passou novamente em **81 testes Rust** de regressão/protocolo. O control plane passou em format/typecheck, **89 testes**, migrations `0001 + 0002 + 0003 + 0004` em D1 local limpa, Wrangler dry-run e `npm audit` sem vulnerabilidades. O Dashboard passou em format/typecheck, **2 testes de componente**, build de produção e `npm audit` com **0 vulnerabilidades**. Nenhum deploy remoto foi executado.
 
 ## Próximos trabalhos
 
-1. Em uma execução dedicada de build/test, iniciar **Phase 10 — Dashboard**, reutilizando a mesma pipeline de policy/approval/audit e sem bypass.
+1. Iniciar **Phase 11 — ChatGPT public-plugin readiness**, tratando distribuição, authorization UX e gates atuais da plataforma sem enfraquecer o resource server.
 2. Em paralelo, completar/reservar ativos comerciais de Telechir antes de lançamento.
-3. Manter os release gates de OpenAI, segurança operacional, signing e custos antes de beta/publicação.
+3. Manter os release gates de OpenAI, segurança operacional, signing, CSP/headers do Dashboard e custos antes de beta/publicação.
 
 ## Histórico
 

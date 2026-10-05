@@ -96,18 +96,30 @@ Control plane do Telechir em TypeScript para Cloudflare Workers.
 - remote approval nunca é enviado ao agent como autoridade local;
 - lifecycle de approvals com ownership, binding, TTL e consumo `once`;
 - `approval.request` do agent correlacionado a device/session/command/digest;
-- endpoint interno para `approval.decision` sem criar Dashboard/UX;
+- endpoint interno para `approval.decision`;
 - redispatch de approval local preserva o command original e ocorre somente após consumo do grant;
 - audit metadata mínima, bounded e redigida antes de persistir;
 - migration `0004_policy_approval_audit.sql` com índices operacionais.
 
+### Phase 10 — Dashboard
+
+- API autenticada sob `/dashboard/api/*`;
+- scopes dedicados `telechir:dashboard:read`, `telechir:approvals:decide` e `telechir:devices:revoke`;
+- overview ownership-scoped de devices, sessions, commands, approvals, audit e usage/health;
+- response DTO minimizado, sem argumentos brutos, bearer, secrets ou argument digest de approval;
+- approval decision reutiliza o `DeviceCoordinator`/governança da Phase 9;
+- approval expirado, decidido ou consumido falha antes de novo dispatch;
+- revoke exige confirmação explícita, ownership e reutiliza `revokeDeviceAndCloseRealtime`;
+- Dashboard React/TypeScript em `../dashboard/`;
+- nenhum endpoint cria autoridade local no agent.
+
 ## Boundaries de autenticação
 
-A Phase 5 implementa o resource-server boundary, e as Phases 6–9 reutilizam esse boundary para filesystem, process lifecycle, Git read-only e governança de policy/approvals/audit. O projeto não implementa authorization server próprio nem browser login.
+A Phase 5 implementa o resource-server boundary, e as Phases 6–10 reutilizam esse boundary para filesystem, process lifecycle, Git read-only, governança de policy/approvals/audit e Dashboard. O projeto não implementa authorization server próprio nem browser login.
 
 `PairingService.verifyUser(...)` recebe um `user_id` já autenticado. O futuro adapter browser/OAuth deverá chamar esse domínio sem alterar suas invariantes.
 
-Revogação também existe como operação de domínio, mas ainda não como dashboard/API pública autenticada.
+Revogação é exposta pela API autenticada do Dashboard com scope próprio, confirmação explícita e ownership obrigatório.
 
 ## Configuração sensível
 
@@ -127,11 +139,12 @@ Sem essas configurações, `/ready` falha fechado com `503`.
 
 Ainda não implementados:
 
-- dashboard/approval inbox público;
+- web terminal e screen viewer;
 - policy editor e workspace policy sem um `workspace_id` confiável no command context;
+- authorization server/browser login próprio;
 - Git mutável.
 
-Rotas administrativas como `/devices` e `/ws` continuam fechadas; `/mcp` é a superfície pública e, na Phase 9, mantém device info, filesystem typed tools, process lifecycle typed tools e Basic Git read-only. Policy/approvals/audit atuam na governança do dispatch sem adicionar uma nova tool pública.
+Rotas legadas como `/devices` e `/ws` continuam fechadas. `/mcp` mantém a superfície de 16 tools; `/dashboard/api/*` é uma superfície administrativa separada, protegida por bearer + scopes dedicados e sem bypass da governança.
 
 ## Desenvolvimento local
 
@@ -155,6 +168,6 @@ npm audit --audit-level=high
 - material público pendente vive em `pairings` antes de `ACTIVE`;
 - private key nunca sai do agent;
 - Durable Object coordena presence/conexão efêmera por device e usa attachment/storage para sobreviver à hibernação;
-- D1 continua a autoridade durável para identidade/revogação e, na Phase 9, para sessions, commands, approvals e audit metadata;
+- D1 continua a autoridade durável para identidade/revogação e, desde a Phase 9, para sessions, commands, approvals e audit metadata consumidos pelo Dashboard;
 - policy restrictions operacionais usam account/device/session; workspace permanece indisponível até existir identidade confiável no command context;
 - cloud nunca amplia a policy local do agent.
