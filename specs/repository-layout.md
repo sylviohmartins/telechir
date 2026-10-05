@@ -18,6 +18,18 @@ O monorepo deve separar runtime local, control plane e integrações. A estrutur
 └── .github/
 ```
 
+### Extensão pós-Phase 0 — distribuição OpenAI
+
+A Phase 11 adiciona, sem alterar os boundaries de runtime congelados acima:
+
+```text
+plugins/
+└── openai/
+    └── telechir/            # fonte de package/review para distribuição pública
+```
+
+Esse diretório é **distribution tooling**, não runtime do control plane nem adapter que executa comandos. Ele pode referenciar a superfície MCP pública, mas não possui acesso local ao sistema operacional, não contém credentials e não se torna fonte alternativa dos contratos de tools.
+
 ## Ownership
 
 ### `agent/`
@@ -57,6 +69,15 @@ Responsável por:
 - adaptação opcional de MCP Tasks.
 
 Não contém lógica de acesso local ao sistema operacional.
+
+### `plugins/openai/telechir/`
+Responsável por:
+- metadata/package source para distribuição OpenAI;
+- builder e validação fail-closed do ZIP público;
+- casos/checklists de review;
+- documentação de gates externos de submission.
+
+Não contém reviewer credentials, secrets de produção, release ZIP versionado nem autoridade operacional sobre o agent.
 
 ### `specs/`
 Fonte de verdade de:

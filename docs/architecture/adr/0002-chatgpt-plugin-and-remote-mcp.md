@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Data:** 2026-10-01
-- **Evidência atualizada:** 2026-10-01
+- **Evidência atualizada:** 2026-10-05
 
 ## Contexto
 
@@ -45,6 +45,12 @@ Isso valida a arquitetura de referência, sem garantir a aprovação futura do n
 - availability/capabilities podem variar por plano/surface;
 - quota não pode ser inferida;
 - tools específicas podem ser restringidas ou bloqueadas durante review.
+
+## Revalidação de 2026-10-05
+
+A arquitetura permanece válida. O fluxo oficial atual foi refinado: distribuição pública usa o diretório universal de plugins ChatGPT/Codex e um package ZIP; para novo package, o formato portátil `plugin.json + mcp.json` é o caminho recomendado. Remote MCP público exige endpoint HTTPS estável, domain verification, scan das tools, material de review e publisher identity verificada.
+
+Esses requisitos não alteram o boundary arquitetural da decisão; alteram o processo de release. A revalidação completa está em `docs/research/openai/phase11-public-plugin-revalidation-2026-10-05.md`.
 
 ## Release gates
 

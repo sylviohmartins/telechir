@@ -22,6 +22,7 @@ Este roadmap é intencionalmente gated. Ele descreve a ordem de maturação do p
 16. **Phase 8** — Basic Git concluída em 2026-10-04; exit review em `docs/testing/acceptance/phase8-exit-review-2026-10-04.md`.
 17. **Phase 9** — Policy, Approvals and Audit concluída em 2026-10-05; exit review em `docs/testing/acceptance/phase9-exit-review-2026-10-05.md`.
 18. **Phase 10** — Dashboard concluída em 2026-10-05; exit review em `docs/testing/acceptance/phase10-exit-review-2026-10-05.md`.
+19. **Phase 11** — ChatGPT/Codex public-plugin submission readiness concluída em 2026-10-05; publicação/aprovação permanecem gates externos. Exit review em `docs/testing/acceptance/phase11-exit-review-2026-10-05.md`.
 
 ## Fases após readiness
 
@@ -36,8 +37,8 @@ Este roadmap é intencionalmente gated. Ele descreve a ordem de maturação do p
 8. Basic Git — **concluída**
 9. Policy, approvals and audit — **concluída**
 10. Dashboard — **concluída**
-11. ChatGPT public-plugin readiness — **próxima fase**
-12. Sandbox mode
+11. ChatGPT public-plugin readiness — **concluída como submission readiness; publicação externa pendente**
+12. Sandbox mode — **próxima fase**
 13. Computer use
 14. Browser automation
 15. Multi-device/workspace concurrency

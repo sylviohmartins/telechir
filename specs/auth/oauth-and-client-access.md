@@ -2,7 +2,7 @@
 
 **Status:** baseline congelado na Phase 0; resource-server boundary implementado na Phase 5
 **Target:** Remote MCP público autenticado  
-**Verificado em:** 2026-10-02
+**Verificado em:** 2026-10-05
 
 ## 1. Separar duas identidades
 
@@ -52,6 +52,16 @@ Para ChatGPT/Codex, suportar o contrato MCP/OpenAI vigente:
 - `aud`/resource validado pelo MCP resource server.
 
 A implementação deve seguir a documentação oficial vigente na data do desenvolvimento, porque registration/callback details podem mudar.
+
+Para o fluxo OpenAI atual, o IdP/authorization server externo também deve ser preparado para OIDC quando workspace-domain restrictions forem usadas:
+
+- discovery OIDC público;
+- scopes `openid` e `email` anunciados/habilitados;
+- UserInfo Endpoint;
+- `email` retornado;
+- `email_verified: true`.
+
+Esses requisitos pertencem ao IdP. O Telechir continua sendo resource server e não deve implementar authorization server próprio só para satisfazer a integração OpenAI.
 
 ## 5. Scopes
 
@@ -125,11 +135,16 @@ Um futuro `get_profile` read-only pode ser adicionado para UX de múltiplas cont
 ## 10. Release gate OpenAI
 
 Antes do plugin público:
-- confirmar metadata/callback atuais;
-- scan do MCP;
-- validar annotations;
+- confirmar metadata/callback/client registration atuais;
+- gerar package público validado;
+- publicar endpoint HTTPS estável de produção;
+- concluir domain challenge;
+- scan do MCP de produção;
+- validar annotations/security schemes;
+- configurar OIDC `openid/email` + UserInfo quando aplicável;
 - testar OAuth com reviewer account;
-- confirmar availability em Plus;
+- preparar 5 positive + 3 negative review cases e demo recording;
+- confirmar availability em Plus no plugin próprio;
 - medir quota/metering.
 
 ## Fontes normativas atuais

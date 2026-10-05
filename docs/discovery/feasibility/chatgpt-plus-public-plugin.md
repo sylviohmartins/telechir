@@ -58,6 +58,12 @@ Ainda precisam de validação no nosso produto:
 - [ ] `OPENAI-PRODUCT-002`: nosso conjunto mínimo de tools write/process passa review e funciona na surface-alvo.
 - [ ] `OPENAI-QUOTA-001`: quota/metering medidos no plugin próprio.
 
+## Revalidação posterior — 2026-10-05
+
+A evidência empírica desta nota permanece histórica e válida para a conta/surface observada em 2026-10-01. O processo oficial de publicação foi revalidado em 2026-10-05 e agora está consolidado em `docs/research/openai/phase11-public-plugin-revalidation-2026-10-05.md`.
+
+A arquitetura plugin público + Remote MCP permanece suportada, mas o release do Telechir agora explicita package ZIP, `plugin.json + mcp.json`, domain verification, scan, exatamente 5 casos positivos + 3 negativos para MCP review, demo recording e gates de publisher/produção. Nada disso implica que o plugin Telechir já tenha sido submetido ou aprovado.
+
 ## Implicação
 
 O risco de viabilidade foi reduzido de **arquitetural** para **review/distribuição específica do produto**.

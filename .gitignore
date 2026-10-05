@@ -23,3 +23,12 @@ target/
 .dev.vars
 
 *.tsbuildinfo
+
+# OpenAI public plugin release artifacts and unversioned release inputs
+plugins/openai/telechir/dist/
+plugins/openai/telechir/release-config.json
+plugins/openai/telechir/release-readiness.json
+
+# Python bytecode
+__pycache__/
+*.py[cod]

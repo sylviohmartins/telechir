@@ -9,6 +9,7 @@ export interface Env {
   OAUTH_JWKS_URI?: string;
   OAUTH_SUBJECT_CLAIM?: string;
   OAUTH_SCOPE_CLAIM?: string;
+  OPENAI_APPS_CHALLENGE_TOKEN?: string;
   ARTIFACTS?: R2Bucket;
   TELEMETRY?: AnalyticsEngineDataset;
   ASYNC_TASKS?: Queue;

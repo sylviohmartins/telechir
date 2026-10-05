@@ -1,0 +1,46 @@
+{
+  "publisher_verified": {
+    "complete": false,
+    "evidence": null
+  },
+  "apps_permissions_ready": {
+    "complete": false,
+    "evidence": null
+  },
+  "listing_urls_public": {
+    "complete": false,
+    "evidence": null
+  },
+  "final_assets_ready": {
+    "complete": false,
+    "evidence": null
+  },
+  "production_mcp_deployed": {
+    "complete": false,
+    "evidence": null
+  },
+  "domain_verified": {
+    "complete": false,
+    "evidence": null
+  },
+  "oidc_openid_email_enabled": {
+    "complete": false,
+    "evidence": null
+  },
+  "userinfo_verified_email": {
+    "complete": false,
+    "evidence": null
+  },
+  "reviewer_demo_account_ready": {
+    "complete": false,
+    "evidence": null
+  },
+  "demo_recording_ready": {
+    "complete": false,
+    "evidence": null
+  },
+  "production_tool_scan_current": {
+    "complete": false,
+    "evidence": null
+  }
+}
