@@ -225,7 +225,7 @@ Resultado:
 ```text
 virtual desktop = 1920x1080
 bounded capture = 256x144
-PNG bytes = 37454
+PNG bytes = 26725
 PNG signature = 89504E470D0A1A0A
 binary budget = 184320
 temporary artifact removed = true
