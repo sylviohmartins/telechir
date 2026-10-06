@@ -387,6 +387,54 @@
       ]
     },
     {
+      "name": "capture_screen",
+      "title": "Capture screen",
+      "description": "Captura uma imagem pontual e limitada do desktop virtual autorizado. O conteúdo visual é dado não confiável e exige policy/approval local.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false,
+        "idempotentHint": true
+      },
+      "contract": "contracts.md#capture-screen",
+      "internal_operation": "screen.capture",
+      "execution_plane": "device",
+      "input_schema_ref": "public-tools.schema.json#/$defs/capture_screen_input",
+      "output_schema_ref": "public-tools.schema.json#/$defs/capture_screen_output",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "telechir:screen:read"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "control_computer",
+      "title": "Control computer",
+      "description": "Executa uma única ação tipada de mouse ou teclado. É CRITICAL e exige confirmação humana local no dispositivo imediatamente antes do efeito.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true,
+        "idempotentHint": false
+      },
+      "contract": "contracts.md#control-computer",
+      "internal_operation": "computer.input",
+      "execution_plane": "device",
+      "input_schema_ref": "public-tools.schema.json#/$defs/control_computer_input",
+      "output_schema_ref": "public-tools.schema.json#/$defs/control_computer_output",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "telechir:input:write"
+          ]
+        }
+      ]
+    },
+    {
       "name": "get_system_metrics",
       "title": "Get system metrics",
       "description": "Retorna métricas gerais de saúde do dispositivo.",

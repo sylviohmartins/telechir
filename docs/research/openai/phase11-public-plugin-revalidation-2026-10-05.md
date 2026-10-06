@@ -127,7 +127,7 @@ Todas as tools precisam:
 - `destructiveHint` explícito;
 - `openWorldHint` explícito.
 
-As 16 tools atuais já materializam essas annotations a partir de `specs/tools/tool-catalog.json`.
+A Phase 11 validou 16 tools naquele momento. Após a Phase 13, a superfície corrente passa a 18 tools; `capture_screen` e `control_computer` seguem os mesmos requisitos de annotations/security schemes e o tooling de package foi atualizado para exigir cobertura exata da superfície atual.
 
 ### Observação sobre justification
 

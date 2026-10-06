@@ -15,6 +15,8 @@ const SANDBOX_MEMORY_MIB_ENV: &str = "TELECHIR_SANDBOX_MEMORY_MIB";
 const SANDBOX_CPU_MILLIS_ENV: &str = "TELECHIR_SANDBOX_CPU_MILLIS";
 const SANDBOX_PIDS_LIMIT_ENV: &str = "TELECHIR_SANDBOX_PIDS_LIMIT";
 const SANDBOX_TMPFS_MIB_ENV: &str = "TELECHIR_SANDBOX_TMPFS_MIB";
+const COMPUTER_SCREEN_ENABLED_ENV: &str = "TELECHIR_COMPUTER_SCREEN_ENABLED";
+const COMPUTER_INPUT_ENABLED_ENV: &str = "TELECHIR_COMPUTER_INPUT_ENABLED";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AgentConfig {
@@ -22,6 +24,8 @@ pub struct AgentConfig {
     pub max_recent_commands: usize,
     pub limits: ConnectionLimits,
     pub sandbox: Option<DockerSandboxConfig>,
+    pub computer_screen_enabled: bool,
+    pub computer_input_enabled: bool,
 }
 
 impl Default for AgentConfig {
@@ -31,6 +35,8 @@ impl Default for AgentConfig {
             max_recent_commands: 1024,
             limits: ConnectionLimits::default(),
             sandbox: None,
+            computer_screen_enabled: false,
+            computer_input_enabled: false,
         }
     }
 }
@@ -68,6 +74,9 @@ impl AgentConfig {
             ));
         }
 
+        let computer_screen_enabled = optional_bool(&lookup, COMPUTER_SCREEN_ENABLED_ENV, false)?;
+        let computer_input_enabled = optional_bool(&lookup, COMPUTER_INPUT_ENABLED_ENV, false)?;
+
         let sandbox = if enabled {
             let docker_binary = required_setting(&lookup, SANDBOX_DOCKER_BINARY_ENV)?;
             let image = required_setting(&lookup, SANDBOX_IMAGE_ENV)?;
@@ -87,6 +96,8 @@ impl AgentConfig {
 
         let config = Self {
             sandbox,
+            computer_screen_enabled,
+            computer_input_enabled,
             ..Self::default()
         };
         config.validate()?;
@@ -110,6 +121,11 @@ impl AgentConfig {
                 .validate()
                 .map_err(ConfigError::InvalidSandboxConfig)?;
         }
+        if (self.computer_screen_enabled || self.computer_input_enabled) && !cfg!(windows) {
+            return Err(ConfigError::InvalidComputerUseConfig(
+                "computer use is implemented only for Windows in Phase 13".to_owned(),
+            ));
+        }
         Ok(())
     }
 
@@ -125,6 +141,22 @@ impl AgentConfig {
         {
             capabilities.push(SANDBOX_CAPABILITY.to_owned());
         }
+        if self.computer_screen_enabled
+            && cfg!(windows)
+            && !capabilities
+                .iter()
+                .any(|capability| capability == crate::computer::SCREEN_CAPTURE_CAPABILITY)
+        {
+            capabilities.push(crate::computer::SCREEN_CAPTURE_CAPABILITY.to_owned());
+        }
+        if self.computer_input_enabled
+            && cfg!(windows)
+            && !capabilities
+                .iter()
+                .any(|capability| capability == crate::computer::INPUT_CONTROL_CAPABILITY)
+        {
+            capabilities.push(crate::computer::INPUT_CONTROL_CAPABILITY.to_owned());
+        }
     }
 }
 
@@ -137,6 +169,20 @@ where
         .ok_or_else(|| {
             ConfigError::InvalidSandboxConfig(format!("{name} is required when sandbox is enabled"))
         })
+}
+
+fn optional_bool<F>(lookup: &F, name: &str, default: bool) -> Result<bool, ConfigError>
+where
+    F: Fn(&str) -> Option<String>,
+{
+    match lookup(name).as_deref() {
+        None | Some("") => Ok(default),
+        Some("true") => Ok(true),
+        Some("false") => Ok(false),
+        Some(_) => Err(ConfigError::InvalidComputerUseConfig(format!(
+            "{name} must be true or false"
+        ))),
+    }
 }
 
 fn optional_number<T, F>(lookup: &F, name: &str, default: T) -> Result<T, ConfigError>
@@ -162,6 +208,8 @@ pub enum ConfigError {
     InvalidConnectionLimits(String),
     #[error("invalid sandbox configuration: {0}")]
     InvalidSandboxConfig(String),
+    #[error("invalid computer-use configuration: {0}")]
+    InvalidComputerUseConfig(String),
 }
 
 #[cfg(test)]
@@ -176,6 +224,8 @@ mod tests {
         let config = AgentConfig::default();
         config.validate().unwrap();
         assert!(!config.sandbox_enabled());
+        assert!(!config.computer_screen_enabled);
+        assert!(!config.computer_input_enabled);
     }
 
     #[test]
@@ -204,6 +254,18 @@ mod tests {
         settings.insert(SANDBOX_ENABLED_ENV.to_owned(), "true".to_owned());
         let error = AgentConfig::from_lookup(|name| settings.get(name).cloned()).unwrap_err();
         assert!(matches!(error, ConfigError::InvalidSandboxConfig(_)));
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn computer_use_configuration_fails_closed_on_unsupported_platform() {
+        let settings = HashMap::from([
+            (COMPUTER_SCREEN_ENABLED_ENV.to_owned(), "true".to_owned()),
+            (COMPUTER_INPUT_ENABLED_ENV.to_owned(), "true".to_owned()),
+        ]);
+
+        let error = AgentConfig::from_lookup(|name| settings.get(name).cloned()).unwrap_err();
+        assert!(matches!(error, ConfigError::InvalidComputerUseConfig(_)));
     }
 
     #[test]

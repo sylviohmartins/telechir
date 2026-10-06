@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+pub mod computer;
 pub mod config;
 pub mod executor;
 pub mod filesystem;
@@ -13,6 +14,7 @@ pub mod protocol;
 pub mod realtime;
 pub mod sandbox;
 
+pub use computer::{ComputerExecutor, INPUT_CONTROL_CAPABILITY, SCREEN_CAPTURE_CAPABILITY};
 pub use config::AgentConfig;
 pub use executor::LocalCommandExecutor;
 pub use filesystem::{FILESYSTEM_CAPABILITIES, FilesystemExecutor, FilesystemPolicy};

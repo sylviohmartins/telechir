@@ -145,8 +145,10 @@ describe("OAuth resource server", () => {
         "telechir:files:read",
         "telechir:files:write",
         "telechir:git:read",
+        "telechir:input:write",
         "telechir:processes:read",
         "telechir:processes:write",
+        "telechir:screen:read",
       ],
     });
   });

@@ -8,6 +8,12 @@ import {
   type OAuthTokenVerifier,
 } from "@modelcontextprotocol/server";
 
+import {
+  ComputerToolsError,
+  ComputerToolsService,
+  PHASE13_COMPUTER_TOOL_NAMES,
+  type ComputerToolName,
+} from "./computer-tools";
 import { DeviceToolsError, DeviceToolsService } from "./device-tools";
 import type { Env } from "./env";
 import type { CallerContext } from "./governance";
@@ -18,7 +24,7 @@ import {
   type FilesystemToolName,
 } from "./filesystem-tools";
 import {
-  PHASE8_TOOLS,
+  PHASE13_TOOLS,
   publicSchema,
   type PublicToolDefinition,
 } from "./mcp-catalog";
@@ -183,6 +189,49 @@ function toolFailure(error: unknown) {
           text:
             safe.get(error.code) ??
             "The Telechir process operation could not be completed.",
+        },
+      ],
+      isError: true,
+    };
+  }
+
+  if (error instanceof ComputerToolsError) {
+    const safe = new Map<string, string>([
+      ["NOT_FOUND", "The device was not found."],
+      ["DEVICE_OFFLINE", "The selected device is offline."],
+      [
+        "UNSUPPORTED_CAPABILITY",
+        "The selected device does not support this computer-use operation.",
+      ],
+      [
+        "POLICY_DENIED",
+        "The local device policy or local user denied this computer-use operation.",
+      ],
+      [
+        "APPROVAL_REQUIRED",
+        "This computer-use request requires explicit Telechir approval; remote approval never replaces local CRITICAL confirmation when input control is requested.",
+      ],
+      [
+        "CONFLICT",
+        "The computer state changed before the action could complete.",
+      ],
+      [
+        "OUTPUT_TRUNCATED",
+        "The screen capture exceeded the bounded output limit.",
+      ],
+      [
+        "DEADLINE_EXCEEDED",
+        "The computer-use operation exceeded its deadline.",
+      ],
+      ["INVALID_ARGUMENT", "The computer-use request is invalid."],
+    ]);
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text:
+            safe.get(error.code) ??
+            "The Telechir computer-use operation could not be completed.",
         },
       ],
       isError: true,
@@ -420,6 +469,82 @@ function registerProcessTool(
   );
 }
 
+function registerComputerTool(
+  server: McpServer,
+  env: Env,
+  tool: PublicToolDefinition,
+): void {
+  if (!PHASE13_COMPUTER_TOOL_NAMES.includes(tool.name as ComputerToolName)) {
+    throw new Error(`unexpected computer-use tool: ${tool.name}`);
+  }
+
+  const scopes = tool.securitySchemes.flatMap((scheme) => scheme.scopes);
+  server.registerTool(
+    tool.name,
+    {
+      title: tool.title,
+      description: tool.description,
+      inputSchema: fromJsonSchema(publicSchema(tool.input_schema_ref)),
+      outputSchema: fromJsonSchema(publicSchema(tool.output_schema_ref)),
+      annotations: tool.annotations,
+      _meta: {
+        securitySchemes: tool.securitySchemes,
+      },
+      scopeChallenge: scopedChallenge(scopes),
+    },
+    async (args, ctx) => {
+      try {
+        const userId = telechirUserId(ctx.http?.authInfo);
+        if (!args || typeof args !== "object" || Array.isArray(args)) {
+          throw new ComputerToolsError(
+            "INVALID_ARGUMENT",
+            "Computer-use tool arguments must be an object",
+          );
+        }
+
+        const output = await new ComputerToolsService(
+          env.DB,
+          env.DEVICE_COORDINATOR,
+        ).execute(
+          userId,
+          tool.name as ComputerToolName,
+          args as Record<string, unknown>,
+          callerContext(ctx.http?.authInfo),
+        );
+
+        if (tool.name === "capture_screen") {
+          const data = output.data_base64;
+          const mediaType = output.media_type;
+          if (typeof data !== "string" || typeof mediaType !== "string") {
+            throw new ComputerToolsError(
+              "INTERNAL_ERROR",
+              "Screen capture result is missing bounded image content",
+            );
+          }
+          const { data_base64: _omittedImagePayload, ...metadata } = output;
+          return {
+            content: [
+              {
+                type: "image" as const,
+                data,
+                mimeType: mediaType,
+              },
+            ],
+            structuredContent: metadata,
+          };
+        }
+
+        return {
+          content: [{ type: "text", text: jsonText(output) }],
+          structuredContent: output,
+        };
+      } catch (error) {
+        return toolFailure(error);
+      }
+    },
+  );
+}
+
 function registerGitTool(
   server: McpServer,
   env: Env,
@@ -480,7 +605,7 @@ export function createTelechirMcpServer(env: Env): McpServer {
     title: "Telechir",
   });
 
-  for (const tool of PHASE8_TOOLS) {
+  for (const tool of PHASE13_TOOLS) {
     switch (tool.name) {
       case "list_devices":
         registerListDevices(server, env, tool);
@@ -508,6 +633,10 @@ export function createTelechirMcpServer(env: Env): McpServer {
       case "get_git_diff":
         registerGitTool(server, env, tool);
         break;
+      case "capture_screen":
+      case "control_computer":
+        registerComputerTool(server, env, tool);
+        break;
       default:
         throw new Error(`unexpected enabled MCP tool: ${tool.name}`);
     }
@@ -534,7 +663,7 @@ async function materializeOpenAiSecuritySchemes(
   }
 
   const catalogByName = new Map(
-    PHASE8_TOOLS.map((tool) => [tool.name, tool.securitySchemes]),
+    PHASE13_TOOLS.map((tool) => [tool.name, tool.securitySchemes]),
   );
 
   const visit = (value: unknown): void => {

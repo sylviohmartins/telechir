@@ -141,7 +141,7 @@ Isso evita que agentes ou colaboradores futuros confundam o documento mais recen
 
 ## 10. Da especificação ao vertical slice executável (2026-10-02 → 2026-10-05)
 
-Após o discovery, o projeto atravessou as Phases 0–12 em sequência gated:
+Após o discovery, o projeto atravessou as Phases 0–13 em sequência gated:
 
 - Phase 0 congelou repository/protocol specifications;
 - Phase 1 implementou o Local Agent Core;
@@ -151,7 +151,8 @@ Após o discovery, o projeto atravessou as Phases 0–12 em sequência gated:
 - Phase 9 materializou policy/approvals/audit com autoridade final local;
 - Phase 10 adicionou o Dashboard MVP;
 - Phase 11 revalidou a distribuição pública OpenAI e criou package/review tooling fail-closed;
-- Phase 12 adicionou sandbox Docker opt-in para process tools sem ampliar a autoridade local.
+- Phase 12 adicionou sandbox Docker opt-in para process tools sem ampliar a autoridade local;
+- Phase 13 adicionou Computer use tipado/bounded no Windows, com captura one-shot HIGH e input single-action CRITICAL com confirmação local.
 
 A Phase 11 confirmou que a arquitetura definida na correção de viabilidade continuava válida, mas atualizou o processo de release para o fluxo corrente de package ZIP, `plugin.json + mcp.json`, domain verification, tool scan e review estruturado.
 
@@ -171,9 +172,20 @@ Registros:
 - `docs/security/threat-model/phase12-sandbox-mode-2026-10-05.md`
 - `docs/research/docker/phase12-sandbox-revalidation-2026-10-05.md`
 
-## 12. Estado atual
+## 12. Computer use com confirmação local (2026-10-05 → 2026-10-06)
 
-O projeto está em **`PHASE_12_COMPLETE`** no nível do repositório: runtime local/control plane/Dashboard existem, os materiais versionáveis de package/review OpenAI estão preparados e as process tools podem selecionar explicitamente `guarded_host` ou sandbox Docker em devices configurados.
+A Phase 13 materializou a primeira superfície GUI do Telechir sem introduzir remote desktop genérico. A decisão foi dividir observação e ação: `capture_screen` é one-shot/HIGH; `control_computer` executa uma única ação CRITICAL por command e depende de confirmação humana local no device.
+
+O primeiro adapter é Windows. O crate principal manteve `forbid(unsafe_code)` e o Win32 FFI foi isolado em `agent/platform/windows-computer/`. macOS/Linux permaneceram capability-unavailable até que adapters com mecanismos de consentimento nativos sejam implementados.
+
+Registros:
+- `docs/testing/acceptance/phase13-exit-review-2026-10-06.md`
+- `docs/security/threat-model/phase13-computer-use-2026-10-05.md`
+- `docs/research/computer-use/phase13-platform-revalidation-2026-10-05.md`
+
+## 13. Estado atual
+
+O projeto está em **`PHASE_13_COMPLETE`** no nível do repositório: runtime local/control plane/Dashboard existem, os materiais versionáveis de package/review OpenAI estão preparados, process tools podem selecionar guarded host/sandbox e Computer use Windows está disponível apenas quando capabilities locais são explicitamente habilitadas.
 
 Isso não significa produção ou publicação. Permanecem abertos:
 
@@ -188,8 +200,9 @@ Isso não significa produção ou publicação. Permanecem abertos:
 9. validação de availability do plugin próprio no Plus;
 10. quota/metering;
 11. code signing/update path e demais release hardening;
-12. hardening adicional de sandbox, como rootless/userns, quota de storage e orphan reconciliation, antes de tratar código arbitrário hostil como caso forte.
+12. hardening adicional de sandbox, como rootless/userns, quota de storage e orphan reconciliation, antes de tratar código arbitrário hostil como caso forte;
+13. adapters macOS/Linux de Computer use, screen streaming e target-window binding continuam futuros.
 
-O próximo item de implementação do roadmap é **Phase 13 — Computer use**.
+O próximo item de implementação do roadmap é **Phase 14 — Browser automation**.
 
 Artefatos históricos nunca devem ser silenciosamente reescritos para refletir decisões novas. Conclusões novas substituem antigas por documentação viva, exit reviews e ADRs.

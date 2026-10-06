@@ -1,6 +1,6 @@
 # Authorization, Risk and Approvals
 
-**Status:** Phase 0
+**Status:** baseline Phase 0 + evolução compatível até Phase 13
 
 ## 1. Invariante
 
@@ -26,13 +26,15 @@ ELEVATION
 ADMIN
 \`\`\`
 
-MVP usa principalmente:
+A superfície implementada usa principalmente:
 - FS_READ
 - FS_WRITE
 - SHELL_SAFE/SHELL_FULL
 - PROCESS_CONTROL
-- NETWORK
+- NETWORK como domínio explicitamente negado quando não autorizado
 - Git read sem permission de write específica
+- SCREEN_READ para captura one-shot da Phase 13
+- INPUT_CONTROL para uma única ação tipada de computer use na Phase 13
 
 ## 3. Decisão
 
@@ -80,7 +82,8 @@ Exemplos:
 - package install;
 - network write;
 - futura criação de commit;
-- alteração extensa.
+- alteração extensa;
+- captura de tela da Phase 13, por envolver conteúdo visual potencialmente sensível.
 
 ### CRITICAL
 Privilégio, destruição ampla ou alteração sistêmica.
@@ -89,7 +92,8 @@ Exemplos:
 - elevation;
 - mass delete;
 - disk/system configuration;
-- credential store manipulation.
+- credential store manipulation;
+- input sintético de mouse/teclado da Phase 13, porque pode disparar side effects em aplicações locais ou externas.
 
 CRITICAL = local confirmation obrigatória ou DENY por default.
 
@@ -134,6 +138,25 @@ REQUESTED
 - CRITICAL é local-only por default.
 
 Um approval exibido pela plataforma de IA não substitui o approval do Telechir quando a local policy exige ambos.
+
+### Phase 13 — computer use
+
+`screen.capture`:
+- exige exatamente `SCREEN_READ`;
+- risco local mínimo HIGH;
+- pode seguir o approval Telechir bounded/TTL já existente;
+- imagem é untrusted data e não é copiada para audit metadata.
+
+`computer.input`:
+- exige exatamente `INPUT_CONTROL`;
+- risco local mínimo CRITICAL;
+- não aceita `approval_id` remoto como substituto;
+- exige confirmação humana local no device imediatamente antes do efeito;
+- confirmation binding inclui session, argument digest e TTL de 30 segundos;
+- mudança de action/coordinates/key/text altera o digest e invalida o binding;
+- se o prompt local não puder ser exibido, expirar ou for negado, o efeito não ocorre.
+
+O prompt local mostra apenas resumo bounded da ação e digest. Conteúdo de `type_text` não é exibido no prompt, reduzindo exposição e spoofing por texto não confiável.
 
 ## 9. Risk engine
 
@@ -184,3 +207,9 @@ Registrar:
 - result.
 
 Não registrar secret value ou conteúdo completo de arquivo por default.
+
+Na Phase 13 também não registrar:
+- bytes/base64 da screenshot;
+- texto completo de `type_text`;
+- raw input payload em audit metadata;
+- conteúdo visual inferido da captura.

@@ -150,7 +150,8 @@
                   "shell.exec",
                   "process.start",
                   "process.write",
-                  "process.cancel"
+                  "process.cancel",
+                  "computer.input"
                 ]
               }
             },
@@ -449,6 +450,8 @@
         "process.list",
         "git.status",
         "git.diff",
+        "screen.capture",
+        "computer.input",
         "system.metrics"
       ]
     },

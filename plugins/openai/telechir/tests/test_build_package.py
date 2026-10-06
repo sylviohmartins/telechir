@@ -239,6 +239,8 @@ class PackageBuilderTests(unittest.TestCase):
             "list_managed_processes",
             "get_git_status",
             "get_git_diff",
+            "capture_screen",
+            "control_computer",
         }
         self.assertEqual(set(review["tools"]), expected)
 

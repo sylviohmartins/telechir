@@ -15,6 +15,7 @@ use crate::protocol::{
 
 pub const LOCAL_POLICY_REVISION: &str = "phase9-default-v1";
 pub const APPROVAL_TTL_SECONDS: i64 = 60;
+const LOCAL_CRITICAL_TTL_SECONDS: i64 = 30;
 const MAX_LOCAL_AUDIT_EVENTS: usize = 256;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -47,6 +48,14 @@ struct ApprovalGrant {
     scope: ApprovalScope,
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct LocalCriticalAuthorization {
+    pub(crate) request: CommandRequest,
+    pub(crate) session_id: String,
+    pub(crate) argument_digest: String,
+    pub(crate) expires_at: DateTime<Utc>,
+}
+
 #[derive(Debug, Default)]
 pub struct LocalPolicyEngine {
     pending: HashMap<String, ApprovalBinding>,
@@ -70,6 +79,18 @@ impl LocalPolicyEngine {
                 return AuthorizationOutcome::Deny(error);
             }
         };
+
+        if let Err(error) = validate_phase_permission_operation(&prepared) {
+            self.record(
+                "POLICY_DENIED",
+                &prepared,
+                PolicyDecision::Deny,
+                prepared.approval_id.as_deref(),
+                &digest,
+                now,
+            );
+            return AuthorizationOutcome::Deny(error);
+        }
 
         if let Some(permission) = prepared
             .requested_permissions
@@ -145,6 +166,159 @@ impl LocalPolicyEngine {
         );
         AuthorizationOutcome::Allow {
             request: prepared,
+            approval_verified: false,
+        }
+    }
+
+    pub(crate) fn prepare_local_critical(
+        &mut self,
+        request: &CommandRequest,
+        session_id: Option<&str>,
+        now: DateTime<Utc>,
+    ) -> Result<LocalCriticalAuthorization, TelechirError> {
+        let mut prepared = request.clone();
+        prepared.risk = max_risk(request.risk, minimum_risk(request.operation));
+        let digest = command_argument_digest(&prepared)?;
+
+        if let Err(error) = validate_phase_permission_operation(&prepared) {
+            self.record(
+                "POLICY_DENIED",
+                &prepared,
+                PolicyDecision::Deny,
+                prepared.approval_id.as_deref(),
+                &digest,
+                now,
+            );
+            return Err(error);
+        }
+
+        if let Some(permission) = prepared
+            .requested_permissions
+            .iter()
+            .copied()
+            .find(|permission| hard_denied_permission(*permission))
+        {
+            let error = policy_error(format!(
+                "permission {} is outside the local authority ceiling",
+                permission.as_str()
+            ));
+            self.record(
+                "POLICY_DENIED",
+                &prepared,
+                PolicyDecision::Deny,
+                prepared.approval_id.as_deref(),
+                &digest,
+                now,
+            );
+            return Err(error);
+        }
+
+        if prepared.risk != RiskLevel::Critical {
+            let error = policy_error(
+                "local critical confirmation path is reserved for CRITICAL operations",
+            );
+            self.record(
+                "POLICY_DENIED",
+                &prepared,
+                PolicyDecision::Deny,
+                prepared.approval_id.as_deref(),
+                &digest,
+                now,
+            );
+            return Err(error);
+        }
+        if prepared.approval_id.is_some() {
+            let error =
+                policy_error("CRITICAL local confirmation cannot be substituted by an approval_id");
+            self.record(
+                "POLICY_DENIED",
+                &prepared,
+                PolicyDecision::Deny,
+                prepared.approval_id.as_deref(),
+                &digest,
+                now,
+            );
+            return Err(error);
+        }
+        let Some(session_id) = valid_session_id(session_id) else {
+            let error = policy_error("CRITICAL computer input requires a bounded session identity");
+            self.record(
+                "POLICY_DENIED",
+                &prepared,
+                PolicyDecision::Deny,
+                None,
+                &digest,
+                now,
+            );
+            return Err(error);
+        };
+
+        Ok(LocalCriticalAuthorization {
+            request: prepared,
+            session_id: session_id.to_owned(),
+            argument_digest: digest,
+            expires_at: now + Duration::seconds(LOCAL_CRITICAL_TTL_SECONDS),
+        })
+    }
+
+    pub(crate) fn finish_local_critical(
+        &mut self,
+        authorization: LocalCriticalAuthorization,
+        confirmed: bool,
+        session_id: Option<&str>,
+        now: DateTime<Utc>,
+    ) -> AuthorizationOutcome {
+        if valid_session_id(session_id) != Some(authorization.session_id.as_str()) {
+            return AuthorizationOutcome::Deny(policy_error(
+                "CRITICAL local confirmation session binding changed before execution",
+            ));
+        }
+        if now > authorization.expires_at {
+            return AuthorizationOutcome::Deny(policy_error(
+                "CRITICAL local confirmation expired before execution",
+            ));
+        }
+        let digest = match command_argument_digest(&authorization.request) {
+            Ok(value) => value,
+            Err(error) => return AuthorizationOutcome::Deny(error),
+        };
+        if digest != authorization.argument_digest {
+            let error =
+                policy_error("CRITICAL local confirmation binding changed before execution");
+            self.record(
+                "POLICY_DENIED",
+                &authorization.request,
+                PolicyDecision::Deny,
+                None,
+                &digest,
+                now,
+            );
+            return AuthorizationOutcome::Deny(error);
+        }
+
+        if !confirmed {
+            let error = policy_error("CRITICAL operation was not approved on the local device");
+            self.record(
+                "LOCAL_CONFIRMATION_DENIED",
+                &authorization.request,
+                PolicyDecision::Deny,
+                None,
+                &digest,
+                now,
+            );
+            return AuthorizationOutcome::Deny(error);
+        }
+
+        self.record(
+            "LOCAL_CONFIRMATION_APPROVED",
+            &authorization.request,
+            PolicyDecision::Allow,
+            None,
+            &digest,
+            now,
+        );
+        AuthorizationOutcome::Allow {
+            request: authorization.request,
             approval_verified: false,
         }
     }
@@ -417,12 +591,15 @@ pub const fn minimum_risk(operation: CommandOperation) -> RiskLevel {
         | CommandOperation::ProcessStart
         | CommandOperation::ProcessWrite
         | CommandOperation::ProcessCancel => RiskLevel::Medium,
+        CommandOperation::ScreenCapture => RiskLevel::High,
+        CommandOperation::ComputerInput => RiskLevel::Critical,
         _ => RiskLevel::Low,
     }
 }
 
 fn approval_permission(request: &CommandRequest) -> PermissionDomain {
-    const PRIORITY: [PermissionDomain; 4] = [
+    const PRIORITY: [PermissionDomain; 5] = [
+        PermissionDomain::ScreenRead,
         PermissionDomain::ShellSafe,
         PermissionDomain::FsWrite,
         PermissionDomain::ProcessControl,
@@ -443,13 +620,48 @@ fn hard_denied_permission(permission: PermissionDomain) -> bool {
             | PermissionDomain::Network
             | PermissionDomain::GitWrite
             | PermissionDomain::GitRemoteWrite
-            | PermissionDomain::ScreenRead
-            | PermissionDomain::InputControl
             | PermissionDomain::Browser
             | PermissionDomain::SecretUse
             | PermissionDomain::Elevation
             | PermissionDomain::Admin
     )
+}
+
+fn validate_phase_permission_operation(request: &CommandRequest) -> Result<(), TelechirError> {
+    let exact = match request.operation {
+        CommandOperation::ScreenCapture => Some(PermissionDomain::ScreenRead),
+        CommandOperation::ComputerInput => Some(PermissionDomain::InputControl),
+        _ => None,
+    };
+    if let Some(required) = exact
+        && request.requested_permissions.as_slice() != [required]
+    {
+        return Err(policy_error(format!(
+            "operation {} requires exactly permission {}",
+            request.operation.as_str(),
+            required.as_str()
+        )));
+    }
+
+    if request
+        .requested_permissions
+        .contains(&PermissionDomain::ScreenRead)
+        && request.operation != CommandOperation::ScreenCapture
+    {
+        return Err(policy_error(
+            "SCREEN_READ is valid only for the screen.capture operation",
+        ));
+    }
+    if request
+        .requested_permissions
+        .contains(&PermissionDomain::InputControl)
+        && request.operation != CommandOperation::ComputerInput
+    {
+        return Err(policy_error(
+            "INPUT_CONTROL is valid only for the computer.input operation",
+        ));
+    }
+    Ok(())
 }
 
 const fn max_risk(left: RiskLevel, right: RiskLevel) -> RiskLevel {
@@ -493,7 +705,7 @@ fn policy_error(message: impl Into<String>) -> TelechirError {
 
 #[cfg(test)]
 mod tests {
-    use serde_json::json;
+    use serde_json::{Value, json};
 
     use super::*;
 
@@ -631,5 +843,156 @@ mod tests {
             policy.authorize(&retry, Some("session_phase9"), after_expiry),
             AuthorizationOutcome::Deny(_)
         ));
+    }
+
+    fn computer_request(
+        operation: CommandOperation,
+        permission: PermissionDomain,
+        risk: RiskLevel,
+        arguments: Value,
+    ) -> CommandRequest {
+        CommandRequest {
+            command_id: "cmd_policy_phase13".to_owned(),
+            idempotency_key: operation
+                .has_side_effect()
+                .then(|| "idem_policy_phase13".to_owned()),
+            operation,
+            arguments: arguments.as_object().unwrap().clone(),
+            requested_permissions: vec![permission],
+            risk,
+            workspace_id: None,
+            approval_id: None,
+        }
+    }
+
+    #[test]
+    fn screen_capture_is_raised_to_high_and_remains_approval_bound() {
+        let mut policy = LocalPolicyEngine::default();
+        let request = computer_request(
+            CommandOperation::ScreenCapture,
+            PermissionDomain::ScreenRead,
+            RiskLevel::Low,
+            json!({"max_width":256,"max_height":144}),
+        );
+        let authorization = policy.authorize(&request, Some("session_phase13"), Utc::now());
+        assert!(matches!(authorization, AuthorizationOutcome::Ask(_)));
+    }
+
+    #[test]
+    fn computer_input_requires_local_critical_path_and_rejects_remote_approval_id() {
+        let now = Utc::now();
+        let mut policy = LocalPolicyEngine::default();
+        let mut request = computer_request(
+            CommandOperation::ComputerInput,
+            PermissionDomain::InputControl,
+            RiskLevel::Low,
+            json!({"action":{"kind":"move_pointer","x":10,"y":20}}),
+        );
+
+        assert!(matches!(
+            policy.authorize(&request, Some("session_phase13"), now),
+            AuthorizationOutcome::Deny(TelechirError {
+                code: ErrorCode::PolicyDenied,
+                ..
+            })
+        ));
+
+        request.approval_id = Some("approval_remote_should_not_apply".to_owned());
+        assert!(matches!(
+            policy.prepare_local_critical(&request, Some("session_phase13"), now),
+            Err(TelechirError {
+                code: ErrorCode::PolicyDenied,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn local_critical_confirmation_is_argument_digest_bound() {
+        let now = Utc::now();
+        let mut policy = LocalPolicyEngine::default();
+        let request = computer_request(
+            CommandOperation::ComputerInput,
+            PermissionDomain::InputControl,
+            RiskLevel::Critical,
+            json!({"action":{"kind":"click","x":100,"y":200,"button":"left","click_count":1}}),
+        );
+        let mut prepared = policy
+            .prepare_local_critical(&request, Some("session_phase13"), now)
+            .unwrap();
+
+        prepared.request.arguments.insert(
+            "action".to_owned(),
+            json!({"kind":"click","x":101,"y":200,"button":"left","click_count":1}),
+        );
+        assert!(matches!(
+            policy.finish_local_critical(prepared, true, Some("session_phase13"), now),
+            AuthorizationOutcome::Deny(TelechirError {
+                code: ErrorCode::PolicyDenied,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn local_critical_confirmation_rejects_session_swap_and_expiry() {
+        let now = Utc::now();
+        let mut policy = LocalPolicyEngine::default();
+        let request = computer_request(
+            CommandOperation::ComputerInput,
+            PermissionDomain::InputControl,
+            RiskLevel::Critical,
+            json!({"action":{"kind":"move_pointer","x":10,"y":20}}),
+        );
+
+        let wrong_session = policy
+            .prepare_local_critical(&request, Some("session_phase13"), now)
+            .unwrap();
+        assert!(matches!(
+            policy.finish_local_critical(wrong_session, true, Some("session_phase13_other"), now,),
+            AuthorizationOutcome::Deny(_)
+        ));
+
+        let expired = policy
+            .prepare_local_critical(&request, Some("session_phase13"), now)
+            .unwrap();
+        assert!(matches!(
+            policy.finish_local_critical(
+                expired,
+                true,
+                Some("session_phase13"),
+                now + Duration::seconds(LOCAL_CRITICAL_TTL_SECONDS + 1),
+            ),
+            AuthorizationOutcome::Deny(_)
+        ));
+    }
+
+    #[test]
+    fn computer_permissions_are_operation_scoped() {
+        let now = Utc::now();
+        let mut policy = LocalPolicyEngine::default();
+
+        let wrong_screen = computer_request(
+            CommandOperation::FsRead,
+            PermissionDomain::ScreenRead,
+            RiskLevel::High,
+            json!({"path":"src/lib.rs"}),
+        );
+        assert!(matches!(
+            policy.authorize(&wrong_screen, Some("session_phase13"), now),
+            AuthorizationOutcome::Deny(_)
+        ));
+
+        let wrong_input = computer_request(
+            CommandOperation::ScreenCapture,
+            PermissionDomain::InputControl,
+            RiskLevel::Critical,
+            json!({}),
+        );
+        assert!(
+            policy
+                .prepare_local_critical(&wrong_input, Some("session_phase13"), now)
+                .is_err()
+        );
     }
 }

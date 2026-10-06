@@ -17,6 +17,8 @@
     "cancel_process": "Cancels a managed process. Cancellation can be irreversible, so destructive is true; the action itself is bounded to a private managed process.",
     "list_managed_processes": "Read-only listing of Telechir-managed processes on an authorized private device.",
     "get_git_status": "Read-only local Git inspection. Network and remote Git writes are outside the capability.",
-    "get_git_diff": "Read-only local Git diff inspection. It does not modify the repository or access open-ended public entities."
+    "get_git_diff": "Read-only local Git diff inspection. It does not modify the repository or access open-ended public entities.",
+    "capture_screen": "Read-only one-shot capture of the authorized device desktop. It observes private on-device visual state, is bounded, and does not itself change external state.",
+    "control_computer": "Executes exactly one typed local mouse or keyboard action after CRITICAL local-device confirmation. It can cause irreversible application effects and can indirectly affect external entities through the focused application, so destructive and open-world are conservatively true."
   }
 }

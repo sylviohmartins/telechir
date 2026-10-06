@@ -111,6 +111,21 @@ Core local do Telechir implementado em Rust.
 - timeout/cancel tentam remover o container antes de reportar sucesso;
 - process start/read/list/cancel expõem `execution_mode`, sem revelar nome interno do container.
 
+### Phase 13 — Computer Use
+
+- `screen.capture` e `computer.input` adicionados ao enum de operations sem criar novos message types do Device Wire Protocol;
+- `SCREEN_READ` possui risk floor `HIGH`;
+- `INPUT_CONTROL` possui risk floor `CRITICAL`;
+- `computer.input` usa path local-critical dedicado e rejeita `approval_id` remoto;
+- confirmação local é vinculada a session, argument digest e TTL de 30 s;
+- captura é one-shot/bounded, sem streaming contínuo;
+- input aceita somente uma action tipada por command;
+- capabilities `computer.screen.capture` e `computer.input` só são anunciadas quando explicitamente habilitadas em Windows;
+- macOS/Linux permanecem fail-closed sem capability na Phase 13;
+- o core continua com `#![forbid(unsafe_code)]`;
+- Win32 FFI está isolado no crate `platform/windows-computer`;
+- nenhuma validação automatizada executa mouse/teclado real.
+
 A private key não faz parte de nenhum DTO serializável do agent.
 
 ## Native keyring
@@ -146,9 +161,20 @@ Definir qualquer opção de sandbox sem `TELECHIR_SANDBOX_ENABLED=true` falha fe
 
 Quando a configuração é válida, `AgentConfig::augment_capabilities` adiciona `sandbox.docker` à lista anunciada no realtime hello. O control plane também exige essa capability antes de despachar `execution_mode=sandbox`.
 
+## Configuração de Computer use
+
+Desabilitada por default.
+
+```text
+TELECHIR_COMPUTER_SCREEN_ENABLED=true|false
+TELECHIR_COMPUTER_INPUT_ENABLED=true|false
+```
+
+Na Phase 13 esses flags só são válidos em Windows. Em targets sem adapter implementado, configuração habilitada falha fechado.
+
 ## Limites atuais
 
-O agent já possui realtime outbound, filesystem typed tools, shell/process lifecycle, Basic Git read-only, policy/approvals/audit local e sandbox Docker opt-in com enforcement final no device. Não existe deploy de produção.
+O agent já possui realtime outbound, filesystem typed tools, shell/process lifecycle, Basic Git read-only, policy/approvals/audit local, sandbox Docker opt-in e Computer use Windows tipado/bounded com enforcement final no device. Não existe deploy de produção.
 
 Limites/riscos que permanecem:
 
@@ -191,4 +217,5 @@ Evidências:
 - `../docs/testing/acceptance/phase7-exit-review-2026-10-04.md`;
 - `../docs/testing/acceptance/phase8-exit-review-2026-10-04.md`;
 - `../docs/testing/acceptance/phase9-exit-review-2026-10-05.md`;
-- `../docs/testing/acceptance/phase12-exit-review-2026-10-05.md`.
+- `../docs/testing/acceptance/phase12-exit-review-2026-10-05.md`;
+- `../docs/testing/acceptance/phase13-exit-review-2026-10-06.md`.

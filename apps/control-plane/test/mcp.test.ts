@@ -12,7 +12,7 @@ import {
 import { beforeEach, describe, expect, it } from "vitest";
 
 import type { Env } from "../src/env";
-import { PHASE8_TOOLS, publicSchema } from "../src/mcp-catalog";
+import { PHASE13_TOOLS, PHASE8_TOOLS, publicSchema } from "../src/mcp-catalog";
 import { MCP_MAX_REQUEST_BYTES, mcpHttpRoute } from "../src/mcp-http";
 
 const bindings = env as unknown as Env;
@@ -205,7 +205,7 @@ beforeEach(async () => {
 });
 
 describe("Remote MCP 2026-07-28", () => {
-  it("negotiates server/discover and advertises exactly the Phase 8 tool surface", async () => {
+  it("negotiates server/discover and advertises exactly the Phase 13 tool surface while preserving the Phase 8 snapshot", async () => {
     const userId = await seedUser("MCP User");
     await seedDevice(userId, "Device A");
     const captured: CapturedExchange[] = [];
@@ -222,6 +222,8 @@ describe("Remote MCP 2026-07-28", () => {
     const listed = await client.listTools();
     expect(listed.tools.map((tool) => tool.name).sort()).toEqual([
       "cancel_process",
+      "capture_screen",
+      "control_computer",
       "get_device",
       "get_file_metadata",
       "get_git_diff",
@@ -282,9 +284,9 @@ describe("Remote MCP 2026-07-28", () => {
     expect(toolExchange).toBeDefined();
 
     const descriptors = wireTools(toolExchange?.responseBody);
-    expect(descriptors).toHaveLength(16);
+    expect(descriptors).toHaveLength(18);
 
-    for (const tool of PHASE8_TOOLS) {
+    for (const tool of PHASE13_TOOLS) {
       const descriptor = descriptors.find(
         (candidate) => candidate.name === tool.name,
       );
@@ -380,7 +382,7 @@ describe("Remote MCP 2026-07-28", () => {
     await client.close();
   });
 
-  it("advertises Phase 8 Git tools but keeps later tools unavailable", async () => {
+  it("advertises Phase 13 computer-use tools but keeps unimplemented later tools unavailable", async () => {
     const userId = await seedUser("Boundary User");
     const captured: CapturedExchange[] = [];
     const verifier = verifierFor({
@@ -399,6 +401,12 @@ describe("Remote MCP 2026-07-28", () => {
       true,
     );
     expect(tools.tools.some((tool) => tool.name === "get_git_diff")).toBe(true);
+    expect(tools.tools.some((tool) => tool.name === "capture_screen")).toBe(
+      true,
+    );
+    expect(tools.tools.some((tool) => tool.name === "control_computer")).toBe(
+      true,
+    );
     expect(tools.tools.some((tool) => tool.name === "get_system_metrics")).toBe(
       false,
     );

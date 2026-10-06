@@ -23,7 +23,7 @@ describe("control-plane worker", () => {
     expect(body.data).toMatchObject({
       service: "telechir-control-plane",
       status: "ok",
-      phase: "phase12-sandbox-mode",
+      phase: "phase13-computer-use",
       version: "0.1.0",
     });
   });
@@ -63,7 +63,7 @@ describe("control-plane worker", () => {
     expect(body.data).toEqual({
       service: "telechir-control-plane",
       version: "0.1.0",
-      phase: "phase12-sandbox-mode",
+      phase: "phase13-computer-use",
     });
   });
 
@@ -163,8 +163,10 @@ describe("control-plane worker", () => {
         "telechir:files:read",
         "telechir:files:write",
         "telechir:git:read",
+        "telechir:input:write",
         "telechir:processes:read",
         "telechir:processes:write",
+        "telechir:screen:read",
       ],
     });
   });
