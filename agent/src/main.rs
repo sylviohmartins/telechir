@@ -10,11 +10,21 @@ fn main() {
     };
 
     println!(
-        "telechir-agent {} core ready (protocol {}, sandbox={})",
+        "telechir-agent {} core ready (protocol {}, sandbox={}, screen={}, input={})",
         env!("CARGO_PKG_VERSION"),
         config.protocol_version,
         if config.sandbox_enabled() {
             "docker"
+        } else {
+            "disabled"
+        },
+        if config.computer_screen_enabled {
+            "enabled"
+        } else {
+            "disabled"
+        },
+        if config.computer_input_enabled {
+            "enabled"
         } else {
             "disabled"
         }

@@ -10,7 +10,7 @@ A Phase 11 entrega **submission readiness técnica**, não publicação. O ZIP f
 - `release-config.example.json` — exemplo deliberadamente inválido/fail-closed dos valores externos exigidos;
 - `scripts/build_package.py` — validador e builder determinístico;
 - `tests/test_build_package.py` — testes negativos e de determinismo;
-- `review/tool-annotations.json` — justificativas humanas para annotations das 16 tools;
+- `review/tool-annotations.json` — justificativas humanas para annotations das 18 tools atuais;
 - `review/submission-checklist.md` — gates externos e passos do portal;
 - `review/demo-account.md` — preparação da conta/dados de review.
 

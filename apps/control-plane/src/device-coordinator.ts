@@ -35,6 +35,8 @@ const ACTIVE_DEVICE_OPERATIONS = new Set([
   "process.list",
   "git.status",
   "git.diff",
+  "screen.capture",
+  "computer.input",
 ]);
 const SIDE_EFFECT_OPERATIONS = new Set([
   "fs.write",
@@ -43,6 +45,7 @@ const SIDE_EFFECT_OPERATIONS = new Set([
   "process.start",
   "process.write",
   "process.cancel",
+  "computer.input",
 ]);
 const MAX_COMMAND_DEADLINE_MS = 130_000;
 const REPLACED_CLOSE_CODE = 4001;

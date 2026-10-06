@@ -47,6 +47,11 @@ const PHASE8_TOOL_NAMES = new Set([
   "get_git_status",
   "get_git_diff",
 ]);
+const PHASE13_TOOL_NAMES = new Set([
+  ...PHASE8_TOOL_NAMES,
+  "capture_screen",
+  "control_computer",
+]);
 
 const catalogTools = toolCatalog.tools as PublicToolDefinition[];
 
@@ -62,6 +67,9 @@ export const PHASE7_TOOLS = catalogTools.filter((tool) =>
 export const PHASE8_TOOLS = catalogTools.filter((tool) =>
   PHASE8_TOOL_NAMES.has(tool.name),
 );
+export const PHASE13_TOOLS = catalogTools.filter((tool) =>
+  PHASE13_TOOL_NAMES.has(tool.name),
+);
 
 if (
   PHASE8_TOOLS.length !== PHASE8_TOOL_NAMES.size ||
@@ -73,6 +81,17 @@ if (
   })
 ) {
   throw new Error("Phase 8 MCP tool catalog is inconsistent");
+}
+if (
+  PHASE13_TOOLS.length !== PHASE13_TOOL_NAMES.size ||
+  PHASE13_TOOLS.some((tool) => {
+    const expectedPlane = PHASE5_TOOL_NAMES.has(tool.name)
+      ? "control-plane"
+      : "device";
+    return tool.execution_plane !== expectedPlane;
+  })
+) {
+  throw new Error("Phase 13 MCP tool catalog is inconsistent");
 }
 
 export const PHASE6_OAUTH_SCOPES = [
@@ -94,6 +113,14 @@ export const PHASE7_OAUTH_SCOPES = [
 export const PHASE8_OAUTH_SCOPES = [
   ...new Set(
     PHASE8_TOOLS.flatMap((tool) =>
+      tool.securitySchemes.flatMap((scheme) => scheme.scopes),
+    ),
+  ),
+].sort();
+
+export const PHASE13_OAUTH_SCOPES = [
+  ...new Set(
+    PHASE13_TOOLS.flatMap((tool) =>
       tool.securitySchemes.flatMap((scheme) => scheme.scopes),
     ),
   ),
@@ -185,6 +212,14 @@ export function phase8Tool(name: string): PublicToolDefinition {
   const tool = PHASE8_TOOLS.find((candidate) => candidate.name === name);
   if (!tool) {
     throw new Error(`tool is not enabled in Phase 8: ${name}`);
+  }
+  return tool;
+}
+
+export function phase13Tool(name: string): PublicToolDefinition {
+  const tool = PHASE13_TOOLS.find((candidate) => candidate.name === name);
+  if (!tool) {
+    throw new Error(`tool is not enabled in Phase 13: ${name}`);
   }
   return tool;
 }

@@ -1,12 +1,12 @@
 # Estado do Projeto
 
-**Atualizado em:** 2026-10-05
+**Atualizado em:** 2026-10-06
 
 ## Fase atual
 
-**Discovery concluído / Phases 0–12 concluídas / Phase 12 — Sandbox mode concluída**
+**Discovery concluído / Phases 0–13 concluídas / Phase 13 — Computer use concluída**
 
-A implementação possui Local Agent Core, control plane, identidade/pairing Ed25519, canal realtime outbound, Remote MCP/OAuth, seis typed filesystem tools, shell/process lifecycle, Basic Git read-only, governança de policy/approvals/audit, Dashboard MVP, tooling fail-closed para package/review do plugin público OpenAI e sandbox Docker local opt-in para process tools. A superfície MCP pública permanece com 16 tools. O projeto **não possui deploy de produção**, plugin submetido, aprovado ou publicado.
+A implementação possui Local Agent Core, control plane, identidade/pairing Ed25519, canal realtime outbound, Remote MCP/OAuth, seis typed filesystem tools, shell/process lifecycle, Basic Git read-only, governança de policy/approvals/audit, Dashboard MVP, tooling fail-closed para package/review do plugin público OpenAI, sandbox Docker local opt-in e Computer use tipado/bounded no Windows. A superfície MCP pública possui 18 tools. O projeto **não possui deploy de produção**, plugin submetido, aprovado ou publicado.
 
 ## Gates atuais
 
@@ -32,7 +32,8 @@ A implementação possui Local Agent Core, control plane, identidade/pairing Ed2
 - [x] Phase 10 — Dashboard: **`PHASE_10_COMPLETE`**.
 - [x] Phase 11 — ChatGPT/Codex public-plugin submission readiness: **`PHASE_11_SUBMISSION_READY`**.
 - [x] Phase 12 — Sandbox mode: **`PHASE_12_COMPLETE`**.
-- [ ] Phase 13 — Computer use iniciada.
+- [x] Phase 13 — Computer use: **`PHASE_13_COMPLETE`**.
+- [ ] Phase 14 — Browser automation iniciada.
 
 ## Decisões atuais
 
@@ -44,10 +45,10 @@ A implementação possui Local Agent Core, control plane, identidade/pairing Ed2
 - Cloudflare foi aceito como primeiro control plane hospedado em ADR-0004, mantendo protocolo e agent independentes do provedor.
 - O agent local aplica a autoridade final de policy.
 - Approval remoto pode restringir o dispatch, mas nunca se transforma em autoridade local do agent.
-- Operações `CRITICAL` permanecem fail-closed enquanto não existir confirmação local dedicada.
+- Operações `CRITICAL` permanecem fail-closed por default; `computer.input` é a primeira exceção explícita e só executa após confirmação humana local session/digest/TTL-bound no próprio device.
 - `guarded_host` permanece o execution mode default; `sandbox` é opt-in, exige `sandbox.docker` e nunca faz fallback para host.
 - Sandbox Docker é defense-in-depth, não VM boundary nem substituto de policy/approval.
-- GUI/browser/computer-use permanecem pós-MVP.
+- Computer use one-shot/single-action entrou na Phase 13 somente no Windows; browser automation estruturada, streaming de tela, clipboard, accessibility tree e adapters macOS/Linux permanecem fora do escopo atual.
 - O core público usa **Apache License 2.0**, com trademark Telechir separado; `LICENSE` já está na raiz.
 - Artefatos históricos permanecem imutáveis; conclusões atuais vivem em `docs/`.
 - Artefatos originados no ChatGPT são rastreados em `artifacts/provenance/source-manifest.json`.
@@ -90,31 +91,36 @@ As avaliações relevantes estão em:
 - `docs/testing/acceptance/phase10-exit-review-2026-10-05.md`
 - `docs/testing/acceptance/phase11-exit-review-2026-10-05.md`
 - `docs/testing/acceptance/phase12-exit-review-2026-10-05.md`
+- `docs/testing/acceptance/phase13-exit-review-2026-10-06.md`
 - `docs/security/threat-model/phase9-policy-approvals-audit-2026-10-05.md`
 - `docs/security/threat-model/phase10-dashboard-2026-10-05.md`
 - `docs/security/threat-model/phase11-openai-plugin-readiness-2026-10-05.md`
 - `docs/security/threat-model/phase12-sandbox-mode-2026-10-05.md`
+- `docs/security/threat-model/phase13-computer-use-2026-10-05.md`
 - `docs/research/openai/phase11-public-plugin-revalidation-2026-10-05.md`
 - `docs/research/docker/phase12-sandbox-revalidation-2026-10-05.md`
+- `docs/research/computer-use/phase13-platform-revalidation-2026-10-05.md`
 - `docs/research/cloudflare/phase2-revalidation-2026-10-02.md`
 - `docs/research/cloudflare/phase4-revalidation-2026-10-02.md`
 - `docs/research/mcp/phase5-revalidation-2026-10-02.md`
 
 Resultado atual:
 
-> **PHASE_12_COMPLETE**
+> **PHASE_13_COMPLETE**
 
-A Phase 12 adiciona `execution_mode=guarded_host|sandbox` às process tools, mantendo `guarded_host` como default. Sandbox exige capability `sandbox.docker`, configuração local explícita, Docker binary existente, image imutável local e profile com `--pull never`, `--network none`, rootfs read-only, capabilities removidas, no-new-privileges, recursos bounded e somente o cwd autorizado montado.
+A Phase 13 adiciona `capture_screen` e `control_computer` à superfície MCP, elevando o total para **18 tools** sem criar novo Device Wire message type. `screen.capture` exige `SCREEN_READ`, risk floor `HIGH`, capability `computer.screen.capture` e approval bounded. `computer.input` exige exatamente `INPUT_CONTROL`, risk floor `CRITICAL`, idempotency e confirmação humana local no Windows vinculada a session/digest/TTL; `approval_id` remoto nunca substitui esse passo.
 
-Policy/approval continuam a autoridade. Sandbox não permite permission widening e mode swap altera o argument digest, impedindo replay de approval entre sandbox e host. Ausência/falha do runtime nunca faz fallback para host.
+O primeiro adapter real é Windows. O core `telechir-agent` continua com `#![forbid(unsafe_code)]`; todo Win32 FFI fica isolado em `agent/platform/windows-computer/`. Captura é one-shot/bounded e retornada como MCP image content block, sem base64 no `structuredContent`/audit. Input aceita uma única action tipada (`move_pointer`, `click`, `scroll`, `key`, `type_text`), sem macro, clipboard, raw scan-code, browser DOM ou elevation/UIPI bypass. macOS e Linux permanecem capability-unavailable/fail-closed.
 
-Gates finais: agent `fmt` + `clippy -D warnings` + **91 testes**; control plane format/typecheck **97 testes** + Wrangler dry-run + audit 0 vulnerabilidades; D1 `0001–0004` em base limpa; Dashboard **2 testes** + build/audit; plugin tooling **14 testes**. Duas provas no Docker 28.1.1 local confirmaram o profile de isolamento e a semântica de graceful cleanup com `--rm + stop`. Nenhum deploy remoto foi executado.
+Gates finais: core Rust `fmt` + `clippy -D warnings` + **101 testes totais**; adapter Windows `clippy -D warnings` + MSVC compile; ARM64 macOS compile; control plane format/typecheck **101 testes** + Wrangler 4.148.0 dry-run + audit 0 vulnerabilidades; D1 `0001–0004` em base limpa; Dashboard **2 testes** + build/audit; plugin tooling **14 testes**. A prova Windows não destrutiva confirmou captura PNG 256×144 em 37.454 bytes, assinatura PNG válida e tamanho abaixo do budget binário de 180 KiB; nenhuma ação sintética de mouse/teclado foi executada durante validação. Nenhum deploy remoto foi executado.
 
-Os 11 gates externos do plugin OpenAI continuam **`EXTERNAL_GATES_PENDING`** e não foram afetados pela Phase 12.
+Durante o gate de audit, o advisory HIGH GHSA-wq5f-xc86-pv6w/CVE-2026-96889 apareceu em `sharp 0.35.4` via Miniflare. O control plane foi atualizado para `@cloudflare/vitest-plugin 1.3.7`/`wrangler 4.148.0` e usa override temporário `sharp=0.35.5`; a suíte completa voltou a passar com **0 vulnerabilidades**.
+
+Os 11 gates externos do plugin OpenAI continuam **`EXTERNAL_GATES_PENDING`** e não foram alterados pela Phase 13.
 
 ## Próximos trabalhos
 
-1. Iniciar **Phase 13 — Computer use** como próximo trabalho de implementação, com threat model próprio e sem reutilizar sandbox como justificativa para ampliar autoridade.
+1. Iniciar **Phase 14 — Browser automation** como próximo trabalho de implementação, mantendo separação explícita entre DOM/browser authority e `INPUT_CONTROL` genérico.
 2. Em paralelo, avançar os 11 gates externos do plugin OpenAI quando publisher, domínio, IdP, assets e produção estiverem disponíveis.
 3. Completar/reservar ativos comerciais de Telechir antes de lançamento e manter os gates de signing, CSP/headers, custos e segurança operacional antes de beta/publicação.
 

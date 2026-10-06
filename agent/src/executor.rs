@@ -2,6 +2,7 @@ use std::convert::Infallible;
 
 use chrono::Utc;
 
+use crate::computer::ComputerExecutor;
 use crate::config::AgentConfig;
 use crate::filesystem::{FilesystemExecutor, FilesystemPolicy};
 use crate::git::GitExecutor;
@@ -18,6 +19,7 @@ pub struct LocalCommandExecutor {
     filesystem: FilesystemExecutor,
     process: ProcessExecutor,
     git: GitExecutor,
+    computer: ComputerExecutor,
     policy: LocalPolicyEngine,
 }
 
@@ -29,6 +31,7 @@ impl LocalCommandExecutor {
             filesystem: FilesystemExecutor::new(filesystem_policy),
             process: ProcessExecutor::new(process_policy),
             git,
+            computer: ComputerExecutor::disabled(),
             policy: LocalPolicyEngine::default(),
         }
     }
@@ -37,10 +40,23 @@ impl LocalCommandExecutor {
         filesystem_policy: FilesystemPolicy,
         config: &AgentConfig,
     ) -> Result<Self, TelechirError> {
-        match config.sandbox.clone() {
-            Some(sandbox) => Self::with_docker_sandbox(filesystem_policy, sandbox),
-            None => Ok(Self::new(filesystem_policy)),
-        }
+        let process_policy = ProcessPolicy::new(filesystem_policy.clone());
+        let git = GitExecutor::new(filesystem_policy.clone());
+        let process = match config.sandbox.clone() {
+            Some(sandbox) => ProcessExecutor::with_docker_sandbox(process_policy, sandbox)?,
+            None => ProcessExecutor::new(process_policy),
+        };
+        let computer = ComputerExecutor::from_config(
+            config.computer_screen_enabled,
+            config.computer_input_enabled,
+        )?;
+        Ok(Self {
+            filesystem: FilesystemExecutor::new(filesystem_policy),
+            process,
+            git,
+            computer,
+            policy: LocalPolicyEngine::default(),
+        })
     }
 
     pub fn with_docker_sandbox(
@@ -53,6 +69,7 @@ impl LocalCommandExecutor {
             filesystem: FilesystemExecutor::new(filesystem_policy),
             process: ProcessExecutor::with_docker_sandbox(process_policy, sandbox)?,
             git,
+            computer: ComputerExecutor::disabled(),
             policy: LocalPolicyEngine::default(),
         })
     }
@@ -67,6 +84,10 @@ impl LocalCommandExecutor {
 
     pub fn git(&self) -> &GitExecutor {
         &self.git
+    }
+
+    pub fn computer(&self) -> &ComputerExecutor {
+        &self.computer
     }
 
     pub fn policy(&self) -> &LocalPolicyEngine {
@@ -96,6 +117,12 @@ impl LocalCommandExecutor {
             CommandOperation::GitStatus | CommandOperation::GitDiff => {
                 self.git.execute(request).unwrap()
             }
+            CommandOperation::ScreenCapture | CommandOperation::ComputerInput => {
+                match self.computer.execute(request) {
+                    Ok(value) => ExecutionOutcome::Completed(value),
+                    Err(error) => ExecutionOutcome::Failed(error),
+                }
+            }
             CommandOperation::SystemMetrics => ExecutionOutcome::Failed(TelechirError {
                 code: ErrorCode::UnsupportedCapability,
                 message: "operation is not enabled in the current Telechir phase".to_owned(),
@@ -115,6 +142,31 @@ impl CommandExecutor for LocalCommandExecutor {
         request: &CommandRequest,
         session_id: Option<&str>,
     ) -> AuthorizationOutcome {
+        if matches!(
+            request.operation,
+            CommandOperation::ScreenCapture | CommandOperation::ComputerInput
+        ) && let Err(error) = self.computer.preflight(request)
+        {
+            return AuthorizationOutcome::Deny(error);
+        }
+
+        if request.operation == CommandOperation::ComputerInput {
+            let prepared = match self
+                .policy
+                .prepare_local_critical(request, session_id, Utc::now())
+            {
+                Ok(prepared) => prepared,
+                Err(error) => return AuthorizationOutcome::Deny(error),
+            };
+            let confirmed = match self.computer.confirm_critical_input(&prepared.request) {
+                Ok(confirmed) => confirmed,
+                Err(error) => return AuthorizationOutcome::Deny(error),
+            };
+            return self
+                .policy
+                .finish_local_critical(prepared, confirmed, session_id, Utc::now());
+        }
+
         let authorization = self.policy.authorize(request, session_id, Utc::now());
         let AuthorizationOutcome::Allow {
             request: prepared,

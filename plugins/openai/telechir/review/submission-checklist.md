@@ -61,7 +61,7 @@ Quando o portal gerar o token:
 
 - [ ] conectar MCP de produção no draft;
 - [ ] executar Scan/Rescan;
-- [ ] 16 tools esperadas detectadas;
+- [ ] 18 tools esperadas detectadas;
 - [ ] titles/descriptions/schemas corretos;
 - [ ] `securitySchemes` corretos;
 - [ ] `readOnlyHint`, `destructiveHint`, `openWorldHint` explícitos;
@@ -88,9 +88,9 @@ Rodar e gravar os 5 positivos e 3 negativos do `package-base.json`.
 
 - [ ] positive 1 — list devices;
 - [ ] positive 2 — read sample file;
-- [ ] positive 3 — Git status;
+- [ ] positive 3 — bounded one-shot screen capture;
 - [ ] positive 4 — bounded file write com approval;
-- [ ] positive 5 — harmless bounded command;
+- [ ] positive 5 — single pointer move com confirmação CRITICAL local;
 - [ ] negative 1 — file deletion unsupported;
 - [ ] negative 2 — arbitrary network download/execute denied;
 - [ ] negative 3 — admin/firewall request denied.
@@ -105,6 +105,8 @@ Resultados reais devem coincidir com `expected_behavior`. Atualizar o package se
 - [ ] mostra reads;
 - [ ] mostra approval de write;
 - [ ] mostra bounded process;
+- [ ] mostra screen capture one-shot;
+- [ ] mostra confirmação local CRITICAL antes de uma única ação de input;
 - [ ] mostra negative/refusal;
 - [ ] cobre desktop;
 - [ ] comportamento mobile validado separadamente;
@@ -122,7 +124,7 @@ Resultados reais devem coincidir com `expected_behavior`. Atualizar o package se
 - [ ] sem hooks;
 - [ ] sem source tree;
 - [ ] sem node_modules/dist operacional;
-- [ ] sem screenshots enquanto o MCP não expuser UI.
+- [ ] screenshot nunca entra no ZIP; captura de tela é runtime data entregue apenas pelo MCP e não asset do package.
 
 ## 11. Publicação
 

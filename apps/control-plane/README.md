@@ -135,9 +135,21 @@ Control plane do Telechir em TypeScript para Cloudflare Workers.
 - o control plane nunca decide que Docker está disponível a partir de OS/version; confia somente na capability anunciada pelo agent;
 - nenhum bearer, Docker config ou container identifier é encaminhado como nova autoridade.
 
+### Phase 13 — Computer Use
+
+- superfície MCP acumulada de **18 tools**;
+- `capture_screen` -> `screen.capture`, scope `telechir:screen:read`, permission `SCREEN_READ`, risk `HIGH`;
+- `control_computer` -> `computer.input`, scope `telechir:input:write`, permission `INPUT_CONTROL`, risk `CRITICAL`;
+- capability dedicada é exigida antes do dispatch;
+- screenshot base64 não entra em `structuredContent` nem em audit metadata; o MCP retorna image content block + metadata bounded;
+- `control_computer` exige idempotency key e uma única action tipada;
+- governance cloud continua somente restritiva; remote approval nunca é convertido em autoridade local;
+- a confirmação CRITICAL acontece exclusivamente no agent/device;
+- OAuth Protected Resource Metadata publica os dois novos scopes.
+
 ## Boundaries de autenticação
 
-A Phase 5 implementa o resource-server boundary, e as Phases 6–12 reutilizam esse boundary para filesystem, process lifecycle, Git read-only, governança de policy/approvals/audit, Dashboard, preparação do plugin público e seleção explícita de sandbox. O projeto não implementa authorization server próprio nem browser login.
+A Phase 5 implementa o resource-server boundary, e as Phases 6–13 reutilizam esse boundary para filesystem, process lifecycle, Git read-only, governança de policy/approvals/audit, Dashboard, preparação do plugin público, seleção explícita de sandbox e Computer use. O projeto não implementa authorization server próprio nem browser login.
 
 `PairingService.verifyUser(...)` recebe um `user_id` já autenticado. O futuro adapter browser/OAuth deverá chamar esse domínio sem alterar suas invariantes.
 
@@ -167,7 +179,7 @@ Ainda não implementados:
 - authorization server/browser login próprio;
 - Git mutável.
 
-Rotas legadas como `/devices` e `/ws` continuam fechadas. `/mcp` mantém a superfície de 16 tools; `/dashboard/api/*` é uma superfície administrativa separada, protegida por bearer + scopes dedicados e sem bypass da governança.
+Rotas legadas como `/devices` e `/ws` continuam fechadas. `/mcp` mantém a superfície corrente de 18 tools; `/dashboard/api/*` é uma superfície administrativa separada, protegida por bearer + scopes dedicados e sem bypass da governança.
 
 ## Desenvolvimento local
 

@@ -1232,6 +1232,282 @@
         "cancelled"
       ]
     },
+    "capture_screen_input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "device_id"
+      ],
+      "properties": {
+        "device_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160
+        },
+        "max_width": {
+          "type": "integer",
+          "minimum": 64,
+          "maximum": 320,
+          "default": 256
+        },
+        "max_height": {
+          "type": "integer",
+          "minimum": 64,
+          "maximum": 240,
+          "default": 144
+        }
+      }
+    },
+    "capture_screen_output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "media_type",
+        "width",
+        "height",
+        "captured_at",
+        "source",
+        "untrusted"
+      ],
+      "properties": {
+        "media_type": {
+          "type": "string",
+          "const": "image/png"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 320
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 240
+        },
+        "captured_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "source": {
+          "type": "string",
+          "const": "virtual_desktop"
+        },
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "computer_action": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "x",
+            "y"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "move_pointer"
+            },
+            "x": {
+              "type": "integer",
+              "minimum": -100000,
+              "maximum": 100000
+            },
+            "y": {
+              "type": "integer",
+              "minimum": -100000,
+              "maximum": 100000
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "x",
+            "y",
+            "button"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "click"
+            },
+            "x": {
+              "type": "integer",
+              "minimum": -100000,
+              "maximum": 100000
+            },
+            "y": {
+              "type": "integer",
+              "minimum": -100000,
+              "maximum": 100000
+            },
+            "button": {
+              "type": "string",
+              "enum": [
+                "left",
+                "right",
+                "middle"
+              ]
+            },
+            "click_count": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2,
+              "default": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "x",
+            "y",
+            "delta_y"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "scroll"
+            },
+            "x": {
+              "type": "integer",
+              "minimum": -100000,
+              "maximum": 100000
+            },
+            "y": {
+              "type": "integer",
+              "minimum": -100000,
+              "maximum": 100000
+            },
+            "delta_y": {
+              "type": "integer",
+              "minimum": -1200,
+              "maximum": 1200,
+              "not": {
+                "const": 0
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "key"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "key"
+            },
+            "key": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32
+            },
+            "modifiers": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "ctrl",
+                  "alt",
+                  "shift",
+                  "meta"
+                ]
+              },
+              "uniqueItems": true,
+              "maxItems": 4,
+              "default": []
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "text"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "type_text"
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000,
+              "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+            }
+          }
+        }
+      ]
+    },
+    "control_computer_input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "device_id",
+        "idempotency_key",
+        "action"
+      ],
+      "properties": {
+        "device_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 160
+        },
+        "action": {
+          "$ref": "#/$defs/computer_action"
+        }
+      }
+    },
+    "control_computer_output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "accepted",
+        "action",
+        "completed_at"
+      ],
+      "properties": {
+        "accepted": {
+          "type": "boolean",
+          "const": true
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "move_pointer",
+            "click",
+            "scroll",
+            "key",
+            "type_text"
+          ]
+        },
+        "completed_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
     "execution_mode": {
       "type": "string",
       "enum": [

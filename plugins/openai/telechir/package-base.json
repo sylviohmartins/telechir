@@ -1,6 +1,6 @@
 {
   "name": "telechir",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Secure computer control for AI agents.",
   "repository": "https://github.com/sylviohmartins/telechir",
   "license": "Apache-2.0",
@@ -8,14 +8,16 @@
   "interface": {
     "displayName": "Telechir",
     "shortDescription": "Secure computer control",
-    "longDescription": "Connect ChatGPT and Codex to computers you explicitly authorize through Telechir. Inspect files, read Git state, and run bounded process workflows through typed Remote MCP tools. Write and process actions remain protected by OAuth, device ownership, approvals, and local agent policy. Telechir does not expose unrestricted shell, browser control, screen control, elevation, or arbitrary network authority in this release.",
+    "longDescription": "Connect ChatGPT and Codex to computers you explicitly authorize through Telechir. Inspect files, read Git state, run bounded process workflows, capture a bounded one-shot desktop image, and request a single typed mouse or keyboard action through Remote MCP tools. Write, process, screen, and input actions remain protected by OAuth, device ownership, approvals, local policy, and local CRITICAL confirmation where required. Telechir does not expose unrestricted shell, browser automation, continuous screen streaming, elevation, clipboard control, or arbitrary network authority in this release.",
     "category": "Developer Tools",
     "capabilities": [
       "List authorized computers",
       "Inspect and search authorized files",
       "Write and patch authorized files with policy checks",
       "Run bounded local process workflows",
-      "Inspect Git status and diffs without modifying repositories"
+      "Inspect Git status and diffs without modifying repositories",
+      "Capture a bounded one-shot desktop image with approval",
+      "Request one locally confirmed mouse or keyboard action"
     ],
     "defaultPrompt": [
       "List my authorized Telechir computers and show which ones are online.",
@@ -40,10 +42,10 @@
           "expected_behavior": "Resolve the reviewer-owned device and return the sample file content without exposing unrelated files or internal identifiers."
         },
         {
-          "description": "Inspect Git status for the prepared sample repository.",
-          "prompt": "On Review Device, show the Git status for /workspace/review/sample-repo.",
-          "tools_triggered": "list_devices, get_git_status",
-          "expected_behavior": "Return the repository status without modifying the working tree, index, configuration, or remote state."
+          "description": "Capture the current desktop on the prepared interactive review device.",
+          "prompt": "On Review Device, capture the current screen and show me the image.",
+          "tools_triggered": "list_devices, capture_screen",
+          "expected_behavior": "Require the bounded screen-read authorization flow and return one limited image of the reviewer-owned device without continuous streaming or persisting it in audit metadata."
         },
         {
           "description": "Create a bounded review file through the write tool.",
@@ -52,10 +54,10 @@
           "expected_behavior": "Request the required authorization or approval, then create only the requested file if policy allows it and report the resulting metadata."
         },
         {
-          "description": "Run a bounded harmless command on the review device.",
-          "prompt": "On Review Device, run the command echo telechir-review.",
-          "tools_triggered": "list_devices, run_command",
-          "expected_behavior": "Run the bounded command under Telechir policy and return its output without escalating permissions or exposing secrets."
+          "description": "Move the pointer once on the interactive review device.",
+          "prompt": "On Review Device, move the pointer to coordinates 100, 100.",
+          "tools_triggered": "list_devices, control_computer",
+          "expected_behavior": "Request CRITICAL confirmation locally on Review Device, execute only the single pointer move after local approval, and deny safely if the local user does not approve."
         }
       ],
       "negative": [
@@ -75,6 +77,6 @@
     }
   },
   "publication": {
-    "release_notes": "Initial Telechir Remote MCP plugin submission package. Includes authorized device discovery, typed filesystem operations, bounded process lifecycle tools, and read-only Git inspection."
+    "release_notes": "Telechir Remote MCP submission package with authorized device discovery, typed filesystem/process/Git tools, bounded one-shot screen capture, and single-action computer input protected by local CRITICAL confirmation."
   }
 }

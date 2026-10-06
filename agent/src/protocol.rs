@@ -433,12 +433,16 @@ pub enum CommandOperation {
     GitStatus,
     #[serde(rename = "git.diff")]
     GitDiff,
+    #[serde(rename = "screen.capture")]
+    ScreenCapture,
+    #[serde(rename = "computer.input")]
+    ComputerInput,
     #[serde(rename = "system.metrics")]
     SystemMetrics,
 }
 
 impl CommandOperation {
-    pub const ALL: [Self; 15] = [
+    pub const ALL: [Self; 17] = [
         Self::FsList,
         Self::FsStat,
         Self::FsRead,
@@ -453,6 +457,8 @@ impl CommandOperation {
         Self::ProcessList,
         Self::GitStatus,
         Self::GitDiff,
+        Self::ScreenCapture,
+        Self::ComputerInput,
         Self::SystemMetrics,
     ];
 
@@ -472,6 +478,8 @@ impl CommandOperation {
             Self::ProcessList => "process.list",
             Self::GitStatus => "git.status",
             Self::GitDiff => "git.diff",
+            Self::ScreenCapture => "screen.capture",
+            Self::ComputerInput => "computer.input",
             Self::SystemMetrics => "system.metrics",
         }
     }
@@ -485,6 +493,7 @@ impl CommandOperation {
                 | Self::ProcessStart
                 | Self::ProcessWrite
                 | Self::ProcessCancel
+                | Self::ComputerInput
         )
     }
 }
@@ -866,6 +875,7 @@ mod tests {
             CommandOperation::ProcessStart,
             CommandOperation::ProcessWrite,
             CommandOperation::ProcessCancel,
+            CommandOperation::ComputerInput,
         ];
         assert!(
             side_effects

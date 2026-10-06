@@ -1,0 +1,13 @@
+[package]
+name = "telechir-windows-computer"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+description = "Isolated Windows native adapter for Telechir computer use"
+publish = false
+
+[dependencies]
+png = "0.18"
+
+[lib]
+path = "src/lib.rs"

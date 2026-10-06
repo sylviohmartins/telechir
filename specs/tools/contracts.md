@@ -270,6 +270,66 @@ Result:
 - \`truncated: boolean\`;
 - \`artifact_id?: string|null\`.
 
+## capture_screen
+
+Request:
+- `device_id`;
+- `max_width?: integer`, default 256, bounded 64..320;
+- `max_height?: integer`, default 144, bounded 64..240.
+
+Result:
+- imagem one-shot entregue como content block MCP;
+- `media_type=image/png`;
+- `width`;
+- `height`;
+- `captured_at`;
+- `source=virtual_desktop`;
+- `untrusted=true`.
+
+Segurança:
+- permission `SCREEN_READ`;
+- risco mínimo HIGH;
+- capability `computer.screen.capture`;
+- sem streaming contínuo;
+- sem OCR implícito;
+- bytes da screenshot não entram em audit/structured metadata;
+- captura deve permanecer abaixo do limite do frame realtime.
+
+## control_computer
+
+Request:
+- `device_id`;
+- `idempotency_key` obrigatória;
+- exatamente uma `action` tipada:
+  - `move_pointer`;
+  - `click`;
+  - `scroll`;
+  - `key`;
+  - `type_text`.
+
+Não aceita:
+- array/macro de ações;
+- raw scan code;
+- clipboard;
+- browser command;
+- `confirm=true` remoto;
+- arbitrary script.
+
+Result:
+- `accepted=true`;
+- `action`;
+- `completed_at`.
+
+Segurança:
+- permission `INPUT_CONTROL`;
+- risco mínimo CRITICAL;
+- capability `computer.input`;
+- uma ação por command;
+- confirmação humana local no device imediatamente antes do efeito;
+- confirmação vinculada ao argument digest do command;
+- remote approval/OAuth scope nunca substituem a confirmação local;
+- falha de UIPI/secure desktop/input parcial é reportada como falha, nunca como sucesso presumido.
+
 ## get_system_metrics
 
 Request:
@@ -309,13 +369,18 @@ Regras:
 - shell/process capazes de alcançar rede: \`openWorldHint=true\`;
 - annotations não alteram autorização.
 
-## Out of scope do catálogo MVP
+## Fora da superfície pública atual
 
-Não existem public tools MVP para:
+Ainda não existem public tools para:
 - delete recursivo;
 - Git commit/push/pull/merge/rebase;
 - privilege elevation;
-- mouse/keyboard;
-- browser;
-- Docker/Kubernetes;
+- clipboard read/write;
+- accessibility tree;
+- screen streaming contínuo;
+- macros/arrays de input;
+- browser automation;
+- Docker/Kubernetes como public tool;
 - SSH fleet.
+
+Mouse/keyboard deixam de ser out-of-scope na Phase 13, mas entram somente como `control_computer` single-action e CRITICAL com confirmação local.

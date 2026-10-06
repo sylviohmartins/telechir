@@ -1,6 +1,6 @@
 # Direção Atual da Arquitetura
 
-**Status:** arquitetura aceita; contratos base da Phase 0 preservados e evoluídos por contratos compatíveis; Phases 1–12 implementadas, incluindo Local Agent Core, control plane, Pairing/Device Identity, Device Realtime Channel, Remote MCP/OAuth, Filesystem Tools, Shell/Process Lifecycle, Basic Git read-only, Policy/Approvals/Audit, Dashboard, package/review tooling OpenAI e Sandbox mode Docker opt-in; nenhum deploy de produção ou submission pública realizado.
+**Status:** arquitetura aceita; contratos base da Phase 0 preservados e evoluídos por contratos compatíveis; Phases 1–13 implementadas, incluindo Local Agent Core, control plane, Pairing/Device Identity, Device Realtime Channel, Remote MCP/OAuth, Filesystem Tools, Shell/Process Lifecycle, Basic Git read-only, Policy/Approvals/Audit, Dashboard, package/review tooling OpenAI, Sandbox mode Docker opt-in e Computer use tipado/bounded com adapter Windows; nenhum deploy de produção ou submission pública realizado.
 
 ## Boundary do produto
 
@@ -25,7 +25,8 @@ Agente local seguro
         +-- processos / terminal
         +-- Git
         +-- sandbox Docker opt-in
-        +-- futuros adapters de browser / GUI
+        +-- computer use one-shot/single-action (Windows)
+        +-- futuros adapters de browser e paridade macOS/Linux
 ```
 
 ## Correções importantes em relação ao blueprint v1
@@ -53,6 +54,8 @@ Isso reduz o risco arquitetural, mas não garante aprovação/disponibilidade do
 
 Em 2026-10-05, a Phase 12 adicionou `execution_mode=guarded_host|sandbox` às process tools. `guarded_host` permanece default e preserva o classificador existente. `sandbox` é explicitamente opt-in, requer capability `sandbox.docker`, image local imutável, Docker profile fail-closed e continua subordinado à mesma policy/approval local. Sandbox é defense-in-depth; não é descrito como VM boundary.
 
+Na mesma data, a Phase 13 adicionou `capture_screen` e `control_computer` como primitives tipados. Captura é one-shot/HIGH e input é single-action/CRITICAL. O input exige confirmação humana local session/digest/TTL-bound imediatamente antes do side effect; approval remoto nunca substitui esse passo. O primeiro adapter é Windows e mantém Win32 FFI isolado fora do core `forbid(unsafe_code)`. macOS/Linux continuam capability-unavailable até adapters com consentimento nativo serem implementados.
+
 ## Validações pendentes
 
 - publisher verification e permissões OpenAI do projeto;
@@ -64,7 +67,9 @@ Em 2026-10-05, a Phase 12 adicionou `execution_mode=guarded_host|sandbox` às pr
 - quota/metering do plugin próprio;
 - commercial clearance de Telechir antes de lançamento;
 - custos/limites Cloudflare com tráfego WebSocket realista antes de beta;
-- code signing/update path antes de distribuição pública.
+- code signing/update path antes de distribuição pública;
+- paridade Computer use em macOS/Linux com mecanismos nativos de consentimento;
+- eventual migração da captura Windows GDI para Windows.Graphics.Capture/system picker quando existir host UI adequado.
 
 Decisões já encerradas:
 - licenciamento do core: Apache-2.0 (ADR-0005);

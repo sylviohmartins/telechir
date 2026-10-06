@@ -14,7 +14,7 @@ import {
 
 import type { Env } from "./env";
 import { PHASE10_DASHBOARD_OAUTH_SCOPES } from "./dashboard-scopes";
-import { PHASE8_OAUTH_SCOPES } from "./mcp-catalog";
+import { PHASE13_OAUTH_SCOPES } from "./mcp-catalog";
 import { toBase64Url } from "./pairing-crypto";
 
 const ALLOWED_JWT_ALGORITHMS = ["RS256", "ES256"] as const;
@@ -125,7 +125,7 @@ export function protectedResourceMetadata(config: OAuthResourceConfig) {
     resource: config.resourceUri,
     authorization_servers: [config.issuer],
     scopes_supported: [
-      ...new Set([...PHASE8_OAUTH_SCOPES, ...PHASE10_DASHBOARD_OAUTH_SCOPES]),
+      ...new Set([...PHASE13_OAUTH_SCOPES, ...PHASE10_DASHBOARD_OAUTH_SCOPES]),
     ].sort(),
   };
 }
