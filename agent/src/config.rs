@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use thiserror::Error;
 
+use crate::browser::BrowserConfig;
 use crate::protocol::{ConnectionLimits, PROTOCOL_VERSION};
 use crate::sandbox::{
     DEFAULT_SANDBOX_CPU_MILLIS, DEFAULT_SANDBOX_MEMORY_MIB, DEFAULT_SANDBOX_PIDS_LIMIT,
@@ -17,6 +18,12 @@ const SANDBOX_PIDS_LIMIT_ENV: &str = "TELECHIR_SANDBOX_PIDS_LIMIT";
 const SANDBOX_TMPFS_MIB_ENV: &str = "TELECHIR_SANDBOX_TMPFS_MIB";
 const COMPUTER_SCREEN_ENABLED_ENV: &str = "TELECHIR_COMPUTER_SCREEN_ENABLED";
 const COMPUTER_INPUT_ENABLED_ENV: &str = "TELECHIR_COMPUTER_INPUT_ENABLED";
+const BROWSER_ENABLED_ENV: &str = "TELECHIR_BROWSER_ENABLED";
+const BROWSER_NODE_BINARY_ENV: &str = "TELECHIR_BROWSER_NODE_BINARY";
+const BROWSER_ADAPTER_SCRIPT_ENV: &str = "TELECHIR_BROWSER_ADAPTER_SCRIPT";
+const BROWSER_TIMEOUT_MS_ENV: &str = "TELECHIR_BROWSER_TIMEOUT_MS";
+const BROWSER_SESSION_TTL_SECONDS_ENV: &str = "TELECHIR_BROWSER_SESSION_TTL_SECONDS";
+const BROWSER_MAX_SESSIONS_ENV: &str = "TELECHIR_BROWSER_MAX_SESSIONS";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AgentConfig {
@@ -24,6 +31,7 @@ pub struct AgentConfig {
     pub max_recent_commands: usize,
     pub limits: ConnectionLimits,
     pub sandbox: Option<DockerSandboxConfig>,
+    pub browser: Option<BrowserConfig>,
     pub computer_screen_enabled: bool,
     pub computer_input_enabled: bool,
 }
@@ -35,6 +43,7 @@ impl Default for AgentConfig {
             max_recent_commands: 1024,
             limits: ConnectionLimits::default(),
             sandbox: None,
+            browser: None,
             computer_screen_enabled: false,
             computer_input_enabled: false,
         }
@@ -76,6 +85,19 @@ impl AgentConfig {
 
         let computer_screen_enabled = optional_bool(&lookup, COMPUTER_SCREEN_ENABLED_ENV, false)?;
         let computer_input_enabled = optional_bool(&lookup, COMPUTER_INPUT_ENABLED_ENV, false)?;
+        let browser_enabled = browser_bool(&lookup, BROWSER_ENABLED_ENV, false)?;
+        let browser_keys = [
+            BROWSER_NODE_BINARY_ENV,
+            BROWSER_ADAPTER_SCRIPT_ENV,
+            BROWSER_TIMEOUT_MS_ENV,
+            BROWSER_SESSION_TTL_SECONDS_ENV,
+            BROWSER_MAX_SESSIONS_ENV,
+        ];
+        if !browser_enabled && browser_keys.iter().any(|name| lookup(name).is_some()) {
+            return Err(ConfigError::InvalidBrowserConfig(
+                "browser settings require TELECHIR_BROWSER_ENABLED=true".to_owned(),
+            ));
+        }
 
         let sandbox = if enabled {
             let docker_binary = required_setting(&lookup, SANDBOX_DOCKER_BINARY_ENV)?;
@@ -94,8 +116,28 @@ impl AgentConfig {
             None
         };
 
+        let browser = if browser_enabled {
+            let node_binary = browser_required_setting(&lookup, BROWSER_NODE_BINARY_ENV)?;
+            let adapter_script = browser_required_setting(&lookup, BROWSER_ADAPTER_SCRIPT_ENV)?;
+            let mut browser =
+                BrowserConfig::new(PathBuf::from(node_binary), PathBuf::from(adapter_script));
+            browser.request_timeout_ms =
+                browser_number(&lookup, BROWSER_TIMEOUT_MS_ENV, browser.request_timeout_ms)?;
+            browser.session_ttl_seconds = browser_number(
+                &lookup,
+                BROWSER_SESSION_TTL_SECONDS_ENV,
+                browser.session_ttl_seconds,
+            )?;
+            browser.max_sessions =
+                browser_number(&lookup, BROWSER_MAX_SESSIONS_ENV, browser.max_sessions)?;
+            Some(browser)
+        } else {
+            None
+        };
+
         let config = Self {
             sandbox,
+            browser,
             computer_screen_enabled,
             computer_input_enabled,
             ..Self::default()
@@ -121,6 +163,11 @@ impl AgentConfig {
                 .validate()
                 .map_err(ConfigError::InvalidSandboxConfig)?;
         }
+        if let Some(browser) = &self.browser {
+            browser
+                .validate()
+                .map_err(ConfigError::InvalidBrowserConfig)?;
+        }
         if (self.computer_screen_enabled || self.computer_input_enabled) && !cfg!(windows) {
             return Err(ConfigError::InvalidComputerUseConfig(
                 "computer use is implemented only for Windows in Phase 13".to_owned(),
@@ -131,6 +178,10 @@ impl AgentConfig {
 
     pub fn sandbox_enabled(&self) -> bool {
         self.sandbox.is_some()
+    }
+
+    pub fn browser_configured(&self) -> bool {
+        self.browser.is_some()
     }
 
     pub fn augment_capabilities(&self, capabilities: &mut Vec<String>) {
@@ -185,6 +236,42 @@ where
     }
 }
 
+fn browser_bool<F>(lookup: &F, name: &str, default: bool) -> Result<bool, ConfigError>
+where
+    F: Fn(&str) -> Option<String>,
+{
+    match lookup(name).as_deref() {
+        None | Some("") => Ok(default),
+        Some("true") => Ok(true),
+        Some("false") => Ok(false),
+        Some(_) => Err(ConfigError::InvalidBrowserConfig(format!(
+            "{name} must be true or false"
+        ))),
+    }
+}
+
+fn browser_required_setting<F>(lookup: &F, name: &str) -> Result<String, ConfigError>
+where
+    F: Fn(&str) -> Option<String>,
+{
+    lookup(name)
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| ConfigError::InvalidBrowserConfig(format!("{name} is required")))
+}
+
+fn browser_number<T, F>(lookup: &F, name: &str, default: T) -> Result<T, ConfigError>
+where
+    T: std::str::FromStr + Copy,
+    F: Fn(&str) -> Option<String>,
+{
+    let Some(value) = lookup(name) else {
+        return Ok(default);
+    };
+    value.parse::<T>().map_err(|_| {
+        ConfigError::InvalidBrowserConfig(format!("{name} must be a valid positive integer"))
+    })
+}
+
 fn optional_number<T, F>(lookup: &F, name: &str, default: T) -> Result<T, ConfigError>
 where
     T: std::str::FromStr + Copy,
@@ -210,6 +297,8 @@ pub enum ConfigError {
     InvalidSandboxConfig(String),
     #[error("invalid computer-use configuration: {0}")]
     InvalidComputerUseConfig(String),
+    #[error("invalid browser configuration: {0}")]
+    InvalidBrowserConfig(String),
 }
 
 #[cfg(test)]
@@ -224,6 +313,7 @@ mod tests {
         let config = AgentConfig::default();
         config.validate().unwrap();
         assert!(!config.sandbox_enabled());
+        assert!(!config.browser_configured());
         assert!(!config.computer_screen_enabled);
         assert!(!config.computer_input_enabled);
     }
@@ -266,6 +356,47 @@ mod tests {
 
         let error = AgentConfig::from_lookup(|name| settings.get(name).cloned()).unwrap_err();
         assert!(matches!(error, ConfigError::InvalidComputerUseConfig(_)));
+    }
+
+    #[test]
+    fn browser_environment_is_explicit_but_configuration_does_not_imply_capability() {
+        let root = tempfile::tempdir().unwrap();
+        let node = root
+            .path()
+            .join(if cfg!(windows) { "node.exe" } else { "node" });
+        let adapter = root.path().join("server.mjs");
+        fs::write(&node, b"fake node").unwrap();
+        fs::write(&adapter, b"// fake adapter").unwrap();
+
+        let mut settings = HashMap::from([(
+            BROWSER_NODE_BINARY_ENV.to_owned(),
+            node.to_string_lossy().into_owned(),
+        )]);
+        let error = AgentConfig::from_lookup(|name| settings.get(name).cloned()).unwrap_err();
+        assert!(matches!(error, ConfigError::InvalidBrowserConfig(_)));
+
+        settings.insert(BROWSER_ENABLED_ENV.to_owned(), "true".to_owned());
+        settings.insert(
+            BROWSER_ADAPTER_SCRIPT_ENV.to_owned(),
+            adapter.to_string_lossy().into_owned(),
+        );
+        settings.insert(BROWSER_TIMEOUT_MS_ENV.to_owned(), "12000".to_owned());
+        settings.insert(BROWSER_SESSION_TTL_SECONDS_ENV.to_owned(), "600".to_owned());
+        settings.insert(BROWSER_MAX_SESSIONS_ENV.to_owned(), "2".to_owned());
+
+        let config = AgentConfig::from_lookup(|name| settings.get(name).cloned()).unwrap();
+        let browser = config.browser.as_ref().unwrap();
+        assert_eq!(browser.request_timeout_ms, 12_000);
+        assert_eq!(browser.session_ttl_seconds, 600);
+        assert_eq!(browser.max_sessions, 2);
+
+        let mut capabilities = Vec::new();
+        config.augment_capabilities(&mut capabilities);
+        assert!(
+            !capabilities
+                .iter()
+                .any(|value| value.starts_with("browser."))
+        );
     }
 
     #[test]

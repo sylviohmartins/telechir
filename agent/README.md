@@ -126,6 +126,26 @@ Core local do Telechir implementado em Rust.
 - Win32 FFI está isolado no crate `platform/windows-computer`;
 - nenhuma validação automatizada executa mouse/teclado real.
 
+### Phase 14 — Browser Automation
+
+- seis operations tipadas: `browser.session.open`, `browser.snapshot`, `browser.navigate`, `browser.click`, `browser.fill` e `browser.session.close`;
+- permission exata `BROWSER` com risk floor `HIGH`;
+- Browser authority não implica `INPUT_CONTROL`, `NETWORK`, filesystem, clipboard ou secret access;
+- adapter Playwright isolado em `platform/browser-playwright/`, executado como sidecar NDJSON local;
+- nenhuma API Playwright/CDP/WebDriver/JavaScript arbitrária entra no core;
+- capabilities só são anunciadas depois que o sidecar passa health e consegue lançar Chromium;
+- context não persistente, sem profile/cookies/`storageState` do usuário;
+- snapshot semântico bounded a 48 KiB e sempre `untrusted=true`;
+- locators somente `role`, `label`, `text`, `placeholder` e `test_id`;
+- fill bounded a 2.000 caracteres e sem clipboard;
+- egress por proxy local anti-SSRF, sem proxy herdado;
+- redirects, subresources e CONNECT passam pela mesma policy;
+- service workers bloqueados;
+- WebSockets bloqueados;
+- downloads, dialogs e pages extras não expandem authority;
+- Chromium sandbox explicitamente habilitado;
+- crash/timeout/malformed response do sidecar invalidam o adapter fail-closed.
+
 A private key não faz parte de nenhum DTO serializável do agent.
 
 ## Native keyring
@@ -172,9 +192,29 @@ TELECHIR_COMPUTER_INPUT_ENABLED=true|false
 
 Na Phase 13 esses flags só são válidos em Windows. Em targets sem adapter implementado, configuração habilitada falha fechado.
 
+## Configuração de Browser automation
+
+Desabilitada por default.
+
+```text
+TELECHIR_BROWSER_ENABLED=true
+TELECHIR_BROWSER_NODE_BINARY=<caminho absoluto para node/node.exe>
+TELECHIR_BROWSER_ADAPTER_SCRIPT=<caminho absoluto para platform/browser-playwright/src/server.mjs>
+```
+
+Overrides opcionais e bounded:
+
+```text
+TELECHIR_BROWSER_TIMEOUT_MS=15000
+TELECHIR_BROWSER_SESSION_TTL_SECONDS=900
+TELECHIR_BROWSER_MAX_SESSIONS=2
+```
+
+Definir qualquer opção browser sem `TELECHIR_BROWSER_ENABLED=true` falha fechado. O agent não descobre nem controla o profile/browser pessoal do usuário. O adapter precisa estar instalado com o lockfile correspondente e o browser Playwright compatível; capabilities browser só entram no `agent.hello` depois que o health-check real retorna ready.
+
 ## Limites atuais
 
-O agent já possui realtime outbound, filesystem typed tools, shell/process lifecycle, Basic Git read-only, policy/approvals/audit local, sandbox Docker opt-in e Computer use Windows tipado/bounded com enforcement final no device. Não existe deploy de produção.
+O agent já possui realtime outbound, filesystem typed tools, shell/process lifecycle, Basic Git read-only, policy/approvals/audit local, sandbox Docker opt-in, Computer use Windows tipado/bounded e Browser automation Playwright isolada com enforcement final no device. Não existe deploy de produção.
 
 Limites/riscos que permanecem:
 
@@ -218,4 +258,5 @@ Evidências:
 - `../docs/testing/acceptance/phase8-exit-review-2026-10-04.md`;
 - `../docs/testing/acceptance/phase9-exit-review-2026-10-05.md`;
 - `../docs/testing/acceptance/phase12-exit-review-2026-10-05.md`;
-- `../docs/testing/acceptance/phase13-exit-review-2026-10-06.md`.
+- `../docs/testing/acceptance/phase13-exit-review-2026-10-06.md`;
+- `../docs/testing/acceptance/phase14-exit-review-2026-10-07.md`.

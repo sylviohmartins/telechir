@@ -435,6 +435,150 @@
       ]
     },
     {
+      "name": "open_browser_session",
+      "title": "Open browser session",
+      "description": "Abre uma sessão de navegador isolada e efêmera no dispositivo autorizado, sem reutilizar perfil, cookies ou storage do usuário.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false,
+        "idempotentHint": false
+      },
+      "contract": "contracts.md#open-browser-session",
+      "internal_operation": "browser.session.open",
+      "execution_plane": "device",
+      "input_schema_ref": "public-tools.schema.json#/$defs/open_browser_session_input",
+      "output_schema_ref": "public-tools.schema.json#/$defs/open_browser_session_output",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "telechir:browser:use"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "get_browser_snapshot",
+      "title": "Get browser snapshot",
+      "description": "Lê um snapshot semântico bounded e não confiável da página atual de uma sessão isolada.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false,
+        "idempotentHint": true
+      },
+      "contract": "contracts.md#get-browser-snapshot",
+      "internal_operation": "browser.snapshot",
+      "execution_plane": "device",
+      "input_schema_ref": "public-tools.schema.json#/$defs/get_browser_snapshot_input",
+      "output_schema_ref": "public-tools.schema.json#/$defs/get_browser_snapshot_output",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "telechir:browser:use"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "navigate_browser",
+      "title": "Navigate browser",
+      "description": "Navega uma sessão isolada para uma URL HTTP(S) pública sob política de egress anti-SSRF.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": true,
+        "idempotentHint": false
+      },
+      "contract": "contracts.md#navigate-browser",
+      "internal_operation": "browser.navigate",
+      "execution_plane": "device",
+      "input_schema_ref": "public-tools.schema.json#/$defs/navigate_browser_input",
+      "output_schema_ref": "public-tools.schema.json#/$defs/navigate_browser_output",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "telechir:browser:use"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "click_browser",
+      "title": "Click browser",
+      "description": "Clica exatamente um elemento localizado por seletor semântico tipado dentro da sessão isolada.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true,
+        "idempotentHint": false
+      },
+      "contract": "contracts.md#click-browser",
+      "internal_operation": "browser.click",
+      "execution_plane": "device",
+      "input_schema_ref": "public-tools.schema.json#/$defs/click_browser_input",
+      "output_schema_ref": "public-tools.schema.json#/$defs/click_browser_output",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "telechir:browser:use"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "fill_browser",
+      "title": "Fill browser",
+      "description": "Preenche exatamente um elemento localizado semanticamente com texto bounded, sem clipboard ou secret injection.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true,
+        "idempotentHint": false
+      },
+      "contract": "contracts.md#fill-browser",
+      "internal_operation": "browser.fill",
+      "execution_plane": "device",
+      "input_schema_ref": "public-tools.schema.json#/$defs/fill_browser_input",
+      "output_schema_ref": "public-tools.schema.json#/$defs/fill_browser_output",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "telechir:browser:use"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "close_browser_session",
+      "title": "Close browser session",
+      "description": "Fecha e destrói uma sessão de navegador isolada e efêmera, sem persistir browsing state.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": false,
+        "idempotentHint": true
+      },
+      "contract": "contracts.md#close-browser-session",
+      "internal_operation": "browser.session.close",
+      "execution_plane": "device",
+      "input_schema_ref": "public-tools.schema.json#/$defs/close_browser_session_input",
+      "output_schema_ref": "public-tools.schema.json#/$defs/close_browser_session_output",
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "telechir:browser:use"
+          ]
+        }
+      ]
+    },
+    {
       "name": "get_system_metrics",
       "title": "Get system metrics",
       "description": "Retorna métricas gerais de saúde do dispositivo.",

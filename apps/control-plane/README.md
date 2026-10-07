@@ -149,7 +149,7 @@ Control plane do Telechir em TypeScript para Cloudflare Workers.
 
 ## Boundaries de autenticação
 
-A Phase 5 implementa o resource-server boundary, e as Phases 6–13 reutilizam esse boundary para filesystem, process lifecycle, Git read-only, governança de policy/approvals/audit, Dashboard, preparação do plugin público, seleção explícita de sandbox e Computer use. O projeto não implementa authorization server próprio nem browser login.
+A Phase 5 implementa o resource-server boundary, e as Phases 6–14 reutilizam esse boundary para filesystem, process lifecycle, Git read-only, governança de policy/approvals/audit, Dashboard, preparação do plugin público, seleção explícita de sandbox, Computer use e Browser automation. O projeto não implementa authorization server próprio nem browser login.
 
 `PairingService.verifyUser(...)` recebe um `user_id` já autenticado. O futuro adapter browser/OAuth deverá chamar esse domínio sem alterar suas invariantes.
 
@@ -179,7 +179,7 @@ Ainda não implementados:
 - authorization server/browser login próprio;
 - Git mutável.
 
-Rotas legadas como `/devices` e `/ws` continuam fechadas. `/mcp` mantém a superfície corrente de 18 tools; `/dashboard/api/*` é uma superfície administrativa separada, protegida por bearer + scopes dedicados e sem bypass da governança.
+Rotas legadas como `/devices` e `/ws` continuam fechadas. `/mcp` mantém a superfície corrente de 24 tools; `/dashboard/api/*` é uma superfície administrativa separada, protegida por bearer + scopes dedicados e sem bypass da governança.
 
 ## Desenvolvimento local
 

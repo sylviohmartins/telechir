@@ -52,6 +52,15 @@ const PHASE13_TOOL_NAMES = new Set([
   "capture_screen",
   "control_computer",
 ]);
+const PHASE14_TOOL_NAMES = new Set([
+  ...PHASE13_TOOL_NAMES,
+  "open_browser_session",
+  "get_browser_snapshot",
+  "navigate_browser",
+  "click_browser",
+  "fill_browser",
+  "close_browser_session",
+]);
 
 const catalogTools = toolCatalog.tools as PublicToolDefinition[];
 
@@ -69,6 +78,9 @@ export const PHASE8_TOOLS = catalogTools.filter((tool) =>
 );
 export const PHASE13_TOOLS = catalogTools.filter((tool) =>
   PHASE13_TOOL_NAMES.has(tool.name),
+);
+export const PHASE14_TOOLS = catalogTools.filter((tool) =>
+  PHASE14_TOOL_NAMES.has(tool.name),
 );
 
 if (
@@ -92,6 +104,17 @@ if (
   })
 ) {
   throw new Error("Phase 13 MCP tool catalog is inconsistent");
+}
+if (
+  PHASE14_TOOLS.length !== PHASE14_TOOL_NAMES.size ||
+  PHASE14_TOOLS.some((tool) => {
+    const expectedPlane = PHASE5_TOOL_NAMES.has(tool.name)
+      ? "control-plane"
+      : "device";
+    return tool.execution_plane !== expectedPlane;
+  })
+) {
+  throw new Error("Phase 14 MCP tool catalog is inconsistent");
 }
 
 export const PHASE6_OAUTH_SCOPES = [
@@ -121,6 +144,14 @@ export const PHASE8_OAUTH_SCOPES = [
 export const PHASE13_OAUTH_SCOPES = [
   ...new Set(
     PHASE13_TOOLS.flatMap((tool) =>
+      tool.securitySchemes.flatMap((scheme) => scheme.scopes),
+    ),
+  ),
+].sort();
+
+export const PHASE14_OAUTH_SCOPES = [
+  ...new Set(
+    PHASE14_TOOLS.flatMap((tool) =>
       tool.securitySchemes.flatMap((scheme) => scheme.scopes),
     ),
   ),
@@ -220,6 +251,14 @@ export function phase13Tool(name: string): PublicToolDefinition {
   const tool = PHASE13_TOOLS.find((candidate) => candidate.name === name);
   if (!tool) {
     throw new Error(`tool is not enabled in Phase 13: ${name}`);
+  }
+  return tool;
+}
+
+export function phase14Tool(name: string): PublicToolDefinition {
+  const tool = PHASE14_TOOLS.find((candidate) => candidate.name === name);
+  if (!tool) {
+    throw new Error(`tool is not enabled in Phase 14: ${name}`);
   }
   return tool;
 }

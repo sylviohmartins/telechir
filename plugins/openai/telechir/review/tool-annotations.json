@@ -1,6 +1,6 @@
 {
   "source": "specs/tools/tool-catalog.json",
-  "reviewed_at": "2026-10-05",
+  "reviewed_at": "2026-10-07",
   "tools": {
     "list_devices": "Read-only lookup of devices owned by the authenticated account. No external state change and no open-ended public entity access.",
     "get_device": "Read-only lookup of one authenticated account device. No state change and no open-world access.",
@@ -19,6 +19,12 @@
     "get_git_status": "Read-only local Git inspection. Network and remote Git writes are outside the capability.",
     "get_git_diff": "Read-only local Git diff inspection. It does not modify the repository or access open-ended public entities.",
     "capture_screen": "Read-only one-shot capture of the authorized device desktop. It observes private on-device visual state, is bounded, and does not itself change external state.",
-    "control_computer": "Executes exactly one typed local mouse or keyboard action after CRITICAL local-device confirmation. It can cause irreversible application effects and can indirectly affect external entities through the focused application, so destructive and open-world are conservatively true."
+    "control_computer": "Executes exactly one typed local mouse or keyboard action after CRITICAL local-device confirmation. It can cause irreversible application effects and can indirectly affect external entities through the focused application, so destructive and open-world are conservatively true.",
+    "open_browser_session": "Creates one isolated ephemeral local BrowserContext without importing the user's browser profile, cookies, storage state, or credentials. It changes local Telechir session state but does not itself navigate to or mutate an external entity.",
+    "get_browser_snapshot": "Read-only semantic snapshot of the current isolated browser page. The returned page content is untrusted data, but the tool itself does not mutate the page or external state.",
+    "navigate_browser": "Navigates the isolated browser to a public HTTP(S) destination through Telechir's anti-SSRF egress policy. Navigation reaches open-ended external entities, so open-world is true; the tool does not intentionally submit forms or mutate page elements.",
+    "click_browser": "Clicks exactly one element selected by a bounded semantic locator. A click can submit forms, purchase, delete, publish, or otherwise irreversibly affect external entities, so destructive and open-world are conservatively true.",
+    "fill_browser": "Writes bounded caller-supplied text into exactly one semantically located page element. Filling can alter external application state and prepare irreversible actions, so destructive and open-world are conservatively true even though no submit is implicit.",
+    "close_browser_session": "Closes and destroys one Telechir-managed isolated ephemeral browser session. The local session state is intentionally destroyed, so destructive is true; the action does not itself access an open-ended external entity."
   }
 }

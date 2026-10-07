@@ -139,6 +139,7 @@ describe("OAuth resource server", () => {
       authorization_servers: [issuer],
       scopes_supported: [
         "telechir:approvals:decide",
+        "telechir:browser:use",
         "telechir:dashboard:read",
         "telechir:devices:read",
         "telechir:devices:revoke",

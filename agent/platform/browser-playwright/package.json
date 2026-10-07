@@ -1,0 +1,21 @@
+{
+  "name": "@telechir/browser-playwright-adapter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Isolated local Playwright adapter for Telechir browser automation",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "format:check": "prettier --check .",
+    "test": "node --test test/*.test.mjs",
+    "check": "npm run format:check && npm test && npm audit --audit-level=high"
+  },
+  "dependencies": {
+    "playwright": "1.63.0"
+  },
+  "devDependencies": {
+    "prettier": "3.9.9"
+  }
+}

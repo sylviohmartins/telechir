@@ -330,6 +330,151 @@ Segurança:
 - remote approval/OAuth scope nunca substituem a confirmação local;
 - falha de UIPI/secure desktop/input parcial é reportada como falha, nunca como sucesso presumido.
 
+## open_browser_session
+
+Request:
+- `device_id`;
+- `idempotency_key` obrigatória.
+
+Result:
+- `browser_session_id`;
+- `created_at`;
+- `expires_at`;
+- `isolated=true`;
+- `persistent=false`.
+
+Segurança:
+- permission `BROWSER`;
+- risco mínimo HIGH;
+- capability `browser.playwright` + `browser.session`;
+- cria um `BrowserContext` não persistente;
+- não importa perfil, cookies, local storage, storage state ou credenciais do navegador pessoal;
+- sessões têm TTL e limite local de concorrência;
+- sidecar/browser indisponível falha fechado e a capability não deve ser anunciada.
+
+## get_browser_snapshot
+
+Request:
+- `device_id`;
+- `browser_session_id`.
+
+Result:
+- `browser_session_id`;
+- `url`;
+- `title`;
+- `snapshot`: representação semântica bounded da página;
+- `captured_at`;
+- `untrusted=true`;
+- `truncated`.
+
+Segurança:
+- permission `BROWSER`;
+- risco mínimo HIGH;
+- read-only;
+- snapshot máximo 48 KiB UTF-8;
+- conteúdo da página é sempre untrusted data;
+- não retorna cookies, storage, DOM HTML bruto ou screenshot por esse contrato.
+
+## navigate_browser
+
+Request:
+- `device_id`;
+- `idempotency_key` obrigatória;
+- `browser_session_id`;
+- `url`: HTTP(S) absoluta, máximo 4096 caracteres.
+
+Result:
+- `browser_session_id`;
+- `url`;
+- `title`;
+- `completed_at`;
+- `untrusted=true`.
+
+Segurança:
+- permission `BROWSER`;
+- risco mínimo HIGH;
+- somente HTTP/HTTPS;
+- URL com credenciais embutidas é rejeitada;
+- produção permite somente portas 80/443;
+- hostname/IP é validado contra ranges locais, privados, link-local, metadata, documentação, multicast e demais ranges não públicos;
+- DNS que resolva para qualquer endereço não público falha fechado;
+- todo tráfego do Chromium passa por egress proxy local;
+- redirects e subresources continuam submetidos à mesma policy;
+- WebSockets/WebTransport/WebRTC não são uma rota alternativa de egress na Phase 14.
+
+## click_browser
+
+Request:
+- `device_id`;
+- `idempotency_key` obrigatória;
+- `browser_session_id`;
+- exatamente um `locator` tipado:
+  - `role + name`;
+  - `label`;
+  - `text`;
+  - `placeholder`;
+  - `test_id`;
+- `exact?`;
+- `index?` bounded 0..9.
+
+Não aceita CSS, XPath, JavaScript, raw CDP, arbitrary selector engine ou ação em lote.
+
+Result:
+- `accepted=true`;
+- `browser_session_id`;
+- `url`;
+- `completed_at`.
+
+Segurança:
+- permission `BROWSER`;
+- risco mínimo HIGH;
+- uma interação por command;
+- semântica do locator precisa resolver de forma única quando `index` não é fornecido;
+- click pode causar efeitos externos irreversíveis; annotations são conservadoras.
+
+## fill_browser
+
+Request:
+- `device_id`;
+- `idempotency_key` obrigatória;
+- `browser_session_id`;
+- `locator` tipado conforme `click_browser`;
+- `text` bounded a 1..2000 caracteres sem control chars.
+
+Result:
+- `accepted=true`;
+- `browser_session_id`;
+- `url`;
+- `completed_at`.
+
+Segurança:
+- permission `BROWSER`;
+- risco mínimo HIGH;
+- exatamente um fill por command;
+- não usa clipboard;
+- não injeta secret broker, cookie ou storage state;
+- preencher um campo pode preparar side effects externos, portanto annotations são conservadoras.
+
+## close_browser_session
+
+Request:
+- `device_id`;
+- `idempotency_key` obrigatória;
+- `browser_session_id`.
+
+Result:
+- `closed=true`;
+- `already_closed`;
+- `browser_session_id`;
+- `completed_at`.
+
+Segurança:
+- permission `BROWSER`;
+- risco mínimo HIGH;
+- idempotente no lifecycle;
+- fecha e destrói o contexto efêmero;
+- nenhum browsing state é persistido intencionalmente.
+
 ## get_system_metrics
 
 Request:
@@ -379,7 +524,7 @@ Ainda não existem public tools para:
 - accessibility tree;
 - screen streaming contínuo;
 - macros/arrays de input;
-- browser automation;
+- raw browser scripting/CDP/WebDriver passthrough;
 - Docker/Kubernetes como public tool;
 - SSH fleet.
 

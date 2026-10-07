@@ -9,6 +9,12 @@ import {
 } from "@modelcontextprotocol/server";
 
 import {
+  BrowserToolsError,
+  BrowserToolsService,
+  PHASE14_BROWSER_TOOL_NAMES,
+  type BrowserToolName,
+} from "./browser-tools";
+import {
   ComputerToolsError,
   ComputerToolsService,
   PHASE13_COMPUTER_TOOL_NAMES,
@@ -24,7 +30,7 @@ import {
   type FilesystemToolName,
 } from "./filesystem-tools";
 import {
-  PHASE13_TOOLS,
+  PHASE14_TOOLS,
   publicSchema,
   type PublicToolDefinition,
 } from "./mcp-catalog";
@@ -189,6 +195,39 @@ function toolFailure(error: unknown) {
           text:
             safe.get(error.code) ??
             "The Telechir process operation could not be completed.",
+        },
+      ],
+      isError: true,
+    };
+  }
+
+  if (error instanceof BrowserToolsError) {
+    const safe = new Map<string, string>([
+      ["NOT_FOUND", "The browser session or device was not found."],
+      ["DEVICE_OFFLINE", "The selected device is offline."],
+      [
+        "UNSUPPORTED_CAPABILITY",
+        "The selected device does not support this browser operation.",
+      ],
+      ["POLICY_DENIED", "The local browser policy denied this operation."],
+      [
+        "APPROVAL_REQUIRED",
+        "This browser operation requires explicit Telechir approval.",
+      ],
+      ["CONFLICT", "The browser state changed before the action completed."],
+      ["OUTPUT_TRUNCATED", "The browser result exceeded its bounded limit."],
+      ["DEADLINE_EXCEEDED", "The browser operation exceeded its deadline."],
+      ["TIMEOUT", "The browser operation timed out on the device."],
+      ["RATE_LIMITED", "The local browser session limit has been reached."],
+      ["INVALID_ARGUMENT", "The browser request is invalid."],
+    ]);
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text:
+            safe.get(error.code) ??
+            "The Telechir browser operation could not be completed.",
         },
       ],
       isError: true,
@@ -545,6 +584,59 @@ function registerComputerTool(
   );
 }
 
+function registerBrowserTool(
+  server: McpServer,
+  env: Env,
+  tool: PublicToolDefinition,
+): void {
+  if (!PHASE14_BROWSER_TOOL_NAMES.includes(tool.name as BrowserToolName)) {
+    throw new Error(`unexpected browser tool: ${tool.name}`);
+  }
+
+  const scopes = tool.securitySchemes.flatMap((scheme) => scheme.scopes);
+  server.registerTool(
+    tool.name,
+    {
+      title: tool.title,
+      description: tool.description,
+      inputSchema: fromJsonSchema(publicSchema(tool.input_schema_ref)),
+      outputSchema: fromJsonSchema(publicSchema(tool.output_schema_ref)),
+      annotations: tool.annotations,
+      _meta: {
+        securitySchemes: tool.securitySchemes,
+      },
+      scopeChallenge: scopedChallenge(scopes),
+    },
+    async (args, ctx) => {
+      try {
+        const userId = telechirUserId(ctx.http?.authInfo);
+        if (!args || typeof args !== "object" || Array.isArray(args)) {
+          throw new BrowserToolsError(
+            "INVALID_ARGUMENT",
+            "Browser tool arguments must be an object",
+          );
+        }
+
+        const output = await new BrowserToolsService(
+          env.DB,
+          env.DEVICE_COORDINATOR,
+        ).execute(
+          userId,
+          tool.name as BrowserToolName,
+          args as Record<string, unknown>,
+          callerContext(ctx.http?.authInfo),
+        );
+        return {
+          content: [{ type: "text", text: jsonText(output) }],
+          structuredContent: output,
+        };
+      } catch (error) {
+        return toolFailure(error);
+      }
+    },
+  );
+}
+
 function registerGitTool(
   server: McpServer,
   env: Env,
@@ -605,7 +697,7 @@ export function createTelechirMcpServer(env: Env): McpServer {
     title: "Telechir",
   });
 
-  for (const tool of PHASE13_TOOLS) {
+  for (const tool of PHASE14_TOOLS) {
     switch (tool.name) {
       case "list_devices":
         registerListDevices(server, env, tool);
@@ -637,6 +729,14 @@ export function createTelechirMcpServer(env: Env): McpServer {
       case "control_computer":
         registerComputerTool(server, env, tool);
         break;
+      case "open_browser_session":
+      case "get_browser_snapshot":
+      case "navigate_browser":
+      case "click_browser":
+      case "fill_browser":
+      case "close_browser_session":
+        registerBrowserTool(server, env, tool);
+        break;
       default:
         throw new Error(`unexpected enabled MCP tool: ${tool.name}`);
     }
@@ -663,7 +763,7 @@ async function materializeOpenAiSecuritySchemes(
   }
 
   const catalogByName = new Map(
-    PHASE13_TOOLS.map((tool) => [tool.name, tool.securitySchemes]),
+    PHASE14_TOOLS.map((tool) => [tool.name, tool.securitySchemes]),
   );
 
   const visit = (value: unknown): void => {

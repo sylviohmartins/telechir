@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+pub mod browser;
 pub mod computer;
 pub mod config;
 pub mod executor;

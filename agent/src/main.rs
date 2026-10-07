@@ -10,7 +10,7 @@ fn main() {
     };
 
     println!(
-        "telechir-agent {} core ready (protocol {}, sandbox={}, screen={}, input={})",
+        "telechir-agent {} core ready (protocol {}, sandbox={}, screen={}, input={}, browser={})",
         env!("CARGO_PKG_VERSION"),
         config.protocol_version,
         if config.sandbox_enabled() {
@@ -25,6 +25,11 @@ fn main() {
         },
         if config.computer_input_enabled {
             "enabled"
+        } else {
+            "disabled"
+        },
+        if config.browser_configured() {
+            "configured"
         } else {
             "disabled"
         }

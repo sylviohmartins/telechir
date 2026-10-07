@@ -4,9 +4,9 @@
 
 ## Fase atual
 
-**Discovery concluído / Phases 0–13 concluídas / Phase 13 — Computer use concluída**
+**Discovery concluído / Phases 0–14 concluídas / Phase 14 — Browser automation concluída**
 
-A implementação possui Local Agent Core, control plane, identidade/pairing Ed25519, canal realtime outbound, Remote MCP/OAuth, seis typed filesystem tools, shell/process lifecycle, Basic Git read-only, governança de policy/approvals/audit, Dashboard MVP, tooling fail-closed para package/review do plugin público OpenAI, sandbox Docker local opt-in e Computer use tipado/bounded no Windows. A superfície MCP pública possui 18 tools. O projeto **não possui deploy de produção**, plugin submetido, aprovado ou publicado.
+A implementação possui Local Agent Core, control plane, identidade/pairing Ed25519, canal realtime outbound, Remote MCP/OAuth, seis typed filesystem tools, shell/process lifecycle, Basic Git read-only, governança de policy/approvals/audit, Dashboard MVP, tooling fail-closed para package/review do plugin público OpenAI, sandbox Docker local opt-in, Computer use tipado/bounded no Windows e Browser automation Playwright isolada com egress anti-SSRF. A superfície MCP pública possui 24 tools. O projeto **não possui deploy de produção**, plugin submetido, aprovado ou publicado.
 
 ## Gates atuais
 
@@ -33,7 +33,8 @@ A implementação possui Local Agent Core, control plane, identidade/pairing Ed2
 - [x] Phase 11 — ChatGPT/Codex public-plugin submission readiness: **`PHASE_11_SUBMISSION_READY`**.
 - [x] Phase 12 — Sandbox mode: **`PHASE_12_COMPLETE`**.
 - [x] Phase 13 — Computer use: **`PHASE_13_COMPLETE`**.
-- [ ] Phase 14 — Browser automation iniciada.
+- [x] Phase 14 — Browser automation: **`PHASE_14_COMPLETE`**.
+- [ ] Phase 15 — Multi-device/workspace concurrency não iniciada.
 
 ## Decisões atuais
 
@@ -48,7 +49,9 @@ A implementação possui Local Agent Core, control plane, identidade/pairing Ed2
 - Operações `CRITICAL` permanecem fail-closed por default; `computer.input` é a primeira exceção explícita e só executa após confirmação humana local session/digest/TTL-bound no próprio device.
 - `guarded_host` permanece o execution mode default; `sandbox` é opt-in, exige `sandbox.docker` e nunca faz fallback para host.
 - Sandbox Docker é defense-in-depth, não VM boundary nem substituto de policy/approval.
-- Computer use one-shot/single-action entrou na Phase 13 somente no Windows; browser automation estruturada, streaming de tela, clipboard, accessibility tree e adapters macOS/Linux permanecem fora do escopo atual.
+- Computer use one-shot/single-action entrou na Phase 13 somente no Windows.
+- Browser automation entrou na Phase 14 como authority `BROWSER` própria, com seis tools tipadas, context Playwright efêmero/non-persistent e egress proxy anti-SSRF; ela não implica `INPUT_CONTROL`, `NETWORK`, filesystem, clipboard ou secrets.
+- Streaming de tela, clipboard, persistent authenticated browser, raw JavaScript/CDP/WebDriver/BiDi passthrough, uploads/downloads e adapters macOS/Linux de Computer use permanecem fora do escopo atual.
 - O core público usa **Apache License 2.0**, com trademark Telechir separado; `LICENSE` já está na raiz.
 - Artefatos históricos permanecem imutáveis; conclusões atuais vivem em `docs/`.
 - Artefatos originados no ChatGPT são rastreados em `artifacts/provenance/source-manifest.json`.
@@ -92,35 +95,38 @@ As avaliações relevantes estão em:
 - `docs/testing/acceptance/phase11-exit-review-2026-10-05.md`
 - `docs/testing/acceptance/phase12-exit-review-2026-10-05.md`
 - `docs/testing/acceptance/phase13-exit-review-2026-10-06.md`
+- `docs/testing/acceptance/phase14-exit-review-2026-10-07.md`
 - `docs/security/threat-model/phase9-policy-approvals-audit-2026-10-05.md`
 - `docs/security/threat-model/phase10-dashboard-2026-10-05.md`
 - `docs/security/threat-model/phase11-openai-plugin-readiness-2026-10-05.md`
 - `docs/security/threat-model/phase12-sandbox-mode-2026-10-05.md`
 - `docs/security/threat-model/phase13-computer-use-2026-10-05.md`
+- `docs/security/threat-model/phase14-browser-automation-2026-10-07.md`
 - `docs/research/openai/phase11-public-plugin-revalidation-2026-10-05.md`
 - `docs/research/docker/phase12-sandbox-revalidation-2026-10-05.md`
 - `docs/research/computer-use/phase13-platform-revalidation-2026-10-05.md`
+- `docs/research/browser-automation/phase14-playwright-revalidation-2026-10-07.md`
 - `docs/research/cloudflare/phase2-revalidation-2026-10-02.md`
 - `docs/research/cloudflare/phase4-revalidation-2026-10-02.md`
 - `docs/research/mcp/phase5-revalidation-2026-10-02.md`
 
 Resultado atual:
 
-> **PHASE_13_COMPLETE**
+> **PHASE_14_COMPLETE**
 
-A Phase 13 adiciona `capture_screen` e `control_computer` à superfície MCP, elevando o total para **18 tools** sem criar novo Device Wire message type. `screen.capture` exige `SCREEN_READ`, risk floor `HIGH`, capability `computer.screen.capture` e approval bounded. `computer.input` exige exatamente `INPUT_CONTROL`, risk floor `CRITICAL`, idempotency e confirmação humana local no Windows vinculada a session/digest/TTL; `approval_id` remoto nunca substitui esse passo.
+A Phase 14 adiciona seis browser tools tipadas à superfície MCP, elevando o total para **24 tools** sem criar novo Device Wire message type: `open_browser_session`, `get_browser_snapshot`, `navigate_browser`, `click_browser`, `fill_browser` e `close_browser_session`. Todas exigem exatamente `BROWSER` e risk floor `HIGH`; side effects exigem idempotency. Browser authority permanece separada de `INPUT_CONTROL` e `NETWORK`.
 
-O primeiro adapter real é Windows. O core `telechir-agent` continua com `#![forbid(unsafe_code)]`; todo Win32 FFI fica isolado em `agent/platform/windows-computer/`. Captura é one-shot/bounded e retornada como MCP image content block, sem base64 no `structuredContent`/audit. Input aceita uma única action tipada (`move_pointer`, `click`, `scroll`, `key`, `type_text`), sem macro, clipboard, raw scan-code, browser DOM ou elevation/UIPI bypass. macOS e Linux permanecem capability-unavailable/fail-closed.
+O adapter inicial usa Playwright 1.63.0 como subprocesso stdio local. Ele cria `BrowserContext` não persistente, não reutiliza profile/cookies/`storageState`, bloqueia downloads/service workers/WebSockets e usa proxy de egress próprio com DNS/range validation para bloquear localhost, private/link-local/metadata e demais destinos não públicos. Raw JavaScript, CSS/XPath, CDP, WebDriver/BiDi passthrough, clipboard, cookies/storage, uploads/downloads e secret injection não fazem parte da surface.
 
-Gates finais: core Rust `fmt` + `clippy -D warnings` + **101 testes totais**; adapter Windows `clippy -D warnings` + MSVC compile; ARM64 macOS compile; control plane format/typecheck **101 testes** + Wrangler 4.148.0 dry-run + audit 0 vulnerabilidades; D1 `0001–0004` em base limpa; Dashboard **2 testes** + build/audit; plugin tooling **14 testes**. A prova Windows não destrutiva confirmou captura PNG 256×144 em 37.454 bytes, assinatura PNG válida e tamanho abaixo do budget binário de 180 KiB; nenhuma ação sintética de mouse/teclado foi executada durante validação. Nenhum deploy remoto foi executado.
+Capabilities só são anunciadas se o sidecar passa health e consegue lançar Chromium. `chromiumSandbox=true` é obrigatório; a prova root falhou fechado e o smoke válido foi executado como usuário não-root. O hardened smoke comprovou open/navigate/snapshot/fill/click/close e bloqueou redirect, subresource e WebSocket para `localhost`, com **0 hits** no endpoint protegido e **0 upgrades**.
 
-Durante o gate de audit, o advisory HIGH GHSA-wq5f-xc86-pv6w/CVE-2026-96889 apareceu em `sharp 0.35.4` via Miniflare. O control plane foi atualizado para `@cloudflare/vitest-plugin 1.3.7`/`wrangler 4.148.0` e usa override temporário `sharp=0.35.5`; a suíte completa voltou a passar com **0 vulnerabilidades**.
+Os gates finais e números exatos estão em `docs/testing/acceptance/phase14-exit-review-2026-10-07.md`. Nenhum deploy remoto foi executado.
 
-Os 11 gates externos do plugin OpenAI continuam **`EXTERNAL_GATES_PENDING`** e não foram alterados pela Phase 13.
+Os 11 gates externos do plugin OpenAI continuam **`EXTERNAL_GATES_PENDING`** e não foram alterados pela Phase 14.
 
 ## Próximos trabalhos
 
-1. Iniciar **Phase 14 — Browser automation** como próximo trabalho de implementação, mantendo separação explícita entre DOM/browser authority e `INPUT_CONTROL` genérico.
+1. Iniciar **Phase 15 — Multi-device/workspace concurrency** como próximo trabalho de implementação, sem ampliar silenciosamente a autoridade de Browser/Computer use.
 2. Em paralelo, avançar os 11 gates externos do plugin OpenAI quando publisher, domínio, IdP, assets e produção estiverem disponíveis.
 3. Completar/reservar ativos comerciais de Telechir antes de lançamento e manter os gates de signing, CSP/headers, custos e segurança operacional antes de beta/publicação.
 

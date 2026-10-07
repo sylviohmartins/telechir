@@ -2,6 +2,7 @@ use std::convert::Infallible;
 
 use chrono::Utc;
 
+use crate::browser::{BrowserExecutor, is_browser_operation};
 use crate::computer::ComputerExecutor;
 use crate::config::AgentConfig;
 use crate::filesystem::{FilesystemExecutor, FilesystemPolicy};
@@ -20,6 +21,7 @@ pub struct LocalCommandExecutor {
     process: ProcessExecutor,
     git: GitExecutor,
     computer: ComputerExecutor,
+    browser: BrowserExecutor,
     policy: LocalPolicyEngine,
 }
 
@@ -32,6 +34,7 @@ impl LocalCommandExecutor {
             process: ProcessExecutor::new(process_policy),
             git,
             computer: ComputerExecutor::disabled(),
+            browser: BrowserExecutor::disabled(),
             policy: LocalPolicyEngine::default(),
         }
     }
@@ -50,11 +53,13 @@ impl LocalCommandExecutor {
             config.computer_screen_enabled,
             config.computer_input_enabled,
         )?;
+        let browser = BrowserExecutor::from_config(config.browser.as_ref())?;
         Ok(Self {
             filesystem: FilesystemExecutor::new(filesystem_policy),
             process,
             git,
             computer,
+            browser,
             policy: LocalPolicyEngine::default(),
         })
     }
@@ -70,6 +75,7 @@ impl LocalCommandExecutor {
             process: ProcessExecutor::with_docker_sandbox(process_policy, sandbox)?,
             git,
             computer: ComputerExecutor::disabled(),
+            browser: BrowserExecutor::disabled(),
             policy: LocalPolicyEngine::default(),
         })
     }
@@ -88,6 +94,14 @@ impl LocalCommandExecutor {
 
     pub fn computer(&self) -> &ComputerExecutor {
         &self.computer
+    }
+
+    pub fn browser(&self) -> &BrowserExecutor {
+        &self.browser
+    }
+
+    pub fn augment_capabilities(&self, capabilities: &mut Vec<String>) {
+        self.browser.augment_capabilities(capabilities);
     }
 
     pub fn policy(&self) -> &LocalPolicyEngine {
@@ -123,6 +137,15 @@ impl LocalCommandExecutor {
                     Err(error) => ExecutionOutcome::Failed(error),
                 }
             }
+            CommandOperation::BrowserSessionOpen
+            | CommandOperation::BrowserSnapshot
+            | CommandOperation::BrowserNavigate
+            | CommandOperation::BrowserClick
+            | CommandOperation::BrowserFill
+            | CommandOperation::BrowserSessionClose => match self.browser.execute(request) {
+                Ok(value) => ExecutionOutcome::Completed(value),
+                Err(error) => ExecutionOutcome::Failed(error),
+            },
             CommandOperation::SystemMetrics => ExecutionOutcome::Failed(TelechirError {
                 code: ErrorCode::UnsupportedCapability,
                 message: "operation is not enabled in the current Telechir phase".to_owned(),
@@ -146,6 +169,11 @@ impl CommandExecutor for LocalCommandExecutor {
             request.operation,
             CommandOperation::ScreenCapture | CommandOperation::ComputerInput
         ) && let Err(error) = self.computer.preflight(request)
+        {
+            return AuthorizationOutcome::Deny(error);
+        }
+        if is_browser_operation(request.operation)
+            && let Err(error) = self.browser.preflight(request)
         {
             return AuthorizationOutcome::Deny(error);
         }
