@@ -23,7 +23,7 @@ describe("control-plane worker", () => {
     expect(body.data).toMatchObject({
       service: "telechir-control-plane",
       status: "ok",
-      phase: "phase13-computer-use",
+      phase: "phase14-browser-automation",
       version: "0.1.0",
     });
   });
@@ -63,7 +63,7 @@ describe("control-plane worker", () => {
     expect(body.data).toEqual({
       service: "telechir-control-plane",
       version: "0.1.0",
-      phase: "phase13-computer-use",
+      phase: "phase14-browser-automation",
     });
   });
 
@@ -157,6 +157,7 @@ describe("control-plane worker", () => {
       authorization_servers: ["https://auth.telechir.test"],
       scopes_supported: [
         "telechir:approvals:decide",
+        "telechir:browser:use",
         "telechir:dashboard:read",
         "telechir:devices:read",
         "telechir:devices:revoke",

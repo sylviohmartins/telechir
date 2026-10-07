@@ -151,7 +151,12 @@
                   "process.start",
                   "process.write",
                   "process.cancel",
-                  "computer.input"
+                  "computer.input",
+                  "browser.session.open",
+                  "browser.navigate",
+                  "browser.click",
+                  "browser.fill",
+                  "browser.session.close"
                 ]
               }
             },
@@ -452,6 +457,12 @@
         "git.diff",
         "screen.capture",
         "computer.input",
+        "browser.session.open",
+        "browser.snapshot",
+        "browser.navigate",
+        "browser.click",
+        "browser.fill",
+        "browser.session.close",
         "system.metrics"
       ]
     },

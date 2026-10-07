@@ -1634,6 +1634,491 @@
           "minimum": 0
         }
       }
+    },
+    "browser_locator": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "role",
+            "name"
+          ],
+          "properties": {
+            "kind": {
+              "const": "role"
+            },
+            "role": {
+              "type": "string",
+              "enum": [
+                "button",
+                "link",
+                "textbox",
+                "checkbox",
+                "radio",
+                "combobox",
+                "option",
+                "menuitem",
+                "tab",
+                "heading",
+                "listitem",
+                "row",
+                "cell",
+                "switch",
+                "slider",
+                "spinbutton"
+              ]
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+            },
+            "exact": {
+              "type": "boolean",
+              "default": false
+            },
+            "index": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "value"
+          ],
+          "properties": {
+            "kind": {
+              "const": "label"
+            },
+            "value": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+            },
+            "exact": {
+              "type": "boolean",
+              "default": false
+            },
+            "index": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "value"
+          ],
+          "properties": {
+            "kind": {
+              "const": "text"
+            },
+            "value": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+            },
+            "exact": {
+              "type": "boolean",
+              "default": false
+            },
+            "index": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "value"
+          ],
+          "properties": {
+            "kind": {
+              "const": "placeholder"
+            },
+            "value": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+            },
+            "exact": {
+              "type": "boolean",
+              "default": false
+            },
+            "index": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "value"
+          ],
+          "properties": {
+            "kind": {
+              "const": "test_id"
+            },
+            "value": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+            },
+            "index": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9
+            }
+          }
+        }
+      ]
+    },
+    "open_browser_session_input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "device_id",
+        "idempotency_key"
+      ],
+      "properties": {
+        "device_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 160
+        }
+      }
+    },
+    "open_browser_session_output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "browser_session_id",
+        "created_at",
+        "expires_at",
+        "isolated",
+        "persistent"
+      ],
+      "properties": {
+        "browser_session_id": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 96,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "isolated": {
+          "type": "boolean",
+          "const": true
+        },
+        "persistent": {
+          "type": "boolean",
+          "const": false
+        }
+      }
+    },
+    "get_browser_snapshot_input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "device_id",
+        "browser_session_id"
+      ],
+      "properties": {
+        "device_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160
+        },
+        "browser_session_id": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 96,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        }
+      }
+    },
+    "get_browser_snapshot_output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "browser_session_id",
+        "url",
+        "title",
+        "snapshot",
+        "captured_at",
+        "untrusted",
+        "truncated"
+      ],
+      "properties": {
+        "browser_session_id": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 96,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "url": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "snapshot": {
+          "type": "string",
+          "maxLength": 49152
+        },
+        "captured_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      }
+    },
+    "navigate_browser_input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "device_id",
+        "idempotency_key",
+        "browser_session_id",
+        "url"
+      ],
+      "properties": {
+        "device_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 160
+        },
+        "browser_session_id": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 96,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "pattern": "^https?://"
+        }
+      }
+    },
+    "browser_action_output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "browser_session_id",
+        "url",
+        "completed_at"
+      ],
+      "properties": {
+        "browser_session_id": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 96,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "url": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "accepted": {
+          "type": "boolean"
+        },
+        "completed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "untrusted": {
+          "type": "boolean"
+        }
+      }
+    },
+    "navigate_browser_output": {
+      "$ref": "#/$defs/browser_action_output"
+    },
+    "click_browser_input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "device_id",
+        "idempotency_key",
+        "browser_session_id",
+        "locator"
+      ],
+      "properties": {
+        "device_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 160
+        },
+        "browser_session_id": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 96,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "locator": {
+          "$ref": "#/$defs/browser_locator"
+        }
+      }
+    },
+    "click_browser_output": {
+      "$ref": "#/$defs/browser_action_output"
+    },
+    "fill_browser_input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "device_id",
+        "idempotency_key",
+        "browser_session_id",
+        "locator",
+        "text"
+      ],
+      "properties": {
+        "device_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 160
+        },
+        "browser_session_id": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 96,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "locator": {
+          "$ref": "#/$defs/browser_locator"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+        }
+      }
+    },
+    "fill_browser_output": {
+      "$ref": "#/$defs/browser_action_output"
+    },
+    "close_browser_session_input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "device_id",
+        "idempotency_key",
+        "browser_session_id"
+      ],
+      "properties": {
+        "device_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 160
+        },
+        "browser_session_id": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 96,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        }
+      }
+    },
+    "close_browser_session_output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "closed",
+        "already_closed",
+        "browser_session_id",
+        "completed_at"
+      ],
+      "properties": {
+        "closed": {
+          "type": "boolean",
+          "const": true
+        },
+        "already_closed": {
+          "type": "boolean"
+        },
+        "browser_session_id": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 96,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "completed_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
     }
   }
 }

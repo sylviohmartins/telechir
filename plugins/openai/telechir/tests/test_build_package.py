@@ -241,6 +241,12 @@ class PackageBuilderTests(unittest.TestCase):
             "get_git_diff",
             "capture_screen",
             "control_computer",
+            "open_browser_session",
+            "get_browser_snapshot",
+            "navigate_browser",
+            "click_browser",
+            "fill_browser",
+            "close_browser_session",
         }
         self.assertEqual(set(review["tools"]), expected)
 

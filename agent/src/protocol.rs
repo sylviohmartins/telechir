@@ -437,12 +437,24 @@ pub enum CommandOperation {
     ScreenCapture,
     #[serde(rename = "computer.input")]
     ComputerInput,
+    #[serde(rename = "browser.session.open")]
+    BrowserSessionOpen,
+    #[serde(rename = "browser.snapshot")]
+    BrowserSnapshot,
+    #[serde(rename = "browser.navigate")]
+    BrowserNavigate,
+    #[serde(rename = "browser.click")]
+    BrowserClick,
+    #[serde(rename = "browser.fill")]
+    BrowserFill,
+    #[serde(rename = "browser.session.close")]
+    BrowserSessionClose,
     #[serde(rename = "system.metrics")]
     SystemMetrics,
 }
 
 impl CommandOperation {
-    pub const ALL: [Self; 17] = [
+    pub const ALL: [Self; 23] = [
         Self::FsList,
         Self::FsStat,
         Self::FsRead,
@@ -459,6 +471,12 @@ impl CommandOperation {
         Self::GitDiff,
         Self::ScreenCapture,
         Self::ComputerInput,
+        Self::BrowserSessionOpen,
+        Self::BrowserSnapshot,
+        Self::BrowserNavigate,
+        Self::BrowserClick,
+        Self::BrowserFill,
+        Self::BrowserSessionClose,
         Self::SystemMetrics,
     ];
 
@@ -480,6 +498,12 @@ impl CommandOperation {
             Self::GitDiff => "git.diff",
             Self::ScreenCapture => "screen.capture",
             Self::ComputerInput => "computer.input",
+            Self::BrowserSessionOpen => "browser.session.open",
+            Self::BrowserSnapshot => "browser.snapshot",
+            Self::BrowserNavigate => "browser.navigate",
+            Self::BrowserClick => "browser.click",
+            Self::BrowserFill => "browser.fill",
+            Self::BrowserSessionClose => "browser.session.close",
             Self::SystemMetrics => "system.metrics",
         }
     }
@@ -494,6 +518,11 @@ impl CommandOperation {
                 | Self::ProcessWrite
                 | Self::ProcessCancel
                 | Self::ComputerInput
+                | Self::BrowserSessionOpen
+                | Self::BrowserNavigate
+                | Self::BrowserClick
+                | Self::BrowserFill
+                | Self::BrowserSessionClose
         )
     }
 }

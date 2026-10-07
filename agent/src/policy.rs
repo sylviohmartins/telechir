@@ -591,14 +591,21 @@ pub const fn minimum_risk(operation: CommandOperation) -> RiskLevel {
         | CommandOperation::ProcessStart
         | CommandOperation::ProcessWrite
         | CommandOperation::ProcessCancel => RiskLevel::Medium,
-        CommandOperation::ScreenCapture => RiskLevel::High,
+        CommandOperation::ScreenCapture
+        | CommandOperation::BrowserSessionOpen
+        | CommandOperation::BrowserSnapshot
+        | CommandOperation::BrowserNavigate
+        | CommandOperation::BrowserClick
+        | CommandOperation::BrowserFill
+        | CommandOperation::BrowserSessionClose => RiskLevel::High,
         CommandOperation::ComputerInput => RiskLevel::Critical,
         _ => RiskLevel::Low,
     }
 }
 
 fn approval_permission(request: &CommandRequest) -> PermissionDomain {
-    const PRIORITY: [PermissionDomain; 5] = [
+    const PRIORITY: [PermissionDomain; 6] = [
+        PermissionDomain::Browser,
         PermissionDomain::ScreenRead,
         PermissionDomain::ShellSafe,
         PermissionDomain::FsWrite,
@@ -620,7 +627,6 @@ fn hard_denied_permission(permission: PermissionDomain) -> bool {
             | PermissionDomain::Network
             | PermissionDomain::GitWrite
             | PermissionDomain::GitRemoteWrite
-            | PermissionDomain::Browser
             | PermissionDomain::SecretUse
             | PermissionDomain::Elevation
             | PermissionDomain::Admin
@@ -631,6 +637,12 @@ fn validate_phase_permission_operation(request: &CommandRequest) -> Result<(), T
     let exact = match request.operation {
         CommandOperation::ScreenCapture => Some(PermissionDomain::ScreenRead),
         CommandOperation::ComputerInput => Some(PermissionDomain::InputControl),
+        CommandOperation::BrowserSessionOpen
+        | CommandOperation::BrowserSnapshot
+        | CommandOperation::BrowserNavigate
+        | CommandOperation::BrowserClick
+        | CommandOperation::BrowserFill
+        | CommandOperation::BrowserSessionClose => Some(PermissionDomain::Browser),
         _ => None,
     };
     if let Some(required) = exact
@@ -659,6 +671,15 @@ fn validate_phase_permission_operation(request: &CommandRequest) -> Result<(), T
     {
         return Err(policy_error(
             "INPUT_CONTROL is valid only for the computer.input operation",
+        ));
+    }
+    if request
+        .requested_permissions
+        .contains(&PermissionDomain::Browser)
+        && !crate::browser::is_browser_operation(request.operation)
+    {
+        return Err(policy_error(
+            "BROWSER is valid only for the typed browser operations",
         ));
     }
     Ok(())
@@ -994,5 +1015,70 @@ mod tests {
                 .prepare_local_critical(&wrong_input, Some("session_phase13"), now)
                 .is_err()
         );
+    }
+
+    #[test]
+    fn browser_operations_are_high_and_approval_bound() {
+        let now = Utc::now();
+        for operation in crate::browser::browser_operations() {
+            let mut policy = LocalPolicyEngine::default();
+            let request = computer_request(
+                operation,
+                PermissionDomain::Browser,
+                RiskLevel::Low,
+                match operation {
+                    CommandOperation::BrowserSessionOpen => json!({}),
+                    CommandOperation::BrowserSnapshot | CommandOperation::BrowserSessionClose => {
+                        json!({"browser_session_id":"browser_12345678"})
+                    }
+                    CommandOperation::BrowserNavigate => json!({
+                        "browser_session_id":"browser_12345678",
+                        "url":"https://example.com/"
+                    }),
+                    CommandOperation::BrowserClick => json!({
+                        "browser_session_id":"browser_12345678",
+                        "locator":{"kind":"role","role":"button","name":"Save"}
+                    }),
+                    CommandOperation::BrowserFill => json!({
+                        "browser_session_id":"browser_12345678",
+                        "locator":{"kind":"label","value":"Email"},
+                        "text":"person@example.com"
+                    }),
+                    _ => unreachable!(),
+                },
+            );
+            assert!(matches!(
+                policy.authorize(&request, Some("session_phase14"), now),
+                AuthorizationOutcome::Ask(_)
+            ));
+        }
+    }
+
+    #[test]
+    fn browser_authority_is_exact_and_does_not_expand_input_or_filesystem() {
+        let now = Utc::now();
+        let mut policy = LocalPolicyEngine::default();
+
+        let wrong_browser_permission = computer_request(
+            CommandOperation::BrowserSnapshot,
+            PermissionDomain::InputControl,
+            RiskLevel::High,
+            json!({"browser_session_id":"browser_12345678"}),
+        );
+        assert!(matches!(
+            policy.authorize(&wrong_browser_permission, Some("session_phase14"), now),
+            AuthorizationOutcome::Deny(_)
+        ));
+
+        let browser_on_filesystem = computer_request(
+            CommandOperation::FsRead,
+            PermissionDomain::Browser,
+            RiskLevel::High,
+            json!({"path":"README.md"}),
+        );
+        assert!(matches!(
+            policy.authorize(&browser_on_filesystem, Some("session_phase14"), now),
+            AuthorizationOutcome::Deny(_)
+        ));
     }
 }
