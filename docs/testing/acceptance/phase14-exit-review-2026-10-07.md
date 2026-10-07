@@ -206,7 +206,7 @@ Resultado final:
 }
 ```
 
-O `seccomp=unconfined` usado nesse runner foi somente uma conveniência do container local para permitir user namespaces. Ele não altera o adapter e não representa configuração recomendada de produção; a documentação oficial recomenda usuário separado + seccomp apropriado.
+A prova reproduzida final executou com o seccomp padrão do Docker e usuário não-root `node`; não foi necessário `seccomp=unconfined`, `--no-sandbox` ou qualquer relaxamento equivalente. O Chromium sandbox permaneceu ativo.
 
 ## Typed locator contract
 
