@@ -20,6 +20,7 @@ A primeira execução ampliada retornou 17/18: token inválido lançava `Error` 
 - **Evidência local no PREDATORH300 (2026-10-08):** formatação PASS; typecheck PASS; Vitest 18 arquivos/**119 testes PASS** (MCP 18/18, incluindo os 3 novos; AB-028/AB-029); Wrangler 4.148.0 dry-run PASS (942,66 KiB / gzip 175,75 KiB); npm audit --audit-level=high PASS, 0 vulnerabilidades. YAML parse pelo Prettier: PASS. Nenhum deploy.
 - **GitHub Actions:** status independente da execução local; registrar workflow run/checks no PR antes de declarar CI PASS. A presença do YAML não é sucesso por si só.
 - Sem novas ferramentas, transportes internos ou permissões; AB-028/029 são regressões obrigatórias.
+- O status remoto de CI foi comprovado posteriormente: run #37843796029 (PR #51) e run #37843837500 (push da main), ambos com **conclusão success em todos os steps**; fonte: `docs/testing/acceptance/phase16-verified-ci-and-local-tls-2026-10-08.md`. O workflow novo acrescenta testes unitários de preflight TLS na sequência, sem executar tráfego de rede nem obter segredos em CI.
 - O fluxo Git exige branch curta, PR, verificação de head/checks/mergeability, merge, exclusão de branches e `main` limpa.
 - **Não** encerrar #49 nem avançar à Phase 17 com base neste workflow: clientes reais exigem ambiente de homologação apropriado.
 

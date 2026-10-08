@@ -41,6 +41,10 @@ Para declarar `PHASE_16_COMPLETE`, é preciso critérios objetivos e evidência 
 
 `npm exec -- vitest run test/mcp.test.ts` no PREDATORH300 após `npm ci` (Node 24.13.1, Vitest 4.1.11): **15 testes PASS**, incluindo quatro casos Phase 16. O primeiro ensaio detectou um problema **no próprio harness**: o cliente legado recebia `text/event-stream` e o teste tentava `Response.json()`. O teste foi corrigido para interpretar o evento SSE `data:` e reexecutado com 15/15 PASS. **Nenhuma alteração do servidor foi necessária.** Não houve teste de cliente proprietário real.
 
+### Evidência externa e CI do terceiro ciclo
+
+CI GitHub Actions comprovadamente **PASS** no PR #51 e no push da `main` (`37843796029`, `37843837500`), com checkout, Node 24, npm ci, tests, format, typecheck, Wrangler dry-run e audit aprovados. O ensaio com endpoint real em Wrangler `https://localhost:8987/mcp` revelou **TLS_CERTIFICATE_SUBSTITUTED** pelo Avast: a conexão externa foi deliberadamente bloqueada antes de executar o MCP Inspector ou enviar qualquer bearer. O preflight de fingerprint SHA-256 e seus testes unitários ficaram versionados no repositório. Ver `docs/testing/acceptance/phase16-verified-ci-and-local-tls-2026-10-08.md`. **Nenhum cliente de produto externo foi certificado.**
+
 ### Evolução da suíte — segundo ciclo da Phase 16
 
 Na regressão local final desta etapa, os 18 arquivos de teste do control plane passaram (**119/119**); o arquivo MCP passou **18/18**. O ciclo incremental adicionou três cenários de segurança/interoperabilidade: paridade dos 24 descriptors no wire legado (schema, annotations e metadata OAuth); dois owners diferentes acessando o MCP simultaneamente sem vazar device IDs; bearer ausente/inválido e tentativa de browser por token somente de filesystem. O fixture falso de tokens foi corrigido para emitir `OAuthError(InvalidToken)` tal como o verificador JWT real; nenhuma política do runtime foi alterada. Há agora um workflow GitHub Actions restrito, sem deploy, para repetir os gates de control plane. **A conclusão real do workflow deve ser verificada no GitHub; não deduzir PASS do arquivo YAML.**
