@@ -9,12 +9,17 @@
 |---|---|---|---|---|
 | `@modelcontextprotocol/client` (test harness do repo) | SDK lockfile 2.3.0, MCP moderno 2026-07-28 | PASS — Vitest `mcp.test.ts` | N/A — SDK | `apps/control-plane/test/mcp.test.ts` |
 | Wire JSON-RPC sem SDK externo de produto | MCP legado 2025-11-25, Streamable HTTP/SSE | PASS — `initialize`, `tools/list`, 24 tools | N/A — wire | `apps/control-plane/test/mcp.test.ts` Phase 16 |
+| MCP Inspector CLI externo | 2.5.0, HTTPS Streamable HTTP, runner Linux descartável | PASS — TLS validado, metadata, 401/WWW-Authenticate | PASS somente para challenge sem token (`auth_required`, exit 3); autenticado NOT_TESTED | [GitHub Actions #37845791616](https://github.com/sylviohmartins/telechir/actions/runs/37845791616) |
 | ChatGPT plugin Telechir | Remote HTTPS, OAuth e package sujeito a review | BLOCKED — sem endpoint autorizado | BLOCKED — plugin não publicado | Issue #15 e gates externos |
 | Codex CLI/IDE | MCP HTTP, versão não aferida | NOT_TESTED | BLOCKED — CLI não instalada/sem MCP HTTPS de teste | `codex mcp list`, sessão consentida |
 | Claude Code | MCP HTTP, versão não aferida | NOT_TESTED | BLOCKED — CLI não instalada/sem MCP HTTPS de teste | `claude mcp list`, sessão consentida |
 | Gemini CLI | Streamable HTTP, versão não aferida | NOT_TESTED | BLOCKED — CLI não instalada/sem MCP HTTPS de teste | `gemini mcp list`, sessão consentida |
 | GitHub Copilot | IDE/Agent, versão e policy não aferidas | NOT_TESTED | BLOCKED — sem host/endpoint de homologação | IDE real com aprovação |
 | Cursor/Cline/Roo/OpenCode/Goose | A definir individualmente | NOT_TESTED | NOT_TESTED | Pesquisa oficial e smoke por versão |
+
+## Incremento: cliente Inspector CLI independente no CI Linux
+
+O job `independent-inspector` executa o `@modelcontextprotocol/inspector@2.5.0` real em processo independente contra um Worker Wrangler isolado por HTTPS. Testa exclusivamente a negativa sem bearer: TLS com pinning, discovery de metadata OAuth, 401 no wire e código 3 (`auth_required`) no Inspector com `--stored-auth-only`. **PASS REAL VERIFICADO:** job Inspector CLI do run GitHub Actions [#37845791616](https://github.com/sylviohmartins/telechir/actions/runs/37845791616) concluído `success` com TLS pinning, metadata, 401 e `auth_required` (exit 3). Mesmo assim, acesso autenticado às 24 tools e clientes de IA de fornecedores continuam BLOCKED/NOT_TESTED. Evidência/limites: `docs/testing/acceptance/phase16-independent-inspector-gate-2026-10-08.md`.
 
 ## Casos e invariantes obrigatórios
 

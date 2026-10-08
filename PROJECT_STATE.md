@@ -35,7 +35,7 @@ A implementação possui Local Agent Core, control plane, identidade/pairing Ed2
 - [x] Phase 13 — Computer use: **`PHASE_13_COMPLETE`**.
 - [x] Phase 14 — Browser automation: **`PHASE_14_COMPLETE`**.
 - [x] Phase 15 — Multi-device/workspace concurrency: **`PHASE_15_COMPLETE`**.
-- [~] Phase 16 — Multi-AI compatibility certification em andamento: discovery oficial, matriz e harness MCP moderno/legado testados; GitHub Actions verificado em PR #51 e push na main (ambos success); preflight HTTPS do primeiro endpoint de desenvolvimento detectou substituição de certificado por Avast, bloqueando smoke via MCP Inspector sem rebaixar confiança TLS. Certificação de clientes reais pendente.
+- [~] Phase 16 — Multi-AI compatibility certification em andamento: discovery oficial, matriz e harness MCP moderno/legado testados; CI GitHub Actions com regressões aprovada; **MCP Inspector CLI 2.5.0 real** comprovou o caminho HTTPS/OAuth **sem token** (401 e `auth_required`, run #37845791616) em runner Ubuntu descartável, sem relaxar TLS. No Windows, Avast substitui certificado de loopback. Descoberta autenticada das 24 tools e certificação de clientes de IA fornecedores ainda pendentes.
 
 ## Decisões atuais
 
@@ -119,6 +119,7 @@ As avaliações relevantes estão em:
 - `docs/testing/acceptance/phase16-progress-review-2026-10-08.md`
 - `docs/testing/acceptance/phase16-interop-regression-ci-2026-10-08.md`
 - `docs/testing/acceptance/phase16-verified-ci-and-local-tls-2026-10-08.md`
+- `docs/testing/acceptance/phase16-independent-inspector-gate-2026-10-08.md`
 - `docs/research/mcp/phase16-external-client-smoke-plan-2026-10-08.md`
 - `docs/security/threat-model/phase16-client-interoperability-2026-10-08.md`
 
