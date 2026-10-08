@@ -66,7 +66,7 @@ async function token(
     subject?: string;
     exp?: number;
     nbf?: number;
-    scope?: string;
+    scope?: string | string[];
     kid?: string;
   } = {},
 ): Promise<string> {
@@ -246,5 +246,84 @@ describe("OAuth resource server", () => {
     await verifier.verifyAccessToken(signed);
 
     expect(remote.calls).toHaveLength(2);
+  });
+
+  it("rejects signed tokens after the matching local account is disabled", async () => {
+    const userId = await seedUser();
+    const material = await signingMaterial();
+    const signed = await token(material.privateKey);
+    await bindings.DB.prepare("UPDATE users SET disabled_at = ? WHERE id = ?")
+      .bind(new Date().toISOString(), userId)
+      .run();
+    const verifier = new JwtAccessTokenVerifier(
+      bindings.DB,
+      discoveredConfig(),
+      fetcher(material.jwks).fetch,
+    );
+
+    await expect(verifier.verifyAccessToken(signed)).rejects.toSatisfy(
+      (error: unknown) =>
+        OAuthError.isInstance(error) &&
+        error.code === OAuthErrorCode.InvalidToken,
+    );
+  });
+
+  it("normalizes duplicate scopes in strings and arrays without granting others", async () => {
+    const userId = await seedUser();
+    const material = await signingMaterial();
+    const verifier = new JwtAccessTokenVerifier(
+      bindings.DB,
+      discoveredConfig(),
+      fetcher(material.jwks).fetch,
+    );
+
+    const stringToken = await token(material.privateKey, {
+      scope: "telechir:devices:read  telechir:devices:read telechir:files:read",
+    });
+    const arrayToken = await token(material.privateKey, {
+      scope: [
+        "telechir:devices:read",
+        "telechir:devices:read",
+        "telechir:files:read",
+      ],
+    });
+    const expectedScopes = ["telechir:devices:read", "telechir:files:read"];
+    expect(await verifier.verifyAccessToken(stringToken)).toMatchObject({
+      scopes: expectedScopes,
+      extra: { telechir_user_id: userId },
+    });
+    expect(await verifier.verifyAccessToken(arrayToken)).toMatchObject({
+      scopes: expectedScopes,
+      extra: { telechir_user_id: userId },
+    });
+  });
+
+  it("rejects malformed and unsecured access tokens before remote JWKS lookup", async () => {
+    await seedUser();
+    const material = await signingMaterial();
+    const remote = fetcher(material.jwks);
+    const verifier = new JwtAccessTokenVerifier(
+      bindings.DB,
+      discoveredConfig(),
+      remote.fetch,
+    );
+    const unsignedHeader = toBase64Url(
+      new TextEncoder().encode(JSON.stringify({ alg: "none", kid: "test" })),
+    );
+    const unsignedPayload = toBase64Url(
+      new TextEncoder().encode(JSON.stringify({ sub: subject, iss: issuer })),
+    );
+    const invalidTokens = [
+      "not-a-jwt",
+      `${unsignedHeader}.${unsignedPayload}.not-a-signature`,
+    ];
+    for (const invalidToken of invalidTokens) {
+      await expect(verifier.verifyAccessToken(invalidToken)).rejects.toSatisfy(
+        (error: unknown) =>
+          OAuthError.isInstance(error) &&
+          error.code === OAuthErrorCode.InvalidToken,
+      );
+    }
+    expect(remote.calls).toEqual([]);
   });
 });
