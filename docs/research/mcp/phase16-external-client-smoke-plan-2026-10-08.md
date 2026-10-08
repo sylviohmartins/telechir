@@ -18,6 +18,10 @@ Status: plano operacional reprodutível; não representa execução.
 - Read-only token e token sem privilégios adicionais para provar `401/403` por falta de autorização; não copiar tokens para issue ou logs.
 - Agressão de concurrência AB-028/029 validada com dois clientes antes de qualquer divulgação comercial de multi-IA.
 
+## Preflight obrigatório — certificado sem substituição
+
+O primeiro smoke externo em PREDATORH300 detectou interceptação do TLS de loopback pelo Avast, que apresentou fingerprint SHA-256 diferente do certificado temporário do Wrangler; os clientes Node/curl recusaram a cadeia de confiança. Repetir o gate local com `node scripts/interop/verify-local-tls.mjs --cert <PUBLIC_CERT> --host localhost --port 8987`. Apenas resultado `PASS/TLS_PIN_AND_CHAIN_VALIDATED` permite avançar ao Inspector. O handshake de diagnóstico lê exclusivamente o certificado; não envia HTTP nem tokens. Detalhes em `docs/testing/acceptance/phase16-verified-ci-and-local-tls-2026-10-08.md`. Não relaxar TLS nem desativar proteção sem avaliação e autorização apropriadas.
+
 ## MCP Inspector CLI (independente)
 
 Documentação oficial (2026):

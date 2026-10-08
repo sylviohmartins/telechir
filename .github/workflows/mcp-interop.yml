@@ -47,6 +47,9 @@ jobs:
       - name: Run MCP, OAuth, workspace and security regressions
         run: npm test
 
+      - name: Run local TLS preflight unit tests (no network or secrets)
+        run: node --test ../../scripts/interop/verify-local-tls.test.mjs
+
       - name: Check Cloudflare Worker bundle without deployment
         run: npm run dry-run
 
