@@ -30,7 +30,7 @@ Executar a implementação **real** `@modelcontextprotocol/inspector@2.5.0` (CLI
 | `tools/list` autorizado 24/24, scopes por usuário, refresh/reconnect | NOT_TESTED neste script | Requer IdP/DB sintéticos e cliente autenticado |
 | Integração via clientes IA de fornecedores | BLOCKED/NOT_TESTED | Requer contas, conexão OAuth e gate humano adequado |
 
-**Regra:** documentar resultados `PASS` **somente após execução da ação no GitHub com conclusão `success`**. O código do script e sua sintaxe correta não são, isoladamente, evidência de sucesso de ponta a ponta.
+**Evidência verificada:** GitHub Actions PR #53, run [#37845791616](https://github.com/sylviohmartins/telechir/actions/runs/37845791616), job `Independent Inspector CLI auth-boundary smoke (Linux)` (**success**, 2026-10-08), logs reais do job confirmam, nesta ordem: `PASS: local-only HTTPS Worker health`, `PASS: TLS certificate fingerprint and chain verified`, `PASS: OAuth protected-resource metadata`, `PASS: unauthenticated MCP tool discovery denied with HTTP 401`, `PASS: MCP Inspector 2.5.0 real CLI correctly rejected absent OAuth credentials`, `RESULT: INDEPENDENT_CLIENT_UNAUTHENTICATED_SMOKE_PASS`. O resultado **PASS** se limita ao handshake HTTPS/metadados e à rejeição de acesso sem token pelo cliente externo; não certifica auth positivo ou produtos fornecedores.
 
 ## Limitações remanescentes
 
