@@ -130,7 +130,10 @@
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "minLength": 3,
+          "maxLength": 160,
+          "pattern": "^[A-Za-z0-9_-]+$"
         },
         "approval_id": {
           "type": [

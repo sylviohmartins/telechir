@@ -202,6 +202,9 @@ beforeEach(async () => {
     `DELETE FROM sessions WHERE user_id IN (${userFilter})`,
   ).run();
   await bindings.DB.prepare(
+    `DELETE FROM workspaces WHERE user_id IN (${userFilter})`,
+  ).run();
+  await bindings.DB.prepare(
     `DELETE FROM devices WHERE user_id IN (${userFilter})`,
   ).run();
   await bindings.DB.prepare(
@@ -550,10 +553,14 @@ describe("Phase 7 process dispatch", () => {
     const commandId = firstPayload.command_id as string;
     const sessionId = firstCommand.session_id as string;
     const commandRow = await bindings.DB.prepare(
-      "SELECT argument_digest FROM commands WHERE id = ?",
+      "SELECT argument_digest, workspace_id, workspace_fencing_token FROM commands WHERE id = ?",
     )
       .bind(commandId)
-      .first<{ argument_digest: string }>();
+      .first<{
+        argument_digest: string;
+        workspace_id: string;
+        workspace_fencing_token: number | null;
+      }>();
     expect(commandRow).not.toBeNull();
 
     const approvalId = `approval_${crypto.randomUUID()}`;
@@ -581,19 +588,23 @@ describe("Phase 7 process dispatch", () => {
     });
 
     const persisted = await bindings.DB.prepare(
-      "SELECT session_id, argument_digest, decision FROM approvals WHERE id = ?",
+      "SELECT session_id, workspace_id, argument_digest, decision FROM approvals WHERE id = ?",
     )
       .bind(approvalId)
       .first<{
         session_id: string;
+        workspace_id: string;
         argument_digest: string;
         decision: string | null;
       }>();
     expect(persisted).toMatchObject({
       session_id: sessionId,
+      workspace_id: commandRow!.workspace_id,
       argument_digest: commandRow!.argument_digest,
       decision: null,
     });
+    const leaseTokenBeforeApproval = commandRow!.workspace_fencing_token;
+    expect(leaseTokenBeforeApproval).toBeGreaterThan(0);
 
     const approvalMessages = nextMessages(device.socket!, 2);
     const coordinator = bindings.DEVICE_COORDINATOR.get(
@@ -638,10 +649,23 @@ describe("Phase 7 process dispatch", () => {
     const redispatchPayload = redispatch.payload as Record<string, unknown>;
     expect(redispatchPayload.command_id).toBe(commandId);
     expect(redispatchPayload.approval_id).toBe(approvalId);
+    expect(redispatchPayload.workspace_id).toBe(commandRow!.workspace_id);
     expect(redispatchPayload.arguments).toEqual(firstPayload.arguments);
     expect(redispatchPayload.requested_permissions).toEqual(
       firstPayload.requested_permissions,
     );
+    const afterApproval = await bindings.DB.prepare(
+      "SELECT workspace_id, workspace_fencing_token FROM commands WHERE id = ?",
+    )
+      .bind(commandId)
+      .first<{
+        workspace_id: string;
+        workspace_fencing_token: number | null;
+      }>();
+    expect(afterApproval).toEqual({
+      workspace_id: commandRow!.workspace_id,
+      workspace_fencing_token: leaseTokenBeforeApproval,
+    });
 
     device.socket!.close(1000, "test complete");
   });

@@ -16,6 +16,8 @@ export interface PublicDeviceSummary {
   arch: string;
   agent_version: string;
   last_seen: string | null;
+  default_workspace_id: string;
+  active_workspace_count: number;
 }
 
 export interface PublicDeviceDetail extends PublicDeviceSummary {
@@ -30,6 +32,8 @@ interface DeviceRow {
   arch: string;
   agent_version: string;
   last_seen_at: string | null;
+  default_workspace_id: string;
+  active_workspace_count: number;
 }
 
 interface Presence {
@@ -64,10 +68,23 @@ export class DeviceToolsService {
 
     const result = await this.db
       .prepare(
-        `SELECT id, display_name, os, arch, agent_version, last_seen_at
-         FROM devices
-         WHERE user_id = ? AND revoked_at IS NULL
-         ORDER BY created_at ASC
+        `SELECT d.id, d.display_name, d.os, d.arch, d.agent_version,
+                d.last_seen_at, w.id AS default_workspace_id,
+                (
+                  SELECT COUNT(*)
+                  FROM workspaces wa
+                  WHERE wa.user_id = d.user_id
+                    AND wa.device_id = d.id
+                    AND wa.archived_at IS NULL
+                ) AS active_workspace_count
+         FROM devices d
+         JOIN workspaces w
+           ON w.device_id = d.id
+          AND w.user_id = d.user_id
+          AND w.is_default = 1
+          AND w.archived_at IS NULL
+         WHERE d.user_id = ? AND d.revoked_at IS NULL
+         ORDER BY d.created_at ASC
          LIMIT 250`,
       )
       .bind(userId)
@@ -101,9 +118,22 @@ export class DeviceToolsService {
   ): Promise<PublicDeviceDetail> {
     const row = await this.db
       .prepare(
-        `SELECT id, display_name, os, arch, agent_version, last_seen_at
-         FROM devices
-         WHERE id = ? AND user_id = ? AND revoked_at IS NULL`,
+        `SELECT d.id, d.display_name, d.os, d.arch, d.agent_version,
+                d.last_seen_at, w.id AS default_workspace_id,
+                (
+                  SELECT COUNT(*)
+                  FROM workspaces wa
+                  WHERE wa.user_id = d.user_id
+                    AND wa.device_id = d.id
+                    AND wa.archived_at IS NULL
+                ) AS active_workspace_count
+         FROM devices d
+         JOIN workspaces w
+           ON w.device_id = d.id
+          AND w.user_id = d.user_id
+          AND w.is_default = 1
+          AND w.archived_at IS NULL
+         WHERE d.id = ? AND d.user_id = ? AND d.revoked_at IS NULL`,
       )
       .bind(input.device_id, userId)
       .first<DeviceRow>();
@@ -129,6 +159,8 @@ export class DeviceToolsService {
       arch: row.arch,
       agent_version: row.agent_version,
       last_seen: row.last_seen_at,
+      default_workspace_id: row.default_workspace_id,
+      active_workspace_count: row.active_workspace_count,
     };
   }
 

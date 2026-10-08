@@ -59,6 +59,9 @@ const SIDE_EFFECT_OPERATIONS = new Set([
   "browser.session.close",
 ]);
 const MAX_COMMAND_DEADLINE_MS = 130_000;
+const WORKSPACE_ID_PATTERN = /^[A-Za-z0-9_-]{3,160}$/u;
+const WORKSPACE_LEASE_PREFIX = "workspace-lease:";
+const WORKSPACE_FENCE_PREFIX = "workspace-fence:";
 const REPLACED_CLOSE_CODE = 4001;
 const PROTOCOL_CLOSE_CODE = 4002;
 const REVOKED_CLOSE_CODE = 4003;
@@ -72,6 +75,7 @@ interface InternalCommandRequest {
   risk: RiskLevel;
   deadline_at: string;
   user_id: string;
+  workspace_id: string;
   session_id: string;
   tool_name: string;
   argument_digest: string;
@@ -93,6 +97,28 @@ interface CorrelatedCommandState {
   received_at: string;
   payload?: Record<string, unknown>;
   request?: InternalCommandRequest;
+}
+
+interface WorkspaceLease {
+  workspace_id: string;
+  command_id: string;
+  session_id: string;
+  argument_digest: string;
+  fencing_token: number;
+  acquired_at: string;
+  expires_at: string;
+}
+
+class WorkspaceLeaseConflict extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "WorkspaceLeaseConflict";
+  }
+}
+
+interface WorkspaceLeaseAcquisition {
+  lease: WorkspaceLease;
+  newly_acquired: boolean;
 }
 
 interface PreparedOutboundFrame {
@@ -121,6 +147,16 @@ function requiredHeader(request: Request, name: string): string {
     throw new Error(`missing internal header: ${name}`);
   }
   return value;
+}
+
+function isTerminalCommandMessage(
+  messageType: CorrelatedCommandState["message_type"],
+): boolean {
+  return (
+    messageType === "command.completed" ||
+    messageType === "command.failed" ||
+    messageType === "command.cancelled"
+  );
 }
 
 export class DeviceCoordinator {
@@ -167,6 +203,12 @@ export class DeviceCoordinator {
         }
       }
       await this.state.storage.put("revoked", true);
+      const leases = await this.state.storage.list<WorkspaceLease>({
+        prefix: WORKSPACE_LEASE_PREFIX,
+      });
+      if (leases.size > 0) {
+        await this.state.storage.delete([...leases.keys()]);
+      }
       return success({ revoked: true, active_connections: 0 });
     }
 
@@ -188,6 +230,20 @@ export class DeviceCoordinator {
         : failure("NOT_FOUND", "Command correlation not found", 404);
     }
     if (commandMatch && request.method === "DELETE") {
+      const command = await this.state.storage.get<CorrelatedCommandState>(
+        `command:${commandMatch[1]!}`,
+      );
+      if (
+        command?.request &&
+        SIDE_EFFECT_OPERATIONS.has(command.request.operation) &&
+        !isTerminalCommandMessage(command.message_type)
+      ) {
+        return failure(
+          "CONFLICT",
+          "Side-effect command correlation is still active",
+          409,
+        );
+      }
       await this.state.storage.delete(`command:${commandMatch[1]!}`);
       return success({ deleted: true });
     }
@@ -339,6 +395,12 @@ export class DeviceCoordinator {
             const completedAt = frame.payload.completed_at;
             if (typeof completedAt === "string") {
               await governance.markCompleted(commandId, completedAt);
+              if (previous?.request) {
+                await this.releaseWorkspaceLease(
+                  previous.request,
+                  "command_completed",
+                );
+              }
             }
           } else if (frame.message_type === "command.cancelled") {
             const cancelledAt = frame.payload.cancelled_at;
@@ -348,6 +410,12 @@ export class DeviceCoordinator {
                 ? cancelledAt
                 : new Date().toISOString(),
             );
+            if (previous?.request) {
+              await this.releaseWorkspaceLease(
+                previous.request,
+                "command_cancelled",
+              );
+            }
           } else if (frame.message_type === "command.failed") {
             const failedAt = frame.payload.failed_at;
             const remoteError = frame.payload.error;
@@ -365,6 +433,12 @@ export class DeviceCoordinator {
                 ? failedAt
                 : new Date().toISOString(),
             );
+            if (previous?.request) {
+              await this.releaseWorkspaceLease(
+                previous.request,
+                "command_failed",
+              );
+            }
           } else if (frame.message_type === "approval.request") {
             const requestContext = previous?.request;
             const approvalId = frame.payload.approval_id;
@@ -397,6 +471,22 @@ export class DeviceCoordinator {
               argumentDigest,
               expiresAt,
             });
+            try {
+              await this.acquireAndBindWorkspaceLease(
+                requestContext,
+                governance,
+                expiresAt,
+              );
+            } catch (error) {
+              await governance.markFailed(
+                commandId,
+                error instanceof WorkspaceLeaseConflict
+                  ? "CONFLICT"
+                  : "INTERNAL_ERROR",
+                new Date().toISOString(),
+              );
+              throw error;
+            }
           }
         } catch {
           socket.close(
@@ -429,6 +519,138 @@ export class DeviceCoordinator {
     socket.close(1011, "realtime channel error");
   }
 
+  private async acquireWorkspaceLease(
+    command: InternalCommandRequest,
+    requestedExpiry = command.deadline_at,
+  ): Promise<WorkspaceLeaseAcquisition | null> {
+    if (!SIDE_EFFECT_OPERATIONS.has(command.operation)) {
+      return null;
+    }
+    const now = Date.now();
+    const requestedExpiryMs = Date.parse(requestedExpiry);
+    if (!Number.isFinite(requestedExpiryMs) || requestedExpiryMs <= now) {
+      throw new WorkspaceLeaseConflict("Workspace lease expiry is invalid");
+    }
+    const expiryMs = Math.min(requestedExpiryMs, now + MAX_COMMAND_DEADLINE_MS);
+    const leaseKey = `${WORKSPACE_LEASE_PREFIX}${command.workspace_id}`;
+    const fenceKey = `${WORKSPACE_FENCE_PREFIX}${command.workspace_id}`;
+
+    return this.state.storage.transaction(async (transaction) => {
+      const current = await transaction.get<WorkspaceLease>(leaseKey);
+      const currentExpiry = current ? Date.parse(current.expires_at) : NaN;
+      if (current && Number.isFinite(currentExpiry) && currentExpiry > now) {
+        if (current.command_id !== command.command_id) {
+          throw new WorkspaceLeaseConflict(
+            "Workspace already has an active side-effect command",
+          );
+        }
+        if (
+          current.workspace_id !== command.workspace_id ||
+          current.session_id !== command.session_id ||
+          current.argument_digest !== command.argument_digest
+        ) {
+          throw new WorkspaceLeaseConflict(
+            "Workspace lease binding does not match the command",
+          );
+        }
+        const renewedExpiry = Math.max(currentExpiry, expiryMs);
+        const renewed: WorkspaceLease = {
+          ...current,
+          expires_at: new Date(renewedExpiry).toISOString(),
+        };
+        if (renewedExpiry !== currentExpiry) {
+          await transaction.put(leaseKey, renewed);
+        }
+        return { lease: renewed, newly_acquired: false };
+      }
+
+      const previousFence = (await transaction.get<number>(fenceKey)) ?? 0;
+      const fencingToken = previousFence + 1;
+      if (!Number.isSafeInteger(fencingToken) || fencingToken < 1) {
+        throw new WorkspaceLeaseConflict("Workspace fencing token overflow");
+      }
+      const lease: WorkspaceLease = {
+        workspace_id: command.workspace_id,
+        command_id: command.command_id,
+        session_id: command.session_id,
+        argument_digest: command.argument_digest,
+        fencing_token: fencingToken,
+        acquired_at: new Date(now).toISOString(),
+        expires_at: new Date(expiryMs).toISOString(),
+      };
+      await transaction.put(fenceKey, fencingToken);
+      await transaction.put(leaseKey, lease);
+      return { lease, newly_acquired: true };
+    });
+  }
+
+  private async dropWorkspaceLease(
+    command: InternalCommandRequest,
+  ): Promise<WorkspaceLease | null> {
+    if (!SIDE_EFFECT_OPERATIONS.has(command.operation)) {
+      return null;
+    }
+    const key = `${WORKSPACE_LEASE_PREFIX}${command.workspace_id}`;
+    return this.state.storage.transaction(async (transaction) => {
+      const current = await transaction.get<WorkspaceLease>(key);
+      if (
+        !current ||
+        current.command_id !== command.command_id ||
+        current.session_id !== command.session_id ||
+        current.argument_digest !== command.argument_digest
+      ) {
+        return null;
+      }
+      await transaction.delete(key);
+      return current;
+    });
+  }
+
+  private async acquireAndBindWorkspaceLease(
+    command: InternalCommandRequest,
+    governance: GovernanceService,
+    requestedExpiry = command.deadline_at,
+  ): Promise<WorkspaceLeaseAcquisition | null> {
+    const acquired = await this.acquireWorkspaceLease(command, requestedExpiry);
+    if (!acquired) {
+      return null;
+    }
+    try {
+      await governance.bindWorkspaceLease(
+        command.command_id,
+        command.workspace_id,
+        acquired.lease.fencing_token,
+        acquired.lease.expires_at,
+      );
+      return acquired;
+    } catch (error) {
+      if (acquired.newly_acquired) {
+        await this.dropWorkspaceLease(command);
+      }
+      throw error;
+    }
+  }
+
+  private async releaseWorkspaceLease(
+    command: InternalCommandRequest,
+    reason: string,
+  ): Promise<void> {
+    const released = await this.dropWorkspaceLease(command);
+    if (!released) {
+      return;
+    }
+    try {
+      await new GovernanceService(this.env.DB).recordWorkspaceLeaseReleased(
+        command.command_id,
+        command.workspace_id,
+        released.fencing_token,
+        reason,
+      );
+    } catch {
+      // The terminal command audit already carries workspace/fencing metadata.
+      // Lease safety must not be undone if this supplementary audit event fails.
+    }
+  }
   private async dispatchCommand(request: Request): Promise<Response> {
     if (await this.state.storage.get<boolean>("revoked")) {
       return failure("DEVICE_REVOKED", "Device is revoked", 403);
@@ -472,6 +694,8 @@ export class DeviceCoordinator {
       typeof command.user_id !== "string" ||
       command.user_id.length < 3 ||
       command.user_id.length > 128 ||
+      typeof command.workspace_id !== "string" ||
+      !WORKSPACE_ID_PATTERN.test(command.workspace_id) ||
       typeof command.session_id !== "string" ||
       command.session_id.length < 3 ||
       command.session_id.length > 128 ||
@@ -575,6 +799,24 @@ export class DeviceCoordinator {
       return failure("RATE_LIMITED", "Too many correlated commands", 429);
     }
 
+    const governance = new GovernanceService(this.env.DB);
+    let leaseAcquisition: WorkspaceLeaseAcquisition | null = null;
+    try {
+      leaseAcquisition = await this.acquireAndBindWorkspaceLease(
+        command,
+        governance,
+      );
+    } catch (error) {
+      await governance.markFailed(
+        command.command_id,
+        error instanceof WorkspaceLeaseConflict ? "CONFLICT" : "INTERNAL_ERROR",
+        new Date().toISOString(),
+      );
+      return error instanceof WorkspaceLeaseConflict
+        ? failure("CONFLICT", error.message, 409)
+        : failure("INTERNAL_ERROR", "Workspace lease acquisition failed", 500);
+    }
+
     const payload: Record<string, unknown> = {
       command_id: command.command_id,
       idempotency_key: command.idempotency_key,
@@ -582,7 +824,7 @@ export class DeviceCoordinator {
       arguments: command.arguments,
       requested_permissions: command.requested_permissions,
       risk: command.risk,
-      workspace_id: null,
+      workspace_id: command.workspace_id,
       approval_id: command.approval_id ?? null,
     };
 
@@ -597,6 +839,14 @@ export class DeviceCoordinator {
         command.session_id,
       );
     } catch {
+      if (leaseAcquisition) {
+        await this.releaseWorkspaceLease(command, "frame_rejected");
+      }
+      await governance.markFailed(
+        command.command_id,
+        "INVALID_ARGUMENT",
+        new Date().toISOString(),
+      );
       return failure(
         "INVALID_ARGUMENT",
         "Command request exceeds the realtime frame limit",
@@ -606,20 +856,32 @@ export class DeviceCoordinator {
 
     // Persist correlation before releasing a side effect to the device. If
     // Durable Object storage fails, no command frame has been sent.
-    await this.state.storage.put<CorrelatedCommandState>(
-      `command:${command.command_id}`,
-      {
-        command_id: command.command_id,
-        message_type: "command.request",
-        message_id: outbound.messageId,
-        sequence: outbound.sequence,
-        received_at: new Date().toISOString(),
-        request: command,
-      },
-    );
-    attachment.nextOutboundSequence += 1;
-    active.serializeAttachment(attachment);
-    active.send(outbound.encoded);
+    try {
+      await this.state.storage.put<CorrelatedCommandState>(
+        `command:${command.command_id}`,
+        {
+          command_id: command.command_id,
+          message_type: "command.request",
+          message_id: outbound.messageId,
+          sequence: outbound.sequence,
+          received_at: new Date().toISOString(),
+          request: command,
+        },
+      );
+      attachment.nextOutboundSequence += 1;
+      active.serializeAttachment(attachment);
+      active.send(outbound.encoded);
+    } catch {
+      if (leaseAcquisition) {
+        await this.releaseWorkspaceLease(command, "dispatch_failed");
+      }
+      await governance.markFailed(
+        command.command_id,
+        "INTERNAL_ERROR",
+        new Date().toISOString(),
+      );
+      return failure("INTERNAL_ERROR", "Command dispatch failed", 500);
+    }
 
     return success({
       command_id: command.command_id,
@@ -683,6 +945,7 @@ export class DeviceCoordinator {
       const original = commandState.request;
       if (
         original.user_id !== existing.user_id ||
+        original.workspace_id !== existing.workspace_id ||
         original.session_id !== existing.session_id ||
         original.argument_digest !== existing.argument_digest ||
         original.command_id !== existing.command_id
@@ -757,10 +1020,47 @@ export class DeviceCoordinator {
     }
 
     if (body.decision === "APPROVE") {
+      const leaseExpiry = Date.parse(decided.expires_at);
+      if (!Number.isFinite(leaseExpiry) || leaseExpiry <= Date.now()) {
+        await governance.markFailed(
+          commandState.command_id,
+          "CONFLICT",
+          new Date().toISOString(),
+        );
+        await this.releaseWorkspaceLease(
+          commandState.request,
+          "approval_expired",
+        );
+        return failure("CONFLICT", "Approval expired before dispatch", 409);
+      }
+      const leaseCommand: InternalCommandRequest = {
+        ...commandState.request,
+        approval_id: approvalId,
+        deadline_at: new Date(
+          Math.min(leaseExpiry, Date.now() + MAX_COMMAND_DEADLINE_MS),
+        ).toISOString(),
+      };
       try {
+        await this.acquireAndBindWorkspaceLease(
+          leaseCommand,
+          governance,
+          decided.expires_at,
+        );
         await governance.consumeApproval(approvalId);
       } catch (error) {
+        if (error instanceof WorkspaceLeaseConflict) {
+          await governance.markFailed(
+            commandState.command_id,
+            "CONFLICT",
+            new Date().toISOString(),
+          );
+          return failure("CONFLICT", error.message, 409);
+        }
         if (error instanceof GovernanceError) {
+          await this.releaseWorkspaceLease(
+            commandState.request,
+            "approval_consumption_failed",
+          );
           return failure(error.code, error.message, 409);
         }
         return failure("INTERNAL_ERROR", "Approval consumption failed", 500);
@@ -788,6 +1088,7 @@ export class DeviceCoordinator {
         "POLICY_DENIED",
         decided.decided_at ?? new Date().toISOString(),
       );
+      await this.releaseWorkspaceLease(commandState.request, "approval_denied");
       await this.state.storage.put<CorrelatedCommandState>(
         `command:${commandState.command_id}`,
         {
@@ -835,7 +1136,7 @@ export class DeviceCoordinator {
       arguments: approvedCommand.arguments,
       requested_permissions: approvedCommand.requested_permissions,
       risk: approvedCommand.risk,
-      workspace_id: null,
+      workspace_id: approvedCommand.workspace_id,
       approval_id: approvalId,
     };
 

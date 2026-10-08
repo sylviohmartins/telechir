@@ -25,6 +25,8 @@ const overview: DashboardOverview = {
       arch: "x86_64",
       agent_version: "0.10.0",
       last_seen: "2026-10-05T19:00:00.000Z",
+      default_workspace_id: "workspace_device-1",
+      active_workspace_count: 1,
     },
   ],
   sessions: [
@@ -42,6 +44,9 @@ const overview: DashboardOverview = {
       device_id: "device-1",
       device_name: "Predator",
       session_id: "session-1",
+      workspace_id: "workspace_device-1",
+      workspace_name: "Default workspace",
+      workspace_fencing_token: null,
       tool_name: "read_file",
       operation: "fs.read",
       risk: "LOW",
@@ -134,6 +139,8 @@ describe("Dashboard App", () => {
     await screen.findByRole("heading", { level: 3, name: "Predator" });
     expect(screen.getByText("1 pendentes")).toBeInTheDocument();
     expect(screen.getByText("COMMAND_COMPLETED")).toBeInTheDocument();
+    expect(screen.getAllByText("workspace_device-1")).toHaveLength(2);
+    expect(screen.getByText("Default workspace")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Aprovar uma vez" }));
 

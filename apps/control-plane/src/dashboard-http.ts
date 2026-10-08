@@ -32,6 +32,9 @@ interface CommandRow {
   device_id: string;
   device_name: string;
   session_id: string;
+  workspace_id: string;
+  workspace_name: string;
+  workspace_fencing_token: number | null;
   tool_name: string;
   operation: string;
   risk: string;
@@ -144,11 +147,18 @@ async function listCommands(
   const result = await db
     .prepare(
       `SELECT c.id, c.device_id, d.display_name AS device_name, c.session_id,
+              c.workspace_id,
+              COALESCE(w.display_name, c.workspace_id) AS workspace_name,
+              c.workspace_fencing_token,
               c.tool_name, c.operation, c.risk, c.state, c.requested_at,
               c.accepted_at, c.completed_at, c.error_code
        FROM commands c
        JOIN sessions s ON s.id = c.session_id
        JOIN devices d ON d.id = c.device_id
+       LEFT JOIN workspaces w
+         ON w.id = c.workspace_id
+        AND w.user_id = s.user_id
+        AND w.device_id = c.device_id
        WHERE s.user_id = ?
        ORDER BY c.requested_at DESC, c.id DESC
        LIMIT ?`,

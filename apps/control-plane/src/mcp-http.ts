@@ -47,6 +47,7 @@ import {
   type GitToolName,
 } from "./git-tools";
 import { SERVICE_VERSION } from "./meta";
+import { WorkspaceError } from "./workspace";
 import {
   JwtAccessTokenVerifier,
   oauthConfigFromEnv,
@@ -114,6 +115,19 @@ function scopedChallenge(scopes: string[]) {
 }
 
 function toolFailure(error: unknown) {
+  if (error instanceof WorkspaceError) {
+    const text =
+      error.code === "NOT_FOUND"
+        ? "The selected workspace was not found for this device."
+        : error.code === "INVALID_ARGUMENT"
+          ? "The workspace identifier is invalid."
+          : "The device workspace could not be resolved.";
+    return {
+      content: [{ type: "text" as const, text }],
+      isError: true,
+    };
+  }
+
   if (error instanceof DeviceToolsError && error.code === "NOT_FOUND") {
     return {
       content: [{ type: "text" as const, text: "Device not found." }],

@@ -33,7 +33,9 @@
             "required": [
               "device_id",
               "name",
-              "status"
+              "status",
+              "default_workspace_id",
+              "active_workspace_count"
             ],
             "properties": {
               "device_id": {
@@ -66,6 +68,17 @@
                   "null"
                 ],
                 "format": "date-time"
+              },
+              "default_workspace_id": {
+                "type": "string",
+                "minLength": 8,
+                "maxLength": 160,
+                "pattern": "^[A-Za-z0-9_-]+$"
+              },
+              "active_workspace_count": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 250
               }
             }
           }
@@ -93,7 +106,9 @@
         "device_id",
         "name",
         "status",
-        "capabilities"
+        "capabilities",
+        "default_workspace_id",
+        "active_workspace_count"
       ],
       "properties": {
         "device_id": {
@@ -142,6 +157,17 @@
               "$ref": "#/$defs/policy_summary"
             }
           ]
+        },
+        "default_workspace_id": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 160,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "active_workspace_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 250
         }
       }
     },
@@ -173,6 +199,12 @@
           "minimum": 1,
           "maximum": 500,
           "default": 100
+        },
+        "workspace_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160,
+          "pattern": "^[A-Za-z0-9_-]+$"
         }
       }
     },
@@ -258,6 +290,12 @@
         "include_hash": {
           "type": "boolean",
           "default": true
+        },
+        "workspace_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160,
+          "pattern": "^[A-Za-z0-9_-]+$"
         }
       }
     },
@@ -330,6 +368,12 @@
             "base64"
           ],
           "default": "utf-8"
+        },
+        "workspace_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160,
+          "pattern": "^[A-Za-z0-9_-]+$"
         }
       }
     },
@@ -417,6 +461,12 @@
         "create_if_missing": {
           "type": "boolean",
           "default": true
+        },
+        "workspace_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160,
+          "pattern": "^[A-Za-z0-9_-]+$"
         }
       }
     },
@@ -473,6 +523,12 @@
         },
         "format": {
           "const": "unified_diff"
+        },
+        "workspace_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160,
+          "pattern": "^[A-Za-z0-9_-]+$"
         }
       }
     },
@@ -536,6 +592,12 @@
           "minimum": 1,
           "maximum": 1000,
           "default": 100
+        },
+        "workspace_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160,
+          "pattern": "^[A-Za-z0-9_-]+$"
         }
       }
     },
@@ -621,6 +683,12 @@
         "execution_mode": {
           "$ref": "#/$defs/execution_mode",
           "default": "guarded_host"
+        },
+        "workspace_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160,
+          "pattern": "^[A-Za-z0-9_-]+$"
         }
       }
     },
@@ -701,6 +769,12 @@
         "execution_mode": {
           "$ref": "#/$defs/execution_mode",
           "default": "guarded_host"
+        },
+        "workspace_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160,
+          "pattern": "^[A-Za-z0-9_-]+$"
         }
       }
     },
@@ -763,6 +837,12 @@
           "minimum": 1,
           "maximum": 262144,
           "default": 65536
+        },
+        "workspace_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160,
+          "pattern": "^[A-Za-z0-9_-]+$"
         }
       }
     },
@@ -850,6 +930,12 @@
         "append_newline": {
           "type": "boolean",
           "default": false
+        },
+        "workspace_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160,
+          "pattern": "^[A-Za-z0-9_-]+$"
         }
       }
     },
@@ -886,6 +972,12 @@
         "force": {
           "type": "boolean",
           "default": false
+        },
+        "workspace_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160,
+          "pattern": "^[A-Za-z0-9_-]+$"
         }
       }
     },
@@ -940,6 +1032,12 @@
             "cancelled",
             null
           ]
+        },
+        "workspace_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160,
+          "pattern": "^[A-Za-z0-9_-]+$"
         }
       }
     },
@@ -1003,6 +1101,12 @@
         "repository_path": {
           "type": "string",
           "minLength": 1
+        },
+        "workspace_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160,
+          "pattern": "^[A-Za-z0-9_-]+$"
         }
       }
     },
@@ -1082,6 +1186,12 @@
           "minimum": 1,
           "maximum": 262144,
           "default": 131072
+        },
+        "workspace_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160,
+          "pattern": "^[A-Za-z0-9_-]+$"
         }
       }
     },
@@ -1255,6 +1365,12 @@
           "minimum": 64,
           "maximum": 240,
           "default": 144
+        },
+        "workspace_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160,
+          "pattern": "^[A-Za-z0-9_-]+$"
         }
       }
     },
@@ -1476,6 +1592,12 @@
         },
         "action": {
           "$ref": "#/$defs/computer_action"
+        },
+        "workspace_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160,
+          "pattern": "^[A-Za-z0-9_-]+$"
         }
       }
     },
@@ -1814,6 +1936,12 @@
           "type": "string",
           "minLength": 8,
           "maxLength": 160
+        },
+        "workspace_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160,
+          "pattern": "^[A-Za-z0-9_-]+$"
         }
       }
     },
@@ -1869,6 +1997,12 @@
           "type": "string",
           "minLength": 8,
           "maxLength": 96,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "workspace_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160,
           "pattern": "^[A-Za-z0-9_-]+$"
         }
       }
@@ -1948,6 +2082,12 @@
           "minLength": 1,
           "maxLength": 4096,
           "pattern": "^https?://"
+        },
+        "workspace_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160,
+          "pattern": "^[A-Za-z0-9_-]+$"
         }
       }
     },
@@ -2017,6 +2157,12 @@
         },
         "locator": {
           "$ref": "#/$defs/browser_locator"
+        },
+        "workspace_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160,
+          "pattern": "^[A-Za-z0-9_-]+$"
         }
       }
     },
@@ -2058,6 +2204,12 @@
           "minLength": 1,
           "maxLength": 2000,
           "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+        },
+        "workspace_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160,
+          "pattern": "^[A-Za-z0-9_-]+$"
         }
       }
     },
@@ -2087,6 +2239,12 @@
           "type": "string",
           "minLength": 8,
           "maxLength": 96,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "workspace_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160,
           "pattern": "^[A-Za-z0-9_-]+$"
         }
       }

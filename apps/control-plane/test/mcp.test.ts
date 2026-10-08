@@ -202,6 +202,9 @@ async function connectedClient(
 
 beforeEach(async () => {
   await bindings.DB.prepare(
+    "DELETE FROM workspaces WHERE user_id IN (SELECT id FROM users WHERE identity_provider = 'phase5-wire-test')",
+  ).run();
+  await bindings.DB.prepare(
     "DELETE FROM devices WHERE user_id IN (SELECT id FROM users WHERE identity_provider = 'phase5-wire-test')",
   ).run();
   await bindings.DB.prepare(

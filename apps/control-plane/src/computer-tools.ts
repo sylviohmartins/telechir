@@ -4,6 +4,7 @@ import {
   type CallerContext,
 } from "./governance";
 import type { PermissionDomain } from "./policy";
+import { resolveWorkspace } from "./workspace";
 
 const CAPTURE_TIMEOUT_MS = 12_000;
 const INPUT_TIMEOUT_MS = 40_000;
@@ -108,6 +109,12 @@ export class ComputerToolsService {
       );
     }
     await this.requireOwnedActiveDevice(userId, deviceId);
+    const workspace = await resolveWorkspace(
+      this.db,
+      userId,
+      deviceId,
+      input.workspace_id,
+    );
 
     const runtime = RUNTIME[toolName];
     const coordinator = this.coordinators.get(
@@ -141,7 +148,10 @@ export class ComputerToolsService {
 
     const argumentsObject = Object.fromEntries(
       Object.entries(input).filter(
-        ([key]) => key !== "device_id" && key !== "idempotency_key",
+        ([key]) =>
+          key !== "device_id" &&
+          key !== "workspace_id" &&
+          key !== "idempotency_key",
       ),
     );
     if (
@@ -173,6 +183,7 @@ export class ComputerToolsService {
         userId,
         ...(caller ? { caller } : {}),
         deviceId,
+        workspaceId: workspace.id,
         toolName,
         operation: runtime.operation,
         arguments: argumentsObject,
@@ -208,6 +219,7 @@ export class ComputerToolsService {
           risk: runtime.risk,
           deadline_at: deadlineAt,
           user_id: userId,
+          workspace_id: governed.workspaceId,
           session_id: governed.sessionId,
           tool_name: toolName,
           argument_digest: governed.argumentDigest,
@@ -309,6 +321,12 @@ export class ComputerToolsService {
           "APPROVAL_REQUIRED",
           "The local device policy requires explicit Telechir approval",
           typeof approvalId === "string" ? approvalId : null,
+        );
+      }
+      if (command.message_type === "command.cancelled") {
+        throw new ComputerToolsError(
+          "CONFLICT",
+          "Command was cancelled on the device",
         );
       }
       if (command.message_type === "command.failed") {
