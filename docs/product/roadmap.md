@@ -27,6 +27,7 @@ Este roadmap é intencionalmente gated. Ele descreve a ordem de maturação do p
 21. **Phase 13** — Computer use tipado/bounded concluída em 2026-10-06, com adapter Windows e confirmação local CRITICAL; exit review em `docs/testing/acceptance/phase13-exit-review-2026-10-06.md`.
 22. **Phase 14** — Browser automation tipada/isolada concluída em 2026-10-07, com adapter Playwright, BrowserContext efêmero e egress anti-SSRF; exit review em `docs/testing/acceptance/phase14-exit-review-2026-10-07.md`.
 23. **Phase 15** — Multi-device/workspace concurrency concluída em 2026-10-08, com default workspace durável, lease/fencing por workspace, AB-028/AB-029 e observabilidade no Dashboard; exit review em `docs/testing/acceptance/phase15-exit-review-2026-10-08.md`.
+24. **Phase 16** — Multi-AI compatibility certification em andamento na issue #49, com testes de protocolo MCP moderno/legado, matriz de clientes e threat model; testes reais de integração e gates externos ainda pendentes. Review parcial em `docs/testing/acceptance/phase16-progress-review-2026-10-08.md`.
 
 ## Fases após readiness
 
@@ -46,7 +47,7 @@ Este roadmap é intencionalmente gated. Ele descreve a ordem de maturação do p
 13. Computer use — **concluída**
 14. Browser automation — **concluída**
 15. Multi-device/workspace concurrency — **concluída**
-16. Multi-AI compatibility certification — **próxima fase**
+16. Multi-AI compatibility certification — **em andamento (issue #49); certificação real pendente**
 17. Public release hardening
 
 A implementação não deve atravessar gates apenas porque uma fase posterior é tecnicamente possível.

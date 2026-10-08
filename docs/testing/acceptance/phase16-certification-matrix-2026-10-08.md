@@ -1,0 +1,44 @@
+# Phase 16 — Matriz auditável de certificação Multi-AI
+
+**Data:** 2026-10-08
+**Issue:** #49
+**Baseline:** 24 MCP tools, 15 Device Wire message types, Phase 15 integrada.
+**Regra:** `PASS` de protocolo não equivale a `PASS` de cliente real.
+
+| Sujeito | Versão/transport | Protocol probe | Cliente real | Evidência necessária |
+|---|---|---|---|---|
+| `@modelcontextprotocol/client` (test harness do repo) | SDK lockfile 2.3.0, MCP moderno 2026-07-28 | PASS — Vitest `mcp.test.ts` | N/A — SDK | `apps/control-plane/test/mcp.test.ts` |
+| Wire JSON-RPC sem SDK externo de produto | MCP legado 2025-11-25, Streamable HTTP/SSE | PASS — `initialize`, `tools/list`, 24 tools | N/A — wire | `apps/control-plane/test/mcp.test.ts` Phase 16 |
+| ChatGPT plugin Telechir | Remote HTTPS, OAuth e package sujeito a review | BLOCKED — sem endpoint autorizado | BLOCKED — plugin não publicado | Issue #15 e gates externos |
+| Codex CLI/IDE | MCP HTTP, versão não aferida | NOT_TESTED | BLOCKED — CLI não instalada/sem MCP HTTPS de teste | `codex mcp list`, sessão consentida |
+| Claude Code | MCP HTTP, versão não aferida | NOT_TESTED | BLOCKED — CLI não instalada/sem MCP HTTPS de teste | `claude mcp list`, sessão consentida |
+| Gemini CLI | Streamable HTTP, versão não aferida | NOT_TESTED | BLOCKED — CLI não instalada/sem MCP HTTPS de teste | `gemini mcp list`, sessão consentida |
+| GitHub Copilot | IDE/Agent, versão e policy não aferidas | NOT_TESTED | BLOCKED — sem host/endpoint de homologação | IDE real com aprovação |
+| Cursor/Cline/Roo/OpenCode/Goose | A definir individualmente | NOT_TESTED | NOT_TESTED | Pesquisa oficial e smoke por versão |
+
+## Casos e invariantes obrigatórios
+
+| ID | Critério | Evidência automatizada esperada |
+|---|---|---|
+| MC-001 | `server/discover` moderno, 24 tools | `mcp.test.ts` |
+| MC-002 | `initialize` legado, tools/list, 24 tools | `mcp.test.ts`, Phase 16 |
+| MC-003 | input/output schema, annotations, security schemes | `mcp.test.ts` |
+| MC-004 | token inválido 401 + metadata; scope insufficiente 403 | `mcp.test.ts` |
+| MC-005 | cross-owner and revoked device fail-closed | `mcp.test.ts` e ownership tests |
+| MC-006 | Origin/host host bound; body bounded | `mcp.test.ts`, Phase 16 |
+| MC-007 | non-replay/reconnect & lease conflicts | `workspace-concurrency.test.ts` AB-028/AB-029 |
+| MC-008 | local device policy/approval/digest confirmation | testes de governance/agent |
+| MC-009 | dados não confiáveis/sensitive audit redaction | tests Browser/Computer/security |
+| MC-010 | real client discovery + safe tool call | **BLOCKED** até cliente e endpoint de homologação |
+| MC-011 | real client OAuth e escalation denial | **BLOCKED** até IdP/client reais |
+| MC-012 | real multi-client contention/reconnect | **BLOCKED** até clientes reais e device de teste |
+
+## Regra de aceite
+
+Para declarar `PHASE_16_COMPLETE`, é preciso critérios objetivos e evidência de **clientes reais** do conjunto alvo, com pelo menos leitura autorizada, erro/scope negado e um side effect benigno com confirmação adequada, além de AB-028/029, regressão dos tool schemas e auth. Qualquer cliente não ensaiado deve permanecer marcado `BLOCKED`/`NOT_TESTED`, e a redação de suporte público deve limitar-se ao que foi comprovado.
+
+### Evidência de execução — 2026-10-08
+
+`npm exec -- vitest run test/mcp.test.ts` no PREDATORH300 após `npm ci` (Node 24.13.1, Vitest 4.1.11): **15 testes PASS**, incluindo quatro casos Phase 16. O primeiro ensaio detectou um problema **no próprio harness**: o cliente legado recebia `text/event-stream` e o teste tentava `Response.json()`. O teste foi corrigido para interpretar o evento SSE `data:` e reexecutado com 15/15 PASS. **Nenhuma alteração do servidor foi necessária.** Não houve teste de cliente proprietário real.
+
+A execução de um único smoke local não satisfaz o DoD de compatibilidade multi-IA.
