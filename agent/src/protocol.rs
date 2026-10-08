@@ -565,6 +565,20 @@ impl PayloadContract for CommandRequest {
             return Err("requested_permissions must contain unique values".to_owned());
         }
 
+        if let Some(workspace_id) = self.workspace_id.as_deref() {
+            let len = workspace_id.chars().count();
+            if !(3..=160).contains(&len)
+                || !workspace_id
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+            {
+                return Err(
+                    "workspace_id must be 3..160 ASCII alphanumeric, '_' or '-' characters"
+                        .to_owned(),
+                );
+            }
+        }
+
         if self.operation.has_side_effect() {
             let key = self
                 .idempotency_key
@@ -914,6 +928,18 @@ mod tests {
         assert!(!CommandOperation::FsRead.has_side_effect());
     }
 
+    #[test]
+    fn command_workspace_id_is_bounded_and_syntax_checked() {
+        let mut request = CommandRequest::test_read_only();
+        request.workspace_id = Some("workspace_device123".to_owned());
+        assert!(request.validate().is_ok());
+
+        request.workspace_id = Some("x".to_owned());
+        assert!(request.validate().is_err());
+
+        request.workspace_id = Some("workspace/escape".to_owned());
+        assert!(request.validate().is_err());
+    }
     #[test]
     fn default_connection_limits_match_protocol_baseline() {
         let limits = ConnectionLimits::default();

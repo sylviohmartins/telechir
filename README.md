@@ -2,7 +2,7 @@
 
 Repositório de pesquisa, discovery de produto e arquitetura para uma futura plataforma que permita que clientes de IA autorizados operem computadores e ambientes executáveis por meio de uma camada de controle segura e auditável.
 
-> **Estado do projeto:** discovery e **Phases 0–14 concluídas**, incluindo Local Agent Core, control plane, Pairing/Device Identity, Device Realtime Channel, Remote MCP/OAuth, Filesystem Tools, Shell/Process Lifecycle, Basic Git read-only, Policy/Approvals/Audit, Dashboard MVP, readiness técnica do plugin público OpenAI, Sandbox mode Docker opt-in, Computer use Windows tipado/bounded e Browser automation Playwright isolada. Não existe deploy de produção nem plugin submetido/aprovado; **Phase 15 — Multi-device/workspace concurrency** é a próxima fase de implementação. Os gates externos de publicação OpenAI e o `COMMERCIAL_CLEARANCE_PENDING` da marca permanecem abertos.
+> **Estado do projeto:** discovery e **Phases 0–15 concluídas**, incluindo Local Agent Core, control plane, Pairing/Device Identity, Device Realtime Channel, Remote MCP/OAuth, Filesystem Tools, Shell/Process Lifecycle, Basic Git read-only, Policy/Approvals/Audit, Dashboard MVP, readiness técnica do plugin público OpenAI, Sandbox mode Docker opt-in, Computer use Windows tipado/bounded e Browser automation Playwright isolada. Não existe deploy de produção nem plugin submetido/aprovado; **Phase 15 — Multi-device/workspace concurrency** está concluída; **Phase 16 — Multi-AI compatibility certification** é o próximo gate. Os gates externos de publicação OpenAI e o `COMMERCIAL_CLEARANCE_PENDING` da marca permanecem abertos.
 
 ## Por que este repositório existe
 
@@ -36,8 +36,8 @@ Este repositório é a fonte de verdade para:
 - `PROJECT_STATE.md` — fase atual, gates e estado da implementação.
 - `AGENTS.md` — regras para agentes de IA que trabalhem neste repositório.
 - `agent/` — core Rust do Local Agent, identidade Ed25519, cliente realtime outbound, filesystem executor, shell/process lifecycle, Basic Git read-only, policy/approval local, sandbox Docker opt-in, Computer use Windows com FFI isolado e Browser automation via sidecar Playwright, implementados nas Phases 1, 3, 4, 6, 7, 8, 9, 12, 13 e 14.
-- `apps/control-plane/` — control plane TypeScript/Cloudflare com D1, pairing, Durable Object/WebSocket realtime, Remote MCP/OAuth, dispatch de filesystem/process/Git/Computer use/Browser, governança de policy/approvals/audit e API autenticada do Dashboard, evoluído nas Phases 2–14.
-- `apps/dashboard/` — Dashboard MVP React/TypeScript para devices, approvals, command/audit timeline, usage/health e revogação, implementado na Phase 10.
+- `apps/control-plane/` — control plane TypeScript/Cloudflare com D1, pairing, Durable Object/WebSocket realtime, Remote MCP/OAuth, dispatch de filesystem/process/Git/Computer use/Browser, governança de policy/approvals/audit e API autenticada do Dashboard, evoluído nas Phases 2–15, incluindo workspace ownership, lease/fencing e concorrência durável.
+- `apps/dashboard/` — Dashboard MVP React/TypeScript para devices, approvals, command/audit timeline, usage/health, revogação e visibilidade mínima de workspace/fencing, implementado na Phase 10 e ampliado na Phase 15.
 - `plugins/openai/telechir/` — fonte do package público OpenAI, builder fail-closed, review cases e checklists de submission da Phase 11; não contém credentials nem release ZIP versionado.
 - `docs/` — documentação viva de produto, discovery, arquitetura, segurança, testes e histórico.
 - `docs/history/research-lineage.md` — narrativa de como o projeto nasceu e por que decisões importantes mudaram.

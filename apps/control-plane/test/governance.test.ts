@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { Env } from "../src/env";
 import { AuditService, redactAuditMetadata } from "../src/audit";
 import { GovernanceError, GovernanceService } from "../src/governance";
+import { defaultWorkspaceId } from "../src/workspace";
 
 const bindings = env as unknown as Env;
 const PROVIDER = "phase9-governance-test";
@@ -11,6 +12,7 @@ const PROVIDER = "phase9-governance-test";
 interface Fixture {
   userId: string;
   deviceId: string;
+  workspaceId: string;
 }
 
 async function seedFixture(): Promise<Fixture> {
@@ -37,7 +39,7 @@ async function seedFixture(): Promise<Fixture> {
     .bind(deviceId, userId, now)
     .run();
 
-  return { userId, deviceId };
+  return { userId, deviceId, workspaceId: defaultWorkspaceId(deviceId) };
 }
 
 async function cleanup(): Promise<void> {
@@ -61,11 +63,17 @@ async function cleanup(): Promise<void> {
           SELECT id FROM devices WHERE user_id IN (${users})
         )
         OR scope_id IN (
+          SELECT id FROM workspaces WHERE user_id IN (${users})
+        )
+        OR scope_id IN (
           SELECT id FROM sessions WHERE user_id IN (${users})
         )`,
   ).run();
   await bindings.DB.prepare(
     `DELETE FROM sessions WHERE user_id IN (${users})`,
+  ).run();
+  await bindings.DB.prepare(
+    `DELETE FROM workspaces WHERE user_id IN (${users})`,
   ).run();
   await bindings.DB.prepare(
     `DELETE FROM devices WHERE user_id IN (${users})`,
@@ -81,6 +89,7 @@ function input(fixture: Fixture, commandId: string) {
     userId: fixture.userId,
     caller: { clientId: "phase9-client", expiresAt: 1_900_000_000 },
     deviceId: fixture.deviceId,
+    workspaceId: fixture.workspaceId,
     toolName: "write_file",
     operation: "fs.write",
     arguments: {
@@ -140,6 +149,41 @@ describe("Phase 9 governance", () => {
         input(fixture, `cmd_${crypto.randomUUID()}`),
       ),
     ).rejects.toMatchObject({ code: "POLICY_DENIED" });
+  });
+
+  it("workspace restrictions are exact and do not bleed to a sibling workspace", async () => {
+    const fixture = await seedFixture();
+    const otherWorkspace = `workspace_${crypto.randomUUID()}`;
+    const now = new Date().toISOString();
+    await bindings.DB.prepare(
+      `INSERT INTO workspaces (
+         id, user_id, device_id, display_name, created_at, archived_at, is_default
+       ) VALUES (?, ?, ?, 'Sibling workspace', ?, NULL, 0)`,
+    )
+      .bind(otherWorkspace, fixture.userId, fixture.deviceId, now)
+      .run();
+    await bindings.DB.prepare(
+      `INSERT INTO policy_restrictions (
+         id, scope_type, scope_id, permission, effect,
+         constraint_json, revision, created_at, expires_at
+       ) VALUES (?, 'workspace', ?, 'FS_WRITE', 'DENY', '{}',
+                 'workspace-deny-v1', ?, NULL)`,
+    )
+      .bind(`restriction_${crypto.randomUUID()}`, fixture.workspaceId, now)
+      .run();
+
+    const service = new GovernanceService(bindings.DB);
+    await expect(
+      service.prepareCommand(input(fixture, `cmd_${crypto.randomUUID()}`)),
+    ).rejects.toMatchObject({ code: "POLICY_DENIED" });
+
+    const siblingInput = {
+      ...input(fixture, `cmd_${crypto.randomUUID()}`),
+      workspaceId: otherWorkspace,
+    };
+    await expect(service.prepareCommand(siblingInput)).resolves.toMatchObject({
+      workspaceId: otherWorkspace,
+    });
   });
 
   it("remote ASK requires approval but never forwards it as agent authority", async () => {

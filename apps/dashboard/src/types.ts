@@ -6,6 +6,8 @@ export interface DeviceSummary {
   arch: string;
   agent_version: string;
   last_seen: string | null;
+  default_workspace_id: string;
+  active_workspace_count: number;
 }
 
 export interface SessionSummary {
@@ -21,6 +23,9 @@ export interface CommandSummary {
   device_id: string;
   device_name: string;
   session_id: string;
+  workspace_id: string;
+  workspace_name: string;
+  workspace_fencing_token: number | null;
   tool_name: string;
   operation: string;
   risk: string;

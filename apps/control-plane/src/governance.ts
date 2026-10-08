@@ -20,6 +20,7 @@ export interface GovernedCommandInput {
   userId: string;
   caller?: CallerContext;
   deviceId: string;
+  workspaceId: string;
   toolName: string;
   operation: string;
   arguments: Record<string, unknown>;
@@ -31,6 +32,7 @@ export interface GovernedCommandInput {
 export interface GovernedCommand {
   commandId: string;
   sessionId: string;
+  workspaceId: string;
   argumentDigest: string;
   approvalId: string | null;
   policyRevision: string | null;
@@ -42,6 +44,7 @@ export interface ApprovalRow {
   device_id: string;
   session_id: string;
   command_id: string | null;
+  workspace_id: string | null;
   permission: string;
   risk: RiskLevel;
   scope: "once" | "session";
@@ -57,6 +60,8 @@ interface CommandContextRow {
   user_id: string;
   device_id: string;
   session_id: string;
+  workspace_id: string | null;
+  workspace_fencing_token: number | null;
   risk: string;
   argument_digest: string;
 }
@@ -104,14 +109,15 @@ export class GovernanceService {
     await this.db
       .prepare(
         `INSERT INTO commands (
-           id, device_id, session_id, tool_name, operation,
+           id, device_id, workspace_id, session_id, tool_name, operation,
            idempotency_key_hash, argument_digest, risk, state, requested_at
          )
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'REQUESTED', ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'REQUESTED', ?)`,
       )
       .bind(
         input.commandId,
         input.deviceId,
+        input.workspaceId,
         sessionId,
         input.toolName,
         input.operation,
@@ -125,6 +131,7 @@ export class GovernanceService {
     const restrictions = await this.restrictionsFor(
       input.userId,
       input.deviceId,
+      input.workspaceId,
       sessionId,
       input.requestedPermissions,
       nowIso,
@@ -158,6 +165,7 @@ export class GovernanceService {
       remoteApprovalId = await this.findApprovedRemoteGrant({
         userId: input.userId,
         deviceId: input.deviceId,
+        workspaceId: input.workspaceId,
         sessionId,
         permission: strongest.permission,
         risk: input.risk,
@@ -169,6 +177,7 @@ export class GovernanceService {
           commandId: input.commandId,
           userId: input.userId,
           deviceId: input.deviceId,
+          workspaceId: input.workspaceId,
           sessionId,
           permission: strongest.permission,
           risk: input.risk,
@@ -195,6 +204,7 @@ export class GovernanceService {
             permission: strongest.permission,
             policy_revision: policyRevision,
             source: "remote_policy",
+            workspace_id: input.workspaceId,
           },
         });
         throw new GovernanceError(
@@ -219,12 +229,14 @@ export class GovernanceService {
         policy_revision: policyRevision,
         tool_name: input.toolName,
         operation: input.operation,
+        workspace_id: input.workspaceId,
       },
     });
 
     return {
       commandId: input.commandId,
       sessionId,
+      workspaceId: input.workspaceId,
       argumentDigest,
       // Remote approvals only remove cloud-side restrictions. They are never
       // forwarded as local authority to the agent.
@@ -272,16 +284,17 @@ export class GovernanceService {
     await this.db
       .prepare(
         `INSERT OR IGNORE INTO approvals (
-           id, user_id, device_id, session_id, command_id,
+           id, user_id, device_id, workspace_id, session_id, command_id,
            permission, risk, scope, argument_digest, decision,
            requested_at, decided_at, expires_at, consumed_at
          )
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'once', ?, NULL, ?, NULL, ?, NULL)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'once', ?, NULL, ?, NULL, ?, NULL)`,
       )
       .bind(
         input.approvalId,
         input.userId,
         input.deviceId,
+        command.workspace_id,
         input.sessionId,
         input.commandId,
         input.permission,
@@ -297,6 +310,7 @@ export class GovernanceService {
       !persisted ||
       persisted.user_id !== input.userId ||
       persisted.device_id !== input.deviceId ||
+      persisted.workspace_id !== command.workspace_id ||
       persisted.session_id !== input.sessionId ||
       persisted.command_id !== input.commandId ||
       persisted.permission !== input.permission ||
@@ -330,6 +344,7 @@ export class GovernanceService {
         approval_id: input.approvalId,
         permission: input.permission,
         source: "local_agent",
+        workspace_id: command.workspace_id,
       },
     });
   }
@@ -397,6 +412,7 @@ export class GovernanceService {
         approval_id: approval.id,
         permission: approval.permission,
         scope: input.scope,
+        workspace_id: approval.workspace_id,
       },
     });
 
@@ -450,10 +466,64 @@ export class GovernanceService {
         approval_id: approval.id,
         permission: approval.permission,
         scope: approval.scope,
+        workspace_id: approval.workspace_id,
       },
     });
   }
 
+  async bindWorkspaceLease(
+    commandId: string,
+    workspaceId: string,
+    fencingToken: number,
+    expiresAt: string,
+  ): Promise<void> {
+    if (!Number.isSafeInteger(fencingToken) || fencingToken < 1) {
+      throw new GovernanceError(
+        "INTERNAL_ERROR",
+        "Workspace fencing token is invalid",
+      );
+    }
+    const result = await this.db
+      .prepare(
+        `UPDATE commands
+         SET workspace_fencing_token = ?
+         WHERE id = ? AND workspace_id = ?`,
+      )
+      .bind(fencingToken, commandId, workspaceId)
+      .run();
+    if (Number(result.meta?.changes ?? 0) !== 1) {
+      throw new GovernanceError(
+        "CONFLICT",
+        "Workspace lease does not match the governed command",
+      );
+    }
+    await this.auditCommand(commandId, {
+      eventType: "WORKSPACE_LEASE_ACQUIRED",
+      decision: "ALLOW",
+      metadata: {
+        workspace_id: workspaceId,
+        fencing_token: fencingToken,
+        expires_at: expiresAt,
+      },
+    });
+  }
+
+  async recordWorkspaceLeaseReleased(
+    commandId: string,
+    workspaceId: string,
+    fencingToken: number,
+    reason: string,
+  ): Promise<void> {
+    await this.auditCommand(commandId, {
+      eventType: "WORKSPACE_LEASE_RELEASED",
+      decision: "ALLOW",
+      metadata: {
+        workspace_id: workspaceId,
+        fencing_token: fencingToken,
+        reason: reason.slice(0, 80),
+      },
+    });
+  }
   async markAccepted(commandId: string, acceptedAt: string): Promise<void> {
     await this.db
       .prepare(
@@ -554,7 +624,7 @@ export class GovernanceService {
   async approval(approvalId: string): Promise<ApprovalRow | null> {
     return this.db
       .prepare(
-        `SELECT id, user_id, device_id, session_id, command_id,
+        `SELECT id, user_id, device_id, workspace_id, session_id, command_id,
                 permission, risk, scope, argument_digest, decision,
                 requested_at, decided_at, expires_at, consumed_at
          FROM approvals
@@ -567,6 +637,7 @@ export class GovernanceService {
   private async findApprovedRemoteGrant(input: {
     userId: string;
     deviceId: string;
+    workspaceId: string;
     sessionId: string;
     permission: string;
     risk: RiskLevel;
@@ -575,12 +646,13 @@ export class GovernanceService {
   }): Promise<string | null> {
     const approval = await this.db
       .prepare(
-        `SELECT id, user_id, device_id, session_id, command_id,
+        `SELECT id, user_id, device_id, workspace_id, session_id, command_id,
                 permission, risk, scope, argument_digest, decision,
                 requested_at, decided_at, expires_at, consumed_at
          FROM approvals
          WHERE user_id = ?
            AND device_id = ?
+           AND workspace_id = ?
            AND session_id = ?
            AND permission = ?
            AND risk = ?
@@ -594,6 +666,7 @@ export class GovernanceService {
       .bind(
         input.userId,
         input.deviceId,
+        input.workspaceId,
         input.sessionId,
         input.permission,
         input.risk,
@@ -615,6 +688,7 @@ export class GovernanceService {
     commandId: string;
     userId: string;
     deviceId: string;
+    workspaceId: string;
     sessionId: string;
     permission: string;
     risk: RiskLevel;
@@ -628,6 +702,7 @@ export class GovernanceService {
          FROM approvals
          WHERE user_id = ?
            AND device_id = ?
+           AND workspace_id = ?
            AND session_id = ?
            AND permission = ?
            AND risk = ?
@@ -641,6 +716,7 @@ export class GovernanceService {
       .bind(
         input.userId,
         input.deviceId,
+        input.workspaceId,
         input.sessionId,
         input.permission,
         input.risk,
@@ -659,16 +735,17 @@ export class GovernanceService {
     await this.db
       .prepare(
         `INSERT INTO approvals (
-           id, user_id, device_id, session_id, command_id,
+           id, user_id, device_id, workspace_id, session_id, command_id,
            permission, risk, scope, argument_digest, decision,
            requested_at, decided_at, expires_at, consumed_at
          )
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'once', ?, NULL, ?, NULL, ?, NULL)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'once', ?, NULL, ?, NULL, ?, NULL)`,
       )
       .bind(
         approvalId,
         input.userId,
         input.deviceId,
+        input.workspaceId,
         input.sessionId,
         input.commandId,
         input.permission,
@@ -684,6 +761,7 @@ export class GovernanceService {
   private async restrictionsFor(
     userId: string,
     deviceId: string,
+    workspaceId: string,
     sessionId: string,
     permissions: readonly PermissionDomain[],
     nowIso: string,
@@ -701,10 +779,11 @@ export class GovernanceService {
            AND (
              (scope_type = 'account' AND scope_id = ?)
              OR (scope_type = 'device' AND scope_id = ?)
+             OR (scope_type = 'workspace' AND scope_id = ?)
              OR (scope_type = 'session' AND scope_id = ?)
            )`,
       )
-      .bind(...permissions, nowIso, userId, deviceId, sessionId)
+      .bind(...permissions, nowIso, userId, deviceId, workspaceId, sessionId)
       .all<PolicyRestrictionRow>();
     return result.results;
   }
@@ -745,7 +824,8 @@ export class GovernanceService {
   ): Promise<CommandContextRow | null> {
     return this.db
       .prepare(
-        `SELECT s.user_id, c.device_id, c.session_id, c.risk, c.argument_digest
+        `SELECT s.user_id, c.device_id, c.session_id, c.workspace_id,
+                c.workspace_fencing_token, c.risk, c.argument_digest
          FROM commands c
          JOIN sessions s ON s.id = c.session_id
          WHERE c.id = ?`,
@@ -775,7 +855,13 @@ export class GovernanceService {
       decision: input.decision ?? null,
       risk: context.risk,
       targetDigest: context.argument_digest,
-      ...(input.metadata ? { metadata: input.metadata } : {}),
+      metadata: {
+        ...(context.workspace_id ? { workspace_id: context.workspace_id } : {}),
+        ...(context.workspace_fencing_token
+          ? { fencing_token: context.workspace_fencing_token }
+          : {}),
+        ...(input.metadata ?? {}),
+      },
     });
   }
 }

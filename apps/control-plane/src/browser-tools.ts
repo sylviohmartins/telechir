@@ -4,6 +4,7 @@ import {
   type CallerContext,
 } from "./governance";
 import type { PermissionDomain } from "./policy";
+import { resolveWorkspace } from "./workspace";
 
 const POLL_INTERVAL_MS = 10;
 const MAX_ARGUMENT_BYTES = 32 * 1024;
@@ -135,6 +136,12 @@ export class BrowserToolsService {
       );
     }
     await this.requireOwnedActiveDevice(userId, deviceId);
+    const workspace = await resolveWorkspace(
+      this.db,
+      userId,
+      deviceId,
+      input.workspace_id,
+    );
 
     const runtime = RUNTIME[toolName];
     const coordinator = this.coordinators.get(
@@ -177,7 +184,10 @@ export class BrowserToolsService {
 
     const argumentsObject = Object.fromEntries(
       Object.entries(input).filter(
-        ([key]) => key !== "device_id" && key !== "idempotency_key",
+        ([key]) =>
+          key !== "device_id" &&
+          key !== "workspace_id" &&
+          key !== "idempotency_key",
       ),
     );
     if (
@@ -204,6 +214,7 @@ export class BrowserToolsService {
         userId,
         ...(caller ? { caller } : {}),
         deviceId,
+        workspaceId: workspace.id,
         toolName,
         operation: runtime.operation,
         arguments: argumentsObject,
@@ -239,6 +250,7 @@ export class BrowserToolsService {
           risk: "HIGH",
           deadline_at: deadlineAt,
           user_id: userId,
+          workspace_id: governed.workspaceId,
           session_id: governed.sessionId,
           tool_name: toolName,
           argument_digest: governed.argumentDigest,
@@ -346,6 +358,12 @@ export class BrowserToolsService {
           "APPROVAL_REQUIRED",
           "The local device policy requires explicit Telechir approval",
           typeof approvalId === "string" ? approvalId : null,
+        );
+      }
+      if (command.message_type === "command.cancelled") {
+        throw new BrowserToolsError(
+          "CONFLICT",
+          "Command was cancelled on the device",
         );
       }
       if (command.message_type === "command.failed") {

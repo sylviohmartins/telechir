@@ -1,6 +1,6 @@
 # Direção Atual da Arquitetura
 
-**Status:** arquitetura aceita; contratos base da Phase 0 preservados e evoluídos por contratos compatíveis; Phases 1–14 implementadas, incluindo Local Agent Core, control plane, Pairing/Device Identity, Device Realtime Channel, Remote MCP/OAuth, Filesystem Tools, Shell/Process Lifecycle, Basic Git read-only, Policy/Approvals/Audit, Dashboard, package/review tooling OpenAI, Sandbox mode Docker opt-in, Computer use tipado/bounded com adapter Windows e Browser automation tipada/isolada via Playwright; nenhum deploy de produção ou submission pública realizado.
+**Status:** arquitetura aceita; contratos base da Phase 0 preservados e evoluídos por contratos compatíveis; Phases 1–15 implementadas, incluindo Local Agent Core, control plane, Pairing/Device Identity, Device Realtime Channel, Remote MCP/OAuth, Filesystem Tools, Shell/Process Lifecycle, Basic Git read-only, Policy/Approvals/Audit, Dashboard, package/review tooling OpenAI, Sandbox mode Docker opt-in, Computer use tipado/bounded, Browser automation isolada e workspace concurrency durável com lease/fencing; nenhum deploy de produção ou submission pública realizado.
 
 ## Boundary do produto
 
@@ -58,6 +58,8 @@ Em 2026-10-05, a Phase 12 adicionou `execution_mode=guarded_host|sandbox` às pr
 Na mesma data, a Phase 13 adicionou `capture_screen` e `control_computer` como primitives tipados. Captura é one-shot/HIGH e input é single-action/CRITICAL. O input exige confirmação humana local session/digest/TTL-bound imediatamente antes do side effect; approval remoto nunca substitui esse passo. O primeiro adapter é Windows e mantém Win32 FFI isolado fora do core `forbid(unsafe_code)`. macOS/Linux continuam capability-unavailable até adapters com consentimento nativo serem implementados.
 
 Em 2026-10-07, a Phase 14 adicionou Browser automation como permission `BROWSER` própria e separada. O provider inicial é um sidecar Playwright local com context efêmero/non-persistent, Chromium sandbox habilitado, locators user-facing tipados e proxy anti-SSRF obrigatório. A surface não expõe JavaScript, CSS/XPath, CDP, WebDriver/BiDi, cookies/storage, clipboard, downloads/uploads ou profile pessoal. O Device Wire preserva os mesmos 15 message types e evolui apenas o enum de command operations.
+
+Em 2026-10-08, a Phase 15 materializou ownership de workspace em D1 e concorrência coarse-grained no `DeviceCoordinator`. Side effects do mesmo workspace exigem lease exclusivo durável com fencing token monotônico; reads, workspaces distintos e devices distintos continuam concorrentes. Commands/approvals/audit persistem workspace/fencing, policy avalia scope `workspace` e reconnect não replaya side effect aceito. A superfície MCP continua em 24 tools e o Device Wire em 15 message types.
 
 ## Validações pendentes
 

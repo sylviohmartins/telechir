@@ -1,10 +1,10 @@
 # Estado do Projeto
 
-**Atualizado em:** 2026-10-06
+**Atualizado em:** 2026-10-08
 
 ## Fase atual
 
-**Discovery concluído / Phases 0–14 concluídas / Phase 14 — Browser automation concluída**
+**Discovery concluído / Phases 0–15 concluídas / Phase 15 — Multi-device/workspace concurrency concluída**
 
 A implementação possui Local Agent Core, control plane, identidade/pairing Ed25519, canal realtime outbound, Remote MCP/OAuth, seis typed filesystem tools, shell/process lifecycle, Basic Git read-only, governança de policy/approvals/audit, Dashboard MVP, tooling fail-closed para package/review do plugin público OpenAI, sandbox Docker local opt-in, Computer use tipado/bounded no Windows e Browser automation Playwright isolada com egress anti-SSRF. A superfície MCP pública possui 24 tools. O projeto **não possui deploy de produção**, plugin submetido, aprovado ou publicado.
 
@@ -34,7 +34,8 @@ A implementação possui Local Agent Core, control plane, identidade/pairing Ed2
 - [x] Phase 12 — Sandbox mode: **`PHASE_12_COMPLETE`**.
 - [x] Phase 13 — Computer use: **`PHASE_13_COMPLETE`**.
 - [x] Phase 14 — Browser automation: **`PHASE_14_COMPLETE`**.
-- [ ] Phase 15 — Multi-device/workspace concurrency não iniciada.
+- [x] Phase 15 — Multi-device/workspace concurrency: **`PHASE_15_COMPLETE`**.
+- [ ] Phase 16 — Multi-AI compatibility certification não iniciada.
 
 ## Decisões atuais
 
@@ -51,6 +52,7 @@ A implementação possui Local Agent Core, control plane, identidade/pairing Ed2
 - Sandbox Docker é defense-in-depth, não VM boundary nem substituto de policy/approval.
 - Computer use one-shot/single-action entrou na Phase 13 somente no Windows.
 - Browser automation entrou na Phase 14 como authority `BROWSER` própria, com seis tools tipadas, context Playwright efêmero/non-persistent e egress proxy anti-SSRF; ela não implica `INPUT_CONTROL`, `NETWORK`, filesystem, clipboard ou secrets.
+- A Phase 15 materializa workspace ownership durável e serializa somente side effects concorrentes do mesmo workspace via lease/fencing no `DeviceCoordinator`; reads, workspaces distintos e devices distintos permanecem concorrentes.
 - Streaming de tela, clipboard, persistent authenticated browser, raw JavaScript/CDP/WebDriver/BiDi passthrough, uploads/downloads e adapters macOS/Linux de Computer use permanecem fora do escopo atual.
 - O core público usa **Apache License 2.0**, com trademark Telechir separado; `LICENSE` já está na raiz.
 - Artefatos históricos permanecem imutáveis; conclusões atuais vivem em `docs/`.
@@ -96,37 +98,40 @@ As avaliações relevantes estão em:
 - `docs/testing/acceptance/phase12-exit-review-2026-10-05.md`
 - `docs/testing/acceptance/phase13-exit-review-2026-10-06.md`
 - `docs/testing/acceptance/phase14-exit-review-2026-10-07.md`
+- `docs/testing/acceptance/phase15-exit-review-2026-10-08.md`
 - `docs/security/threat-model/phase9-policy-approvals-audit-2026-10-05.md`
 - `docs/security/threat-model/phase10-dashboard-2026-10-05.md`
 - `docs/security/threat-model/phase11-openai-plugin-readiness-2026-10-05.md`
 - `docs/security/threat-model/phase12-sandbox-mode-2026-10-05.md`
 - `docs/security/threat-model/phase13-computer-use-2026-10-05.md`
 - `docs/security/threat-model/phase14-browser-automation-2026-10-07.md`
+- `docs/security/threat-model/phase15-workspace-concurrency-2026-10-08.md`
 - `docs/research/openai/phase11-public-plugin-revalidation-2026-10-05.md`
 - `docs/research/docker/phase12-sandbox-revalidation-2026-10-05.md`
 - `docs/research/computer-use/phase13-platform-revalidation-2026-10-05.md`
 - `docs/research/browser-automation/phase14-playwright-revalidation-2026-10-07.md`
 - `docs/research/cloudflare/phase2-revalidation-2026-10-02.md`
 - `docs/research/cloudflare/phase4-revalidation-2026-10-02.md`
+- `docs/research/cloudflare/phase15-durable-objects-revalidation-2026-10-08.md`
 - `docs/research/mcp/phase5-revalidation-2026-10-02.md`
 
 Resultado atual:
 
-> **PHASE_14_COMPLETE**
+> **PHASE_15_COMPLETE**
 
-A Phase 14 adiciona seis browser tools tipadas à superfície MCP, elevando o total para **24 tools** sem criar novo Device Wire message type: `open_browser_session`, `get_browser_snapshot`, `navigate_browser`, `click_browser`, `fill_browser` e `close_browser_session`. Todas exigem exatamente `BROWSER` e risk floor `HIGH`; side effects exigem idempotency. Browser authority permanece separada de `INPUT_CONTROL` e `NETWORK`.
+A Phase 15 transforma `workspace_id` em boundary durável de ownership e concorrência sem adicionar novas tools públicas. Cada device possui default workspace determinístico; commands e approvals persistem workspace, e policy passa a avaliar scope `workspace` junto de account/device/session.
 
-O adapter inicial usa Playwright 1.63.0 como subprocesso stdio local. Ele cria `BrowserContext` não persistente, não reutiliza profile/cookies/`storageState`, bloqueia downloads/service workers/WebSockets e usa proxy de egress próprio com DNS/range validation para bloquear localhost, private/link-local/metadata e demais destinos não públicos. Raw JavaScript, CSS/XPath, CDP, WebDriver/BiDi passthrough, clipboard, cookies/storage, uploads/downloads e secret injection não fazem parte da surface.
+Side effects do mesmo workspace são serializados por lease exclusivo persistido no Durable Object Storage, com fencing token monotônico. Reads continuam concorrentes; workspaces distintos no mesmo device e devices distintos do mesmo usuário não são globalmente bloqueados. Approval, idempotency, lease e fencing permanecem mecanismos separados.
 
-Capabilities só são anunciadas se o sidecar passa health e consegue lançar Chromium. `chromiumSandbox=true` é obrigatório; a prova root falhou fechado e o smoke válido foi executado como usuário não-root. O hardened smoke comprovou open/navigate/snapshot/fill/click/close e bloqueou redirect, subresource e WebSocket para `localhost`, com **0 hits** no endpoint protegido e **0 upgrades**.
+AB-028 prova exclusão mútua + read concorrente + avanço de fencing. AB-029 prova que reconnect não replaya side effect aceito e que o lease sobrevive à troca de conexão. O Dashboard expõe default/active workspace e workspace/fence na timeline, sem criar UI administrativa.
 
-Os gates finais e números exatos estão em `docs/testing/acceptance/phase14-exit-review-2026-10-07.md`. Nenhum deploy remoto foi executado.
+Os gates finais e números exatos estão em `docs/testing/acceptance/phase15-exit-review-2026-10-08.md`. Nenhum deploy remoto foi executado.
 
-Os 11 gates externos do plugin OpenAI continuam **`EXTERNAL_GATES_PENDING`** e não foram alterados pela Phase 14.
+Os 11 gates externos do plugin OpenAI continuam **`EXTERNAL_GATES_PENDING`** e não foram alterados pela Phase 15.
 
 ## Próximos trabalhos
 
-1. Iniciar **Phase 15 — Multi-device/workspace concurrency** como próximo trabalho de implementação, sem ampliar silenciosamente a autoridade de Browser/Computer use.
+1. Iniciar **Phase 16 — Multi-AI compatibility certification** sem ampliar authority/runtime silenciosamente.
 2. Em paralelo, avançar os 11 gates externos do plugin OpenAI quando publisher, domínio, IdP, assets e produção estiverem disponíveis.
 3. Completar/reservar ativos comerciais de Telechir antes de lançamento e manter os gates de signing, CSP/headers, custos e segurança operacional antes de beta/publicação.
 

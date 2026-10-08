@@ -120,6 +120,14 @@ function DeviceCard({
           <dt>Último contato</dt>
           <dd>{formatDate(device.last_seen)}</dd>
         </div>
+        <div>
+          <dt>Workspace padrão</dt>
+          <dd>{device.default_workspace_id}</dd>
+        </div>
+        <div>
+          <dt>Workspaces ativos</dt>
+          <dd>{device.active_workspace_count}</dd>
+        </div>
       </dl>
       <button
         type="button"
@@ -214,6 +222,15 @@ function CommandRowView({ command }: { command: CommandSummary }) {
         <span className="table-subtitle">{command.operation}</span>
       </td>
       <td>{command.device_name}</td>
+      <td>
+        <strong>{command.workspace_name}</strong>
+        <span className="table-subtitle">
+          {command.workspace_id}
+          {command.workspace_fencing_token === null
+            ? ""
+            : ` · fence ${command.workspace_fencing_token}`}
+        </span>
+      </td>
       <td>
         <span className={`status ${statusClass(command.state)}`}>
           {command.state}
@@ -456,6 +473,7 @@ export function App() {
                   <tr>
                     <th>Operação</th>
                     <th>Device</th>
+                    <th>Workspace</th>
                     <th>Estado</th>
                     <th>Risco</th>
                     <th>Solicitado</th>
@@ -469,7 +487,7 @@ export function App() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={6}>Nenhum command registrado.</td>
+                      <td colSpan={7}>Nenhum command registrado.</td>
                     </tr>
                   )}
                 </tbody>

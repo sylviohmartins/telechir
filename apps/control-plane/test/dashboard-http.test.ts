@@ -177,6 +177,7 @@ beforeEach(async () => {
      DELETE FROM sessions;
      DELETE FROM pairings;
      DELETE FROM device_keys;
+     DELETE FROM workspaces;
      DELETE FROM devices;
      DELETE FROM users;`,
   );

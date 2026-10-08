@@ -206,3 +206,10 @@ npm audit --audit-level=high
 - D1 continua a autoridade durável para identidade/revogação e, desde a Phase 9, para sessions, commands, approvals e audit metadata consumidos pelo Dashboard;
 - policy restrictions operacionais usam account/device/session; workspace permanece indisponível até existir identidade confiável no command context;
 - cloud nunca amplia a policy local do agent.
+
+
+## Phase 15 — Workspace concurrency
+
+A Phase 15 materializa default workspace por device e aceita `workspace_id` opcional nas tools device-bound. Side effects do mesmo workspace adquirem lease exclusivo no `DeviceCoordinator`, persistido em Durable Object Storage com fencing monotônico. Reads não adquirem lease exclusivo.
+
+Commands, approvals e audit persistem workspace/fencing; policy avalia scope `workspace`. Reconnect não replaya command aceito. A migration `0005_workspace_concurrency.sql` faz backfill/default/indexes/trigger sem adicionar nova tool MCP ou novo Device Wire message type.

@@ -5,6 +5,7 @@ import {
   type CallerContext,
 } from "./governance";
 import type { PermissionDomain } from "./policy";
+import { resolveWorkspace } from "./workspace";
 
 const COMMAND_TIMEOUT_MS = 8_000;
 const POLL_INTERVAL_MS = 10;
@@ -128,6 +129,12 @@ export class FilesystemToolsService {
     }
 
     await this.requireOwnedActiveDevice(userId, deviceId);
+    const workspace = await resolveWorkspace(
+      this.db,
+      userId,
+      deviceId,
+      input.workspace_id,
+    );
 
     const runtime = RUNTIME[toolName];
     const coordinator = this.coordinators.get(
@@ -145,7 +152,9 @@ export class FilesystemToolsService {
     }
 
     const argumentsObject = Object.fromEntries(
-      Object.entries(input).filter(([key]) => key !== "device_id"),
+      Object.entries(input).filter(
+        ([key]) => key !== "device_id" && key !== "workspace_id",
+      ),
     );
     const argumentBytes = new TextEncoder().encode(
       JSON.stringify(argumentsObject),
@@ -169,6 +178,7 @@ export class FilesystemToolsService {
         userId,
         ...(caller ? { caller } : {}),
         deviceId,
+        workspaceId: workspace.id,
         toolName,
         operation: runtime.operation,
         arguments: argumentsObject,
@@ -204,6 +214,7 @@ export class FilesystemToolsService {
           risk: runtime.risk,
           deadline_at: deadlineAt,
           user_id: userId,
+          workspace_id: governed.workspaceId,
           session_id: governed.sessionId,
           tool_name: toolName,
           argument_digest: governed.argumentDigest,
@@ -307,6 +318,12 @@ export class FilesystemToolsService {
           "APPROVAL_REQUIRED",
           "The local device policy requires explicit Telechir approval",
           typeof approvalId === "string" ? approvalId : null,
+        );
+      }
+      if (command.message_type === "command.cancelled") {
+        throw new FilesystemToolsError(
+          "CONFLICT",
+          "Command was cancelled on the device",
         );
       }
       if (command.message_type === "command.failed") {

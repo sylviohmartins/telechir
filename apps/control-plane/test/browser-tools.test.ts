@@ -178,6 +178,9 @@ beforeEach(async () => {
     `DELETE FROM sessions WHERE user_id IN (${users})`,
   ).run();
   await bindings.DB.prepare(
+    `DELETE FROM workspaces WHERE user_id IN (${users})`,
+  ).run();
+  await bindings.DB.prepare(
     `DELETE FROM devices WHERE user_id IN (${users})`,
   ).run();
   await bindings.DB.prepare(
