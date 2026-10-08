@@ -41,4 +41,10 @@ Para declarar `PHASE_16_COMPLETE`, é preciso critérios objetivos e evidência 
 
 `npm exec -- vitest run test/mcp.test.ts` no PREDATORH300 após `npm ci` (Node 24.13.1, Vitest 4.1.11): **15 testes PASS**, incluindo quatro casos Phase 16. O primeiro ensaio detectou um problema **no próprio harness**: o cliente legado recebia `text/event-stream` e o teste tentava `Response.json()`. O teste foi corrigido para interpretar o evento SSE `data:` e reexecutado com 15/15 PASS. **Nenhuma alteração do servidor foi necessária.** Não houve teste de cliente proprietário real.
 
+### Evolução da suíte — segundo ciclo da Phase 16
+
+Na regressão local final desta etapa, os 18 arquivos de teste do control plane passaram (**119/119**); o arquivo MCP passou **18/18**. O ciclo incremental adicionou três cenários de segurança/interoperabilidade: paridade dos 24 descriptors no wire legado (schema, annotations e metadata OAuth); dois owners diferentes acessando o MCP simultaneamente sem vazar device IDs; bearer ausente/inválido e tentativa de browser por token somente de filesystem. O fixture falso de tokens foi corrigido para emitir `OAuthError(InvalidToken)` tal como o verificador JWT real; nenhuma política do runtime foi alterada. Há agora um workflow GitHub Actions restrito, sem deploy, para repetir os gates de control plane. **A conclusão real do workflow deve ser verificada no GitHub; não deduzir PASS do arquivo YAML.**
+
+Ver `phase16-interop-regression-ci-2026-10-08.md` e `docs/research/mcp/phase16-external-client-smoke-plan-2026-10-08.md`.
+
 A execução de um único smoke local não satisfaz o DoD de compatibilidade multi-IA.

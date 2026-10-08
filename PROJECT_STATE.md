@@ -117,13 +117,15 @@ As avaliações relevantes estão em:
 - `docs/research/mcp/phase16-multi-ai-client-revalidation-2026-10-08.md`
 - `docs/testing/acceptance/phase16-certification-matrix-2026-10-08.md`
 - `docs/testing/acceptance/phase16-progress-review-2026-10-08.md`
+- `docs/testing/acceptance/phase16-interop-regression-ci-2026-10-08.md`
+- `docs/research/mcp/phase16-external-client-smoke-plan-2026-10-08.md`
 - `docs/security/threat-model/phase16-client-interoperability-2026-10-08.md`
 
 Resultado atual:
 
 > **PHASE_16_IN_PROGRESS** — a Phase 15 permanece concluída.
 
-A Phase 16 possui issue #49, matriz de certificação, pesquisa atualizada e harness MCP moderno/legado. O resultado `PASS` do harness não implica compatibilidade de clientes reais; ChatGPT/Codex, Claude, Gemini e Copilot continuam sem homologação Telechir end-to-end até os gates de endpoint/IdP/conta e testes autorizados. Referências: `docs/research/mcp/phase16-multi-ai-client-revalidation-2026-10-08.md`, `docs/testing/acceptance/phase16-certification-matrix-2026-10-08.md` e `docs/security/threat-model/phase16-client-interoperability-2026-10-08.md`.
+A Phase 16 possui issue #49, matriz de certificação, pesquisa atualizada e harness MCP moderno/legado. O segundo ciclo adicionou regressões de isolamento entre OAuth clients, equivalência de metadata/schema legacy, negação de token inválido e uma pipeline CI sem deploy (`.github/workflows/mcp-interop.yml`). A certificação externa continua separada de testes locais e CI. O resultado `PASS` do harness não implica compatibilidade de clientes reais; ChatGPT/Codex, Claude, Gemini e Copilot continuam sem homologação Telechir end-to-end até os gates de endpoint/IdP/conta e testes autorizados. Referências: `docs/research/mcp/phase16-multi-ai-client-revalidation-2026-10-08.md`, `docs/testing/acceptance/phase16-certification-matrix-2026-10-08.md` e `docs/security/threat-model/phase16-client-interoperability-2026-10-08.md`.
 
 A Phase 15 transforma `workspace_id` em boundary durável de ownership e concorrência sem adicionar novas tools públicas. Cada device possui default workspace determinístico; commands e approvals persistem workspace, e policy passa a avaliar scope `workspace` junto de account/device/session.
 

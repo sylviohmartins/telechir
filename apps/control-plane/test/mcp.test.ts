@@ -83,7 +83,10 @@ function verifierFor(users: Record<string, AuthInfo>): OAuthTokenVerifier {
     async verifyAccessToken(token: string): Promise<AuthInfo> {
       const info = users[token];
       if (!info) {
-        throw new Error("invalid test token");
+        throw new OAuthError(
+          OAuthErrorCode.InvalidToken,
+          "Access token is invalid",
+        );
       }
       return info;
     },
@@ -714,7 +717,16 @@ describe("Phase 16 — legacy MCP streamable HTTP interoperability", () => {
     result?: {
       protocolVersion?: string;
       serverInfo?: { name?: string };
-      tools?: Array<{ name: string }>;
+      tools?: Array<{
+        name: string;
+        annotations?: Record<string, unknown>;
+        inputSchema?: unknown;
+        outputSchema?: unknown;
+        _meta?: { securitySchemes?: unknown };
+      }>;
+      structuredContent?: Record<string, unknown>;
+      isError?: boolean;
+      content?: unknown[];
     };
   }> {
     const body = await response.text();
@@ -830,5 +842,136 @@ describe("Phase 16 — legacy MCP streamable HTTP interoperability", () => {
       verifier,
     );
     expect(response?.status).toBe(421);
+  });
+
+  it("preserves tool schemas and security metadata on the legacy wire", async () => {
+    const userId = await seedUser("Legacy Descriptor Client");
+    const verifier = verifierFor({
+      "phase16-legacy-token": authInfo(userId),
+    });
+    const response = await legacyRpc(verifier, "tools/list", {});
+    expect(response.status).toBe(200);
+    const payload = await legacyResult(response);
+    expect(payload.result?.tools).toHaveLength(PHASE14_TOOLS.length);
+
+    for (const definition of PHASE14_TOOLS) {
+      const descriptor = payload.result?.tools?.find(
+        (candidate) => candidate.name === definition.name,
+      );
+      expect(descriptor).toBeDefined();
+      expect(descriptor?.annotations).toMatchObject(definition.annotations);
+      expect(descriptor?.inputSchema).toMatchObject(
+        publicSchema(definition.input_schema_ref),
+      );
+      expect(descriptor?.outputSchema).toMatchObject(
+        publicSchema(definition.output_schema_ref),
+      );
+      expect(descriptor?._meta?.securitySchemes).toEqual(
+        definition.securitySchemes,
+      );
+    }
+  });
+
+  it("isolates concurrent legacy clients by OAuth owner", async () => {
+    const ownerA = await seedUser("Multi-Client Owner A");
+    const ownerB = await seedUser("Multi-Client Owner B");
+    const deviceA = await seedDevice(ownerA, "Device A");
+    const deviceB = await seedDevice(ownerB, "Device B");
+    const verifier = verifierFor({
+      "owner-a": authInfo(ownerA),
+      "owner-b": authInfo(ownerB),
+    });
+
+    const [responseA, responseB] = await Promise.all([
+      legacyRpc(
+        verifier,
+        "tools/call",
+        {
+          name: "list_devices",
+          arguments: { status: "all" },
+        },
+        "owner-a",
+      ),
+      legacyRpc(
+        verifier,
+        "tools/call",
+        {
+          name: "list_devices",
+          arguments: { status: "all" },
+        },
+        "owner-b",
+      ),
+    ]);
+    expect(responseA.status).toBe(200);
+    expect(responseB.status).toBe(200);
+
+    const payloadA = await legacyResult(responseA);
+    const payloadB = await legacyResult(responseB);
+    const devicesA = payloadA.result?.structuredContent?.devices;
+    const devicesB = payloadB.result?.structuredContent?.devices;
+    expect(devicesA).toEqual([expect.objectContaining({ device_id: deviceA })]);
+    expect(devicesB).toEqual([expect.objectContaining({ device_id: deviceB })]);
+
+    const foreignResponse = await legacyRpc(
+      verifier,
+      "tools/call",
+      { name: "get_device", arguments: { device_id: deviceB } },
+      "owner-a",
+    );
+    expect(foreignResponse.status).toBe(200);
+    const foreignResult = await legacyResult(foreignResponse);
+    expect(foreignResult.result?.isError).toBe(true);
+    expect(JSON.stringify(foreignResult.result)).not.toContain(deviceB);
+  });
+
+  it("denies missing, invalid, and insufficiently scoped legacy credentials", async () => {
+    const userId = await seedUser("Multi-Client Auth Boundary");
+    const verifier = verifierFor({
+      "owner-read": authInfo(userId, ["telechir:files:read"]),
+    });
+
+    const missingRequest = new Request(resource, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 99,
+        method: "tools/list",
+        params: {},
+      }),
+    });
+    const missing = await mcpHttpRoute(
+      missingRequest,
+      bindings,
+      new URL(resource),
+      verifier,
+    );
+    expect(missing?.status).toBe(401);
+    expect(missing?.headers.get("www-authenticate")).toContain("Bearer");
+
+    const invalid = await legacyRpc(
+      verifier,
+      "tools/list",
+      {},
+      "invalid-test-token",
+    );
+    expect(invalid.status).toBe(401);
+    expect(invalid.headers.get("www-authenticate")).toContain(
+      'error="invalid_token"',
+    );
+
+    const scope = await legacyRpc(
+      verifier,
+      "tools/call",
+      {
+        name: "open_browser_session",
+        arguments: { device_id: crypto.randomUUID() },
+      },
+      "owner-read",
+    );
+    expect(scope.status).toBe(403);
+    expect(scope.headers.get("www-authenticate")).toContain(
+      'scope="telechir:browser:use"',
+    );
   });
 });

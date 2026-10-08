@@ -1,0 +1,54 @@
+name: Phase 16 MCP interoperability
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mcp-interop-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  control-plane:
+    name: Control-plane protocol and security regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/control-plane
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: apps/control-plane/package-lock.json
+
+      - name: Install dependencies from lockfile
+        run: npm ci --no-fund
+
+      - name: Validate formatting
+        run: npm run format:check
+
+      - name: Validate TypeScript
+        run: npm run typecheck
+
+      - name: Run MCP, OAuth, workspace and security regressions
+        run: npm test
+
+      - name: Check Cloudflare Worker bundle without deployment
+        run: npm run dry-run
+
+      - name: Audit high-severity dependency vulnerabilities
+        run: npm audit --audit-level=high
