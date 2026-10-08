@@ -55,3 +55,32 @@ jobs:
 
       - name: Audit high-severity dependency vulnerabilities
         run: npm audit --audit-level=high
+
+  independent-inspector:
+    name: Independent Inspector CLI auth-boundary smoke (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/control-plane
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: apps/control-plane/package-lock.json
+
+      - name: Install dependencies from lockfile
+        run: npm ci --no-fund
+
+      - name: Check external-client harness shell syntax
+        run: bash -n ../../scripts/interop/inspector-unauthenticated-smoke.sh
+
+      - name: Run isolated real MCP Inspector CLI without credentials
+        run: bash ../../scripts/interop/inspector-unauthenticated-smoke.sh

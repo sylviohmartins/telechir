@@ -119,6 +119,7 @@ As avaliações relevantes estão em:
 - `docs/testing/acceptance/phase16-progress-review-2026-10-08.md`
 - `docs/testing/acceptance/phase16-interop-regression-ci-2026-10-08.md`
 - `docs/testing/acceptance/phase16-verified-ci-and-local-tls-2026-10-08.md`
+- `docs/testing/acceptance/phase16-independent-inspector-gate-2026-10-08.md`
 - `docs/research/mcp/phase16-external-client-smoke-plan-2026-10-08.md`
 - `docs/security/threat-model/phase16-client-interoperability-2026-10-08.md`
 

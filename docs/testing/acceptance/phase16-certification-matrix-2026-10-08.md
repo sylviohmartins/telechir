@@ -16,6 +16,10 @@
 | GitHub Copilot | IDE/Agent, versão e policy não aferidas | NOT_TESTED | BLOCKED — sem host/endpoint de homologação | IDE real com aprovação |
 | Cursor/Cline/Roo/OpenCode/Goose | A definir individualmente | NOT_TESTED | NOT_TESTED | Pesquisa oficial e smoke por versão |
 
+## Incremento: cliente Inspector CLI independente no CI Linux
+
+O job `independent-inspector` executa o `@modelcontextprotocol/inspector@2.5.0` real em processo independente contra um Worker Wrangler isolado por HTTPS. Testa exclusivamente a negativa sem bearer: TLS com pinning, discovery de metadata OAuth, 401 no wire e código 3 (`auth_required`) no Inspector com `--stored-auth-only`. **O resultado só será marcado PASS depois de confirmar o workflow no GitHub.** Mesmo após isso, acesso autenticado às 24 tools e clientes de IA de fornecedores continuam BLOCKED/NOT_TESTED. Evidência/limites: `docs/testing/acceptance/phase16-independent-inspector-gate-2026-10-08.md`.
+
 ## Casos e invariantes obrigatórios
 
 | ID | Critério | Evidência automatizada esperada |
