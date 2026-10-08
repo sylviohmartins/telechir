@@ -4,7 +4,7 @@ Este repositório pode ser utilizado por ChatGPT, Codex, Claude Code, Gemini CLI
 
 ## Guardrail da fase atual
 
-O projeto concluiu discovery e as Phases 0–9. **Não inicie automaticamente a Phase 10 apenas porque `PROJECT_STATE.md` registra `PHASE_9_COMPLETE`: Dashboard deve começar somente em uma tarefa explicitamente dedicada a Build, Test & Iterate.** Não atravesse para fases posteriores sem o gate correspondente. Nunca faça deploy de produção, crie recursos pagos ou publique plugin sem autorização específica da fase correspondente.
+O projeto concluiu discovery e integrou as Phases 0–15 à `main`. A Phase 16 — Multi-AI compatibility certification está em execução via issue #49, com matriz de clientes reais e protocolo; os resultados de SDK/wire não equivalem a certificação de produtos externos. **Não declare `PHASE_16_COMPLETE` sem evidência real dos clientes previstos e validações de segurança**, nem atravesse automaticamente para a Phase 17. Nunca faça deploy de produção, crie recursos pagos ou publique plugin sem autorização específica do gate correspondente.
 
 ## Ordem de fonte de verdade
 

@@ -4,7 +4,7 @@
 
 ## Fase atual
 
-**Discovery concluído / Phases 0–15 concluídas / Phase 15 — Multi-device/workspace concurrency concluída**
+**Discovery concluído / Phases 0–15 integradas / Phase 16 — Multi-AI compatibility certification em andamento (issue #49)**
 
 A implementação possui Local Agent Core, control plane, identidade/pairing Ed25519, canal realtime outbound, Remote MCP/OAuth, seis typed filesystem tools, shell/process lifecycle, Basic Git read-only, governança de policy/approvals/audit, Dashboard MVP, tooling fail-closed para package/review do plugin público OpenAI, sandbox Docker local opt-in, Computer use tipado/bounded no Windows e Browser automation Playwright isolada com egress anti-SSRF. A superfície MCP pública possui 24 tools. O projeto **não possui deploy de produção**, plugin submetido, aprovado ou publicado.
 
@@ -35,7 +35,7 @@ A implementação possui Local Agent Core, control plane, identidade/pairing Ed2
 - [x] Phase 13 — Computer use: **`PHASE_13_COMPLETE`**.
 - [x] Phase 14 — Browser automation: **`PHASE_14_COMPLETE`**.
 - [x] Phase 15 — Multi-device/workspace concurrency: **`PHASE_15_COMPLETE`**.
-- [ ] Phase 16 — Multi-AI compatibility certification não iniciada.
+- [~] Phase 16 — Multi-AI compatibility certification em andamento: discovery oficial, matriz e harness MCP moderno/legado em validação; certificação de clientes reais pendente.
 
 ## Decisões atuais
 
@@ -114,10 +114,16 @@ As avaliações relevantes estão em:
 - `docs/research/cloudflare/phase4-revalidation-2026-10-02.md`
 - `docs/research/cloudflare/phase15-durable-objects-revalidation-2026-10-08.md`
 - `docs/research/mcp/phase5-revalidation-2026-10-02.md`
+- `docs/research/mcp/phase16-multi-ai-client-revalidation-2026-10-08.md`
+- `docs/testing/acceptance/phase16-certification-matrix-2026-10-08.md`
+- `docs/testing/acceptance/phase16-progress-review-2026-10-08.md`
+- `docs/security/threat-model/phase16-client-interoperability-2026-10-08.md`
 
 Resultado atual:
 
-> **PHASE_15_COMPLETE**
+> **PHASE_16_IN_PROGRESS** — a Phase 15 permanece concluída.
+
+A Phase 16 possui issue #49, matriz de certificação, pesquisa atualizada e harness MCP moderno/legado. O resultado `PASS` do harness não implica compatibilidade de clientes reais; ChatGPT/Codex, Claude, Gemini e Copilot continuam sem homologação Telechir end-to-end até os gates de endpoint/IdP/conta e testes autorizados. Referências: `docs/research/mcp/phase16-multi-ai-client-revalidation-2026-10-08.md`, `docs/testing/acceptance/phase16-certification-matrix-2026-10-08.md` e `docs/security/threat-model/phase16-client-interoperability-2026-10-08.md`.
 
 A Phase 15 transforma `workspace_id` em boundary durável de ownership e concorrência sem adicionar novas tools públicas. Cada device possui default workspace determinístico; commands e approvals persistem workspace, e policy passa a avaliar scope `workspace` junto de account/device/session.
 
@@ -131,7 +137,7 @@ Os 11 gates externos do plugin OpenAI continuam **`EXTERNAL_GATES_PENDING`** e n
 
 ## Próximos trabalhos
 
-1. Iniciar **Phase 16 — Multi-AI compatibility certification** sem ampliar authority/runtime silenciosamente.
+1. Continuar **Phase 16 — Multi-AI compatibility certification** (issue #49), validando harness de protocolo e executando ensaios de clientes reais quando endpoint/IdP/consentimento permitirem. Não ampliar authority/runtime; não atribuir PASS de cliente a teste de SDK/wire.
 2. Em paralelo, avançar os 11 gates externos do plugin OpenAI quando publisher, domínio, IdP, assets e produção estiverem disponíveis.
 3. Completar/reservar ativos comerciais de Telechir antes de lançamento e manter os gates de signing, CSP/headers, custos e segurança operacional antes de beta/publicação.
 

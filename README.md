@@ -2,7 +2,7 @@
 
 Repositório de pesquisa, discovery de produto e arquitetura para uma futura plataforma que permita que clientes de IA autorizados operem computadores e ambientes executáveis por meio de uma camada de controle segura e auditável.
 
-> **Estado do projeto:** discovery e **Phases 0–15 concluídas**, incluindo Local Agent Core, control plane, Pairing/Device Identity, Device Realtime Channel, Remote MCP/OAuth, Filesystem Tools, Shell/Process Lifecycle, Basic Git read-only, Policy/Approvals/Audit, Dashboard MVP, readiness técnica do plugin público OpenAI, Sandbox mode Docker opt-in, Computer use Windows tipado/bounded e Browser automation Playwright isolada. Não existe deploy de produção nem plugin submetido/aprovado; **Phase 15 — Multi-device/workspace concurrency** está concluída; **Phase 16 — Multi-AI compatibility certification** é o próximo gate. Os gates externos de publicação OpenAI e o `COMMERCIAL_CLEARANCE_PENDING` da marca permanecem abertos.
+> **Estado do projeto:** discovery e **Phases 0–15 concluídas**, incluindo Local Agent Core, control plane, Pairing/Device Identity, Device Realtime Channel, Remote MCP/OAuth, Filesystem Tools, Shell/Process Lifecycle, Basic Git read-only, Policy/Approvals/Audit, Dashboard MVP, readiness técnica do plugin público OpenAI, Sandbox mode Docker opt-in, Computer use Windows tipado/bounded e Browser automation Playwright isolada. Não existe deploy de produção nem plugin submetido/aprovado; **Phase 15 — Multi-device/workspace concurrency** está concluída; **Phase 16 — Multi-AI compatibility certification** está em andamento via issue #49, com protocolo moderno/legado testado e clientes reais ainda não certificados. Os gates externos de publicação OpenAI e o `COMMERCIAL_CLEARANCE_PENDING` da marca permanecem abertos.
 
 ## Por que este repositório existe
 
@@ -75,7 +75,7 @@ A estratégia de licenciamento do core foi definida em `docs/architecture/adr/00
 
 ## Contribuição
 
-O projeto concluiu discovery e as Phases 0–14. Consulte `CONTRIBUTING.md` e `PROJECT_STATE.md` antes de propor implementação ou avançar para uma nova fase.
+O projeto concluiu discovery e as Phases 0–15; a Phase 16 está em andamento sem autorização para publicação ou produção. Consulte `CONTRIBUTING.md`, `PROJECT_STATE.md` e a matriz de certificação da Phase 16 antes de propor implementação ou avançar para outra fase.
 
 ## Segurança
 

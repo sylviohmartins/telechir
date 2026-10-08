@@ -668,3 +668,167 @@ describe("Remote MCP 2026-07-28", () => {
     await client.close();
   });
 });
+
+/**
+ * Phase 16: wire-level MCP compatibility harness.
+ *
+ * This exercises the Telechir endpoint with a legacy 2025-11-25 JSON-RPC
+ * client rather than claiming that a third-party AI product was certified.
+ * Modern MCP 2026-07-28 coverage is provided by the SDK client above.
+ */
+describe("Phase 16 — legacy MCP streamable HTTP interoperability", () => {
+  async function legacyRpc(
+    verifier: OAuthTokenVerifier,
+    method: string,
+    params: Record<string, unknown>,
+    token = "phase16-legacy-token",
+  ): Promise<Response> {
+    const request = new Request(resource, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+        "mcp-protocol-version": "2025-11-25",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 23,
+        method,
+        params,
+      }),
+    });
+    const response = await mcpHttpRoute(
+      request,
+      bindings,
+      new URL(request.url),
+      verifier,
+    );
+    if (!response) {
+      throw new Error("MCP endpoint not found");
+    }
+    return response;
+  }
+
+  async function legacyResult(response: Response): Promise<{
+    result?: {
+      protocolVersion?: string;
+      serverInfo?: { name?: string };
+      tools?: Array<{ name: string }>;
+    };
+  }> {
+    const body = await response.text();
+    if (!response.headers.get("content-type")?.includes("text/event-stream")) {
+      return JSON.parse(body);
+    }
+    const dataLine = body
+      .split(/\r?\n/)
+      .find((line) => line.startsWith("data:"));
+    if (!dataLine) {
+      throw new Error(
+        "Legacy MCP SSE response did not contain a JSON-RPC message",
+      );
+    }
+    return JSON.parse(dataLine.slice("data:".length).trim());
+  }
+
+  it("negotiates a legacy initialization without changing the modern surface", async () => {
+    const userId = await seedUser("Legacy 2025 Client");
+    const verifier = verifierFor({
+      "phase16-legacy-token": authInfo(userId),
+    });
+    const response = await legacyRpc(verifier, "initialize", {
+      protocolVersion: "2025-11-25",
+      capabilities: {},
+      clientInfo: { name: "phase16-wire-probe", version: "1.0.0" },
+    });
+    expect(response.status).toBe(200);
+    const payload = await legacyResult(response);
+    expect(payload.result?.protocolVersion).toBe("2025-11-25");
+    expect(payload.result?.serverInfo?.name).toBe("telechir");
+
+    const toolsResponse = await legacyRpc(verifier, "tools/list", {});
+    expect(toolsResponse.status).toBe(200);
+    const toolsPayload = await legacyResult(toolsResponse);
+    expect(toolsPayload.result?.tools?.map((tool) => tool.name).sort()).toEqual(
+      PHASE14_TOOLS.map((tool) => tool.name).sort(),
+    );
+    expect(toolsPayload.result?.tools).toHaveLength(24);
+  });
+
+  it("rejects a legacy client's mutation when its token has read-only scope", async () => {
+    const userId = await seedUser("Legacy Scope User");
+    const verifier = verifierFor({
+      "phase16-legacy-token": authInfo(userId, ["telechir:files:read"]),
+    });
+
+    const response = await legacyRpc(verifier, "tools/call", {
+      name: "write_file",
+      arguments: {
+        device_id: crypto.randomUUID(),
+        path: "notes.txt",
+        content: "must not write",
+        encoding: "utf-8",
+        expected_hash: null,
+        create_if_missing: true,
+      },
+    });
+    expect(response.status).toBe(403);
+    expect(response.headers.get("www-authenticate")).toContain(
+      'scope="telechir:files:write"',
+    );
+  });
+
+  it("rejects foreign browser origins before any MCP dispatch", async () => {
+    const userId = await seedUser("Origin Boundary User");
+    const verifier = verifierFor({
+      "phase16-legacy-token": authInfo(userId),
+    });
+    const request = new Request(resource, {
+      method: "POST",
+      headers: {
+        authorization: "Bearer phase16-legacy-token",
+        origin: "https://untrusted.example",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/list",
+        params: {},
+      }),
+    });
+    const response = await mcpHttpRoute(
+      request,
+      bindings,
+      new URL(request.url),
+      verifier,
+    );
+    expect(response?.status).toBe(403);
+    expect(response?.headers.get("www-authenticate")).toBeNull();
+  });
+
+  it("rejects mismatched public host before parsing a bearer token", async () => {
+    const userId = await seedUser("Host Boundary User");
+    const verifier = verifierFor({
+      "phase16-legacy-token": authInfo(userId),
+    });
+    const request = new Request("https://different.example/mcp", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/list",
+        params: {},
+      }),
+    });
+    const response = await mcpHttpRoute(
+      request,
+      bindings,
+      new URL(request.url),
+      verifier,
+    );
+    expect(response?.status).toBe(421);
+  });
+});

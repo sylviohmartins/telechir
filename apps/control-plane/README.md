@@ -204,9 +204,8 @@ npm audit --audit-level=high
 - private key nunca sai do agent;
 - Durable Object coordena presence/conexão efêmera por device e usa attachment/storage para sobreviver à hibernação;
 - D1 continua a autoridade durável para identidade/revogação e, desde a Phase 9, para sessions, commands, approvals e audit metadata consumidos pelo Dashboard;
-- policy restrictions operacionais usam account/device/session; workspace permanece indisponível até existir identidade confiável no command context;
+- policy restrictions operacionais usam account/device/workspace/session; workspace é validado por ownership user+device e default determinístico conforme a Phase 15;
 - cloud nunca amplia a policy local do agent.
-
 
 ## Phase 15 — Workspace concurrency
 
