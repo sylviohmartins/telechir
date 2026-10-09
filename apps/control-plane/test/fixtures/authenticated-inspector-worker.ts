@@ -123,8 +123,7 @@ export default {
     if (
       url.pathname === "/__phase16_direct_idp_probe" &&
       env.PHASE16_TEST_DIRECT_KEYCLOAK === "true" &&
-      env.OAUTH_ISSUER ===
-        "https://127.0.0.1:9443/realms/telechir-phase16" &&
+      env.OAUTH_ISSUER === "https://127.0.0.1:9443/realms/telechir-phase16" &&
       !env.PHASE16_TEST_JWKS &&
       !env.PHASE16_TEST_AUTHORIZATION_METADATA
     ) {
