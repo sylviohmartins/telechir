@@ -13,6 +13,9 @@ url="${base}/mcp"
 issuer="https://auth.telechir.test"
 cert="${work_dir}/localhost.crt"
 key="${work_dir}/localhost.key"
+ca_cert="${work_dir}/root-ca.crt"
+ca_key="${work_dir}/root-ca.key"
+csr="${work_dir}/localhost.csr"
 
 cleanup() {
   if [[ -n "$worker_pid" ]]; then
@@ -30,10 +33,27 @@ for command in openssl curl node npx jq timeout; do
   }
 done
 
+# Use a genuine ephemeral root -> leaf certificate chain. Some Rust TLS
+# stacks reject a CA:TRUE self-signed certificate presented as the server leaf.
 openssl req -x509 -newkey rsa:2048 -nodes -sha256 -days 1 \
+  -subj "/CN=Telechir Phase16 Ephemeral Test CA" \
+  -addext "basicConstraints=critical,CA:TRUE" \
+  -addext "keyUsage=critical,keyCertSign,cRLSign" \
+  -keyout "$ca_key" -out "$ca_cert" >/dev/null 2>&1
+
+openssl req -new -newkey rsa:2048 -nodes -sha256 \
   -subj "/CN=localhost" \
-  -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" \
-  -keyout "$key" -out "$cert" >/dev/null 2>&1
+  -keyout "$key" -out "$csr" >/dev/null 2>&1
+cat >"$work_dir/leaf.ext" <<'EXT'
+basicConstraints=critical,CA:FALSE
+keyUsage=critical,digitalSignature,keyEncipherment
+extendedKeyUsage=serverAuth
+subjectAltName=DNS:localhost,IP:127.0.0.1
+EXT
+openssl x509 -req -in "$csr" -CA "$ca_cert" -CAkey "$ca_key" \
+  -CAcreateserial -out "$cert" -days 1 -sha256 \
+  -extfile "$work_dir/leaf.ext" >/dev/null 2>&1
+openssl verify -CAfile "$ca_cert" -purpose sslserver "$cert" >/dev/null
 
 cd "$repo_root/apps/control-plane"
 node test/fixtures/create-authenticated-inspector-fixture.mjs \
@@ -58,7 +78,7 @@ echo "PASS: ephemeral D1 schema and synthetic identity seeded"
 mkdir -p "$work_dir/oauth-store"
 export MCP_STORAGE_DIR="$work_dir/oauth-store"
 export MCP_INSPECTOR_OAUTH_STATE_PATH="$work_dir/oauth-store/oauth.json"
-export NODE_EXTRA_CA_CERTS="$cert"
+export NODE_EXTRA_CA_CERTS="$ca_cert"
 export MCP_AUTO_OPEN_ENABLED=false
 export NO_PROXY="127.0.0.1,localhost"
 export no_proxy="$NO_PROXY"
@@ -86,7 +106,7 @@ for _ in $(seq 1 60); do
     sed -n '1,75p' "$work_dir/wrangler.log" >&2
     exit 1
   fi
-  if curl --fail --silent --cacert "$cert" \
+  if curl --fail --silent --cacert "$ca_cert" \
     --connect-timeout 1 --max-time 2 "$base/health" \
     | jq -e '.status=="ok" and .fixture=="phase16"' >/dev/null 2>&1; then
     ready=true
@@ -103,11 +123,11 @@ done
 # Fail without sending credentials if a proxy or certificate substitution
 # makes our TLS peer different from the ephemeral expected public cert.
 node "$repo_root/scripts/interop/verify-local-tls.mjs" \
-  --cert "$cert" --host 127.0.0.1 --port "$port" \
+  --cert "$cert" --ca "$ca_cert" --host 127.0.0.1 --port "$port" \
   | jq -e '.status=="PASS" and .code=="TLS_PIN_AND_CHAIN_VALIDATED"' >/dev/null
 echo "PASS: loopback-only HTTPS, pinned peer certificate and chain"
 
-curl --fail --silent --show-error --cacert "$cert" --max-time 8 \
+curl --fail --silent --show-error --cacert "$ca_cert" --max-time 8 \
   "$base/.well-known/oauth-protected-resource" \
   | jq -e --arg resource "$url" --arg issuer "$issuer" \
     '.resource==$resource and .authorization_servers==[$issuer]' >/dev/null
@@ -118,14 +138,14 @@ bad_token="$(cat "$work_dir/wrong-audience.token")"
 expected_device="$(cat "$work_dir/device-id")"
 
 # Test the raw OAuth boundary independently from Inspector behavior.
-status="$(curl --silent --show-error --cacert "$cert" --max-time 10 \
+status="$(curl --silent --show-error --cacert "$ca_cert" --max-time 10 \
   --output "$work_dir/no-auth.json" --write-out "%{http_code}" \
   -H "Accept: application/json, text/event-stream" \
   -H "Content-Type: application/json" \
   --data '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' "$url")"
 [[ "$status" == "401" ]] || { echo "FAIL: missing bearer returned $status" >&2; exit 1; }
 
-status="$(curl --silent --show-error --cacert "$cert" --max-time 10 \
+status="$(curl --silent --show-error --cacert "$ca_cert" --max-time 10 \
   --output "$work_dir/bad-aud.json" --write-out "%{http_code}" \
   -H "Authorization: Bearer $bad_token" \
   -H "Accept: application/json, text/event-stream" \
@@ -133,7 +153,7 @@ status="$(curl --silent --show-error --cacert "$cert" --max-time 10 \
   --data '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' "$url")"
 [[ "$status" == "401" ]] || { echo "FAIL: wrong-audience JWT returned $status" >&2; exit 1; }
 
-status="$(curl --silent --show-error --cacert "$cert" --max-time 10 \
+status="$(curl --silent --show-error --cacert "$ca_cert" --max-time 10 \
   --output "$work_dir/denied.json" --dump-header "$work_dir/denied.headers" \
   --write-out "%{http_code}" \
   -H "Authorization: Bearer $valid_token" \
