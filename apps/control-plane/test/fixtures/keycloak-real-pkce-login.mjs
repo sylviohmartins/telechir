@@ -176,9 +176,9 @@ async function authorize(options = {}) {
         html.includes('class="alert-error"');
       const formKind = html.includes('id="kc-form-login"')
         ? "LOGIN_REPROMPT"
-        : html.includes('kc-update-profile-form')
+        : html.includes("kc-update-profile-form")
           ? "UPDATE_PROFILE"
-          : html.includes('kc-terms-text')
+          : html.includes("kc-terms-text")
             ? "TERMS"
             : "OTHER_HTML";
       const formCount = html.split("<form").length - 1;
