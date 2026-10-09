@@ -200,4 +200,10 @@ else
   exit 1
 fi
 echo "RESULT: INDEPENDENT_AUTHENTICATED_INSPECTOR_SMOKE_PASS"
-echo "NOTE: provider documents/JWKS synthetic, no browser OAuth PKCE or commercial client certified."
+echo "NOTE: provider metadata/JWKS synthetic; no real IdP or OAuth browser flow."
+
+# Optional independent vendor CLI probe shares the same pinned HTTPS fixture,
+# temporary D1 identity and existing cleanup trap.
+if [[ "${PHASE16_REAL_GEMINI_CLI:-0}" == "1" ]]; then
+  source "$repo_root/scripts/interop/gemini-cli-authenticated-probe.sh"
+fi

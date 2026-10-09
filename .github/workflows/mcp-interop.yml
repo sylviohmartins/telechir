@@ -57,9 +57,9 @@ jobs:
         run: npm audit --audit-level=high
 
   independent-inspector:
-    name: Independent Inspector CLI auth-boundary smoke (Linux)
+    name: Independent Inspector and Gemini CLI interoperability (Linux)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: apps/control-plane
@@ -88,7 +88,12 @@ jobs:
       - name: Check authenticated Inspector harness shell syntax
         run: bash -n ../../scripts/interop/inspector-authenticated-smoke.sh
 
-      - name: Run isolated signed JWT MCP Inspector CLI integration
+      - name: Check real Gemini CLI probe syntax
+        run: bash -n ../../scripts/interop/gemini-cli-authenticated-probe.sh
+
+      - name: Run signed JWT MCP Inspector and real Gemini CLI interoperability
+        env:
+          PHASE16_REAL_GEMINI_CLI: "1"
         run: bash ../../scripts/interop/inspector-authenticated-smoke.sh
 
       - name: Check synthetic PKCE HTTPS harness shell syntax
