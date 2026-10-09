@@ -20,7 +20,9 @@ import { exportJWK, generateKeyPair, jwtVerify, SignJWT } from "jose";
 const CERT = process.argv[2];
 const KEY = process.argv[3];
 if (process.argv.length !== 4 || !CERT || !KEY) {
-  throw new Error("Usage: oauth-pkce-https-smoke.mjs <public-cert> <ephemeral-key>");
+  throw new Error(
+    "Usage: oauth-pkce-https-smoke.mjs <public-cert> <ephemeral-key>",
+  );
 }
 const resource = "https://127.0.0.1:8988/mcp";
 const clientId = "phase16-pkce-fixture-client";
@@ -39,8 +41,7 @@ const execFileAsync = promisify(execFile);
 
 const sha256Url = (value) =>
   createHash("sha256").update(value, "ascii").digest("base64url");
-const bad = (res, error, status = 400) =>
-  sendJson(res, status, { error });
+const bad = (res, error, status = 400) => sendJson(res, status, { error });
 function sendJson(res, status, obj) {
   res.writeHead(status, {
     "content-type": "application/json; charset=utf-8",
@@ -86,7 +87,11 @@ function issueCode(params, res) {
   res.end();
 }
 async function exchangeCode(req, res) {
-  if (!req.headers["content-type"]?.startsWith("application/x-www-form-urlencoded")) {
+  if (
+    !req.headers["content-type"]?.startsWith(
+      "application/x-www-form-urlencoded",
+    )
+  ) {
     return bad(res, "invalid_request");
   }
   const chunks = [];
@@ -114,10 +119,7 @@ async function exchangeCode(req, res) {
   }
   const actual = Buffer.from(sha256Url(verifier));
   const expected = Buffer.from(stored.challenge);
-  if (
-    actual.length !== expected.length ||
-    !timingSafeEqual(actual, expected)
-  ) {
+  if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) {
     return bad(res, "invalid_grant");
   }
   const now = Math.floor(Date.now() / 1000);
@@ -144,7 +146,10 @@ const server = createServer(
   { cert: readFileSync(CERT), key: readFileSync(KEY) },
   (req, res) => {
     const url = new URL(req.url ?? "/", issuer);
-    if (req.method === "GET" && url.pathname === "/.well-known/oauth-authorization-server") {
+    if (
+      req.method === "GET" &&
+      url.pathname === "/.well-known/oauth-authorization-server"
+    ) {
       sendJson(res, 200, {
         issuer,
         authorization_endpoint: issuer + "/authorize",
@@ -253,15 +258,22 @@ try {
     "../../../../scripts/interop/verify-local-tls.mjs",
   );
   const { stdout } = await execFileAsync(process.execPath, [
-    preflightPath, "--cert", CERT, "--host", "127.0.0.1",
-    "--port", String(address.port),
+    preflightPath,
+    "--cert",
+    CERT,
+    "--host",
+    "127.0.0.1",
+    "--port",
+    String(address.port),
   ]);
   const checked = JSON.parse(stdout);
   assert.equal(checked.status, "PASS");
   assert.equal(checked.code, "TLS_PIN_AND_CHAIN_VALIDATED");
   console.log("PASS: OAuth issuer loopback HTTPS certificate pin and chain");
 
-  const metadataResponse = await request(issuer + "/.well-known/oauth-authorization-server");
+  const metadataResponse = await request(
+    issuer + "/.well-known/oauth-authorization-server",
+  );
   assert.equal(metadataResponse.status, 200);
   const metadata = await metadataResponse.json();
   assert.equal(metadata.issuer, issuer);
@@ -273,7 +285,9 @@ try {
   assert.equal(jwks.keys.length, 1);
   assert.equal(jwks.keys[0].kty, "RSA");
   assert.equal(jwks.keys[0].d, undefined);
-  console.log("PASS: OAuth authorization-server metadata and public JWKS over HTTPS");
+  console.log(
+    "PASS: OAuth authorization-server metadata and public JWKS over HTTPS",
+  );
 
   for (const fields of [
     { code_challenge_method: "plain" },
@@ -287,7 +301,9 @@ try {
   ]) {
     await errorIs((await authorize(fields)).result, "invalid_request");
   }
-  console.log("PASS: PKCE downgrade, missing resource, scope/redirect/client mismatches rejected");
+  console.log(
+    "PASS: PKCE downgrade, missing resource, scope/redirect/client mismatches rejected",
+  );
 
   const wrongVerifier = await authorize();
   assert.equal(wrongVerifier.result.status, 302);
@@ -299,7 +315,9 @@ try {
     await redeem(wrongVerifier.code, wrongVerifier.pkce.verifier),
     "invalid_grant",
   );
-  console.log("PASS: incorrect PKCE verifier invalidates and consumes authorization code");
+  console.log(
+    "PASS: incorrect PKCE verifier invalidates and consumes authorization code",
+  );
 
   for (const modified of [
     { client_id: "other-client" },
@@ -311,7 +329,9 @@ try {
     assert.equal(result.status, 302);
     await errorIs(await redeem(code, pkce.verifier, modified), "invalid_grant");
   }
-  console.log("PASS: token exchange binds code to client, redirect and resource");
+  console.log(
+    "PASS: token exchange binds code to client, redirect and resource",
+  );
 
   const success = await authorize();
   assert.equal(success.result.status, 302);
@@ -343,10 +363,16 @@ try {
     await redeem(success.code, success.pkce.verifier),
     "invalid_grant",
   );
-  console.log("PASS: complete Authorization Code + S256 PKCE, resource-bound RS256 token");
-  console.log("PASS: token audience validation and single-use code replay defense");
+  console.log(
+    "PASS: complete Authorization Code + S256 PKCE, resource-bound RS256 token",
+  );
+  console.log(
+    "PASS: token audience validation and single-use code replay defense",
+  );
   console.log("RESULT: ISOLATED_PKCE_HTTPS_PROTOCOL_SMOKE_PASS");
-  console.log("NOTE: synthetic IdP; not external IdP, browser consent, refresh or commercial MCP client certification");
+  console.log(
+    "NOTE: synthetic IdP; not external IdP, browser consent, refresh or commercial MCP client certification",
+  );
 } finally {
   codes.clear();
   server.closeAllConnections();
