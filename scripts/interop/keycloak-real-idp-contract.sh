@@ -43,7 +43,7 @@ openssl verify -CAfile "$tmp/root.crt" -purpose sslserver "$tmp/tls.crt" >/dev/n
 # while making the disposable mounted key accessible to that unprivileged uid.
 sudo chown 1000:0 "$tmp/tls.key" "$tmp/tls.crt"
 sudo chmod 0640 "$tmp/tls.key" "$tmp/tls.crt"
-chmod 0644 "$tmp/import/realm.json"
+# The bind-mounted import DIRECTORY must be searchable by uid 1000.\nchmod 0755 "$tmp/import"\nchmod 0644 "$tmp/import/realm.json"
 # Do not use --rm here: we need bounded logs if the container exits.
 # The EXIT trap is the only cleanup owner and removes it on success/failure.
 docker run -d --name "$container" --network host --memory=1200m \
