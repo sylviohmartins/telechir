@@ -18,6 +18,10 @@ Avançar da autenticação HTTP dirigida sem browser (PR #69) para uma **instân
 - Vincular token de browser ao D1 Wrangler isolado por SHA-256(`sub`), ler somente device próprio no MCP Worker com JWKS direto do Keycloak; rejeitar assinatura alterada e Bearer ausente (401), escrita sem scope (403), e JWT válido de usuário localmente desativado (401).
 - Nenhuma senha, cookie, authorization code ou access token pode aparecer em logs, screenshots, traces, artefatos ou outputs; diretório privado `mktemp`, cleanup por trap; Playwright `1.58.2` fixado apenas para o job CI; utiliza o Google Chrome Stable da imagem do GitHub Actions, sem baixar um segundo navegador.
 
+## Continuidade da identidade do usuário
+
+O login HTTP do PR #69 e o login no Chrome utilizam **a mesma pessoa sintética no Keycloak**. O D1 possui restrição `UNIQUE(identity_provider, provider_subject_hash)`, impedindo corretamente um segundo registro para o mesmo `sub`. Após a desativação do usuário pelo gate anterior, o teste de browser compara os dois JWTs de clientes diferentes, exige `sub` idêntico, **reativa exclusivamente o registro existente por issuer + hash** e reutiliza seu único dispositivo de CI para validar a continuidade da conta. Depois, desativa novamente esse usuário e exige HTTP 401 com o JWT ainda vigente. Não são criados novos owners nem contornada a unicidade.
+
 ## Não objetivos
 
 O navegador é **headless, de fato Chromium**, e a tela de consentimento é real, mas o usuário continua sendo um **principal fictício**. Não prova login ou consentimento de pessoa real, MFA, clientes MCP interativos de fornecedores, provedor IdP externo, domínio público, Cloudflare hospedada, IA em inferência ou hardware físico. Nenhum gate desses deve ser marcado como concluído por consequência.
