@@ -57,9 +57,9 @@ jobs:
         run: npm audit --audit-level=high
 
   independent-inspector:
-    name: Independent Inspector and Gemini CLI interoperability (Linux)
+    name: Real Inspector, Gemini, Claude and Codex CLI MCP interoperability (Linux)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: apps/control-plane
@@ -94,10 +94,16 @@ jobs:
       - name: Check real Claude Code CLI probe syntax
         run: bash -n ../../scripts/interop/claude-code-authenticated-probe.sh
 
-      - name: Run signed JWT MCP Inspector, Gemini CLI and Claude Code interoperability
+      - name: Validate Codex runtime Python source and Bash wrapper
+        run: |
+          python3 -m py_compile ../../scripts/interop/codex-app-server-readonly-probe.py
+          bash -n ../../scripts/interop/codex-app-server-readonly-probe.sh
+
+      - name: Run signed JWT MCP Inspector, Gemini, Claude and Codex read-only interoperability
         env:
           PHASE16_REAL_GEMINI_CLI: "1"
           PHASE16_REAL_CLAUDE_CODE: "1"
+          PHASE16_REAL_CODEX_APP_SERVER: "1"
         run: bash ../../scripts/interop/inspector-authenticated-smoke.sh
 
       - name: Check synthetic PKCE HTTPS harness shell syntax
