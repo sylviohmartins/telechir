@@ -165,4 +165,4 @@ NODE_EXTRA_CA_CERTS="$tmp/root.crt" NO_PROXY="127.0.0.1,localhost" \
 # Additional independent HTTP/D1 proof (no extra IdP or credential fixtures).
 source "$repo_root/scripts/interop/keycloak-worker-d1-smoke.sh"
 echo "RESULT: KEYCLOAK_REAL_IDP_ISSUANCE_CONTRACT_PASS"
-echo "NOTE: self-hosted IdP service-account grant; NOT browser PKCE, external tenant or Worker MCP E2E."
+echo "NOTE: self-hosted Keycloak client_credentials + local Worker/D1 MCP verified; public IdP docs replayed in fixture; no workerd outbound IdP TLS, browser PKCE or managed tenant."
