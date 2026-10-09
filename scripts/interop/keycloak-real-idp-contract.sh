@@ -13,7 +13,12 @@ done
 tmp="$(mktemp -d)"
 container="telechir-phase16-keycloak-${GITHUB_RUN_ID:?}"
 bundle="$repo_root/apps/control-plane/node_modules/.cache/phase16-keycloak-verifier-${GITHUB_RUN_ID:?}.mjs"
+worker_pid=""
 cleanup() {
+  if [[ -n "$worker_pid" ]]; then
+    kill "$worker_pid" 2>/dev/null || true
+    wait "$worker_pid" 2>/dev/null || true
+  fi
   docker rm -f "$container" >/dev/null 2>&1 || true
   rm -f "$bundle"
   rm -rf "$tmp"
@@ -157,5 +162,7 @@ NODE_EXTRA_CA_CERTS="$tmp/root.crt" NO_PROXY="127.0.0.1,localhost" \
   no_proxy="127.0.0.1,localhost" \
   node "$repo_root/apps/control-plane/test/fixtures/keycloak-telechir-production-verifier.mjs" \
   "$tmp/oidc.json" "$tmp/token.json" "$issuer" "$bundle"
+# Additional independent HTTP/D1 proof (no extra IdP or credential fixtures).
+source "$repo_root/scripts/interop/keycloak-worker-d1-smoke.sh"
 echo "RESULT: KEYCLOAK_REAL_IDP_ISSUANCE_CONTRACT_PASS"
-echo "NOTE: self-hosted IdP service-account grant; NOT browser PKCE, external tenant or Worker MCP E2E."
+echo "NOTE: self-hosted Keycloak client_credentials + local Worker/D1 MCP verified; public IdP docs replayed in fixture; no workerd outbound IdP TLS, browser PKCE or managed tenant."
