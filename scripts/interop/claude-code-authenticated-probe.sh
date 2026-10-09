@@ -9,7 +9,8 @@ claude_home="$work_dir/claude-home"
 mkdir -p "$claude_home/.claude"
 chmod 700 "$claude_home" "$claude_home/.claude"
 export HOME="$claude_home"
-export CLAUDE_CONFIG_DIR="$claude_home/.claude"
+# Use isolated HOME for user-scope Claude config lookup.
+# The separate config-dir override changes that lookup path.
 export DISABLE_TELEMETRY=1
 
 # The real Claude Code CLI reads user-scoped MCP definitions from .claude.json.
