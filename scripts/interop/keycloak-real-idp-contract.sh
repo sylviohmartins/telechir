@@ -11,9 +11,11 @@ for cmd in docker openssl curl node jq; do
   command -v "$cmd" >/dev/null || { echo "FAIL: missing $cmd" >&2; exit 1; }
 done
 tmp="$(mktemp -d)"
-container="telechir-phase16-keycloak-$$"
+container="telechir-phase16-keycloak-${GITHUB_RUN_ID:?}"
+bundle="$repo_root/apps/control-plane/node_modules/.cache/phase16-keycloak-verifier-${GITHUB_RUN_ID:?}.mjs"
 cleanup() {
   docker rm -f "$container" >/dev/null 2>&1 || true
+  rm -f "$bundle"
   rm -rf "$tmp"
 }
 trap cleanup EXIT INT TERM
@@ -42,7 +44,10 @@ openssl verify -CAfile "$tmp/root.crt" -purpose sslserver "$tmp/tls.crt" >/dev/n
 # Keycloak runs as uid 1000. Keep the key unreadable to other users
 # while making the disposable mounted key accessible to that unprivileged uid.
 sudo chown 1000:0 "$tmp/tls.key" "$tmp/tls.crt"
-sudo chmod 0640 "$tmp/tls.key" "$tmp/tls.crt"
+sudo chmod 0640 "$tmp/tls.key"
+# The public leaf certificate is safe to read by the non-root CI verifier;
+# the private key remains restricted to the Keycloak container user.
+sudo chmod 0644 "$tmp/tls.crt"
 # The bind-mounted import DIRECTORY must be searchable by uid 1000.\nchmod 0755 "$tmp/import"\nchmod 0644 "$tmp/import/telechir-phase16-realm.json"
 # Do not use --rm here: we need bounded logs if the container exits.
 # The EXIT trap is the only cleanup owner and removes it on success/failure.
@@ -85,6 +90,11 @@ done
   echo "FAIL: real HTTPS Keycloak realm not ready" >&2; exit 1;
 }
 echo "PASS: actual Keycloak 26.8.0 master realm HTTPS OIDC discovery"
+# Validate BOTH the expected server leaf and its independent ephemeral CA
+# before sending any CI-only OAuth client or admin credentials.
+node "$repo_root/scripts/interop/verify-local-tls.mjs" \
+  --cert "$tmp/tls.crt" --ca "$tmp/root.crt" --host 127.0.0.1 --port 9443 |
+  jq -e '.status=="PASS" and .code=="TLS_PIN_AND_CHAIN_VALIDATED"' >/dev/null
 # Admin credentials are CI-only fixtures, never valid outside this container.
 curl --fail --silent --show-error --cacert "$tmp/root.crt" --max-time 12 \
   -X POST "$master_issuer/protocol/openid-connect/token" \
@@ -134,5 +144,18 @@ jq -e '.access_token and (.token_type | ascii_downcase=="bearer")' \
   }
 node "$repo_root/apps/control-plane/test/fixtures/keycloak-real-idp-contract.mjs" \
   "$tmp/oidc.json" "$tmp/jwks.json" "$tmp/token.json" "$issuer"
+# Bundle unchanged production OAuth verifier. External dependencies resolve
+# within the ignored node_modules subtree; the temporary bundle is deleted.
+mkdir -p "$(dirname "$bundle")"
+(
+  cd "$repo_root/apps/control-plane"
+  ./node_modules/.bin/esbuild src/oauth.ts --bundle --platform=node \
+    --format=esm --packages=external --outfile="$bundle" --log-level=error
+)
+# Node uses only this ephemeral trust anchor; no global TLS relaxation.
+NODE_EXTRA_CA_CERTS="$tmp/root.crt" NO_PROXY="127.0.0.1,localhost" \
+  no_proxy="127.0.0.1,localhost" \
+  node "$repo_root/apps/control-plane/test/fixtures/keycloak-telechir-production-verifier.mjs" \
+  "$tmp/oidc.json" "$tmp/token.json" "$issuer" "$bundle"
 echo "RESULT: KEYCLOAK_REAL_IDP_ISSUANCE_CONTRACT_PASS"
 echo "NOTE: self-hosted IdP service-account grant; NOT browser PKCE, external tenant or Worker MCP E2E."
