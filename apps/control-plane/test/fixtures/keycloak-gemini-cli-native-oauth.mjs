@@ -185,7 +185,7 @@ function publicDiagnostic() {
     stderrBytes: err.length,
     browserLaunchCaptured: existsSync(urlFile),
     oauthUrlSeen: !!authorizeUrl(),
-    connected: /telechir-gemini-phase16-ci.*connected/iu.test(combined),
+    connected: /telechir-gemini-phase16-ci[^\\r\\n]*\\bConnected\\b/iu.test(combined),
     disconnected: /disconnected|not authenticated/iu.test(combined),
     needsModelAccount:
       /login with google|authenticate with google|api key|select an auth method/iu.test(
