@@ -44,7 +44,7 @@ O incremento subsequente utiliza o **JWT RS256 emitido pelo Keycloak oficial 26.
 
 ## Workerd → Keycloak HTTPS direto — CA positiva/negativa (gate em validação)
 
-O teste adicional CI (ainda **PENDING_CI**) retira inteiramente o replay de discovery RFC 8414 e JWKS no processo Workerd, utiliza o `JwtAccessTokenVerifier` de produção com seu `fetch()` real e configura CA efêmera de Keycloak exclusivamente via `NODE_EXTRA_CA_CERTS` no processo Wrangler. Deverá falhar com CA de outro servidor e passar com CA correta, executando os mesmos gates MCP/D1 de leitura, isolamento, token inválido, scope e usuário desativado. **Não equivale a Worker hospedado, IdP gerenciado ou PKCE de cliente humano.** Documento: `phase16-keycloak-workerd-direct-tls-2026-10-09.md`.
+**PASS delimitado:** [CI #37982415861](https://github.com/sylviohmartins/telechir/actions/runs/37982415861) (3/3 jobs success, commit `0222d61`), marcador `KEYCLOAK_WORKER_DIRECT_TLS_OAUTH_JWKS_PASS`. O ensaio retira inteiramente o replay de discovery RFC 8414 e JWKS no Workerd, utiliza o `JwtAccessTokenVerifier` de produção com seu `fetch()` real e configura CA efêmera de Keycloak exclusivamente via `NODE_EXTRA_CA_CERTS` no processo Wrangler. **Sem a CA correta, HTTP 401; com a CA correta, discovery/JWKS diretamente do Keycloak e autorização MCP/D1 válidas.** Novas regressões exigem `redirect: manual` e negação de 3xx (compatibilidade com Workerd). Reexecutar três jobs no head final antes de merge. **Não equivale a Worker hospedado, IdP gerenciado ou PKCE de cliente humano.** Documento: `phase16-keycloak-workerd-direct-tls-2026-10-09.md`.
 
 ## Codex App Server — desativação e reconexão fail-closed (2026-10-09)
 
