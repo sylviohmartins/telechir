@@ -25,7 +25,10 @@ const clientId = "telechir-phase16-inspector";
 const root = join(temp, "inspector-oauth");
 const home = join(root, "browser-home");
 const storage = join(root, "inspector-storage");
-const expectedDevice = readFileSync(join(temp, "pkce", "worker-device-id"), "utf8");
+const expectedDevice = readFileSync(
+  join(temp, "pkce", "worker-device-id"),
+  "utf8",
+);
 const foreignDevice = readFileSync(join(temp, "worker-device-id"), "utf8");
 mkdirSync(storage, { recursive: true, mode: 0o700 });
 for (const relative of [".pki/nssdb", ".local/share/pki/nssdb"]) {
@@ -37,8 +40,15 @@ for (const relative of [".pki/nssdb", ".local/share/pki/nssdb"]) {
   execFileSync(
     "certutil",
     [
-      "-A", "-d", "sql:" + path, "-n", "telechir-phase16-issuer-ca",
-      "-t", "C,,", "-i", join(temp, "root.crt"),
+      "-A",
+      "-d",
+      "sql:" + path,
+      "-n",
+      "telechir-phase16-issuer-ca",
+      "-t",
+      "C,,",
+      "-i",
+      join(temp, "root.crt"),
     ],
     { stdio: "pipe" },
   );
@@ -61,7 +71,8 @@ await ctx.route("**/*", (route) => {
   if (
     url.origin === new URL(issuer).origin &&
     url.pathname.startsWith(new URL(issuer).pathname + "/")
-  ) return route.continue();
+  )
+    return route.continue();
   return route.abort("blockedbyclient");
 });
 const cliEnv = {
@@ -101,7 +112,8 @@ const args = [
   "--format",
   "json",
 ];
-const authPattern = /https:\/\/127\.0\.0\.1:9443\/realms\/telechir-phase16\/protocol\/openid-connect\/auth\?[^\s\x1b<>"']+/u;
+const authPattern =
+  /https:\/\/127\.0\.0\.1:9443\/realms\/telechir-phase16\/protocol\/openid-connect\/auth\?[^\s\x1b<>"']+/u;
 const maxOutput = 192 * 1024;
 function startInspector() {
   const child = spawn("npx", args, {
@@ -141,11 +153,16 @@ function startInspector() {
     });
     child.once("close", (code, signal) => {
       settled = true;
-      if (!authSeen) authReject(new Error("Inspector exited without OAuth URL: exit " + code));
+      if (!authSeen)
+        authReject(
+          new Error("Inspector exited without OAuth URL: exit " + code),
+        );
       resolve({ code, signal, stdout, stderr });
     });
   });
-  const abort = () => { if (!settled) child.kill("SIGTERM"); };
+  const abort = () => {
+    if (!settled) child.kill("SIGTERM");
+  };
   return { authPromise, completion, abort };
 }
 function checkJson(raw) {
@@ -153,45 +170,84 @@ function checkJson(raw) {
   const read = output.result;
   assert.ok(read, "real Inspector CLI must deliver MCP result");
   assert.notEqual(read.isError, true, "read tool must not error");
-  assert.ok(Array.isArray(read.structuredContent?.devices), "MCP structuredContent missing");
-  assert.equal(read.structuredContent.devices.length, 1, "foreign devices visible");
+  assert.ok(
+    Array.isArray(read.structuredContent?.devices),
+    "MCP structuredContent missing",
+  );
+  assert.equal(
+    read.structuredContent.devices.length,
+    1,
+    "foreign devices visible",
+  );
   assert.equal(read.structuredContent.devices[0].device_id, expectedDevice);
-  assert.ok(read.structuredContent.devices.every((d) => d.device_id !== foreignDevice));
+  assert.ok(
+    read.structuredContent.devices.every((d) => d.device_id !== foreignDevice),
+  );
 }
 const inspector = startInspector();
 try {
   const authUrl = await Promise.race([
     inspector.authPromise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error("Inspector never initiated OAuth")), 45000)),
+    new Promise((_, reject) =>
+      setTimeout(
+        () => reject(new Error("Inspector never initiated OAuth")),
+        45000,
+      ),
+    ),
   ]);
   const url = new URL(authUrl);
   assert.equal(url.origin, new URL(issuer).origin);
-  assert.equal(url.pathname, new URL(issuer).pathname + "/protocol/openid-connect/auth");
+  assert.equal(
+    url.pathname,
+    new URL(issuer).pathname + "/protocol/openid-connect/auth",
+  );
   assert.equal(url.searchParams.get("client_id"), clientId);
   assert.equal(url.searchParams.get("redirect_uri"), callback);
   assert.equal(url.searchParams.get("response_type"), "code");
   assert.equal(url.searchParams.get("code_challenge_method"), "S256");
-  assert.match(url.searchParams.get("code_challenge") ?? "", /^[A-Za-z0-9_-]{43}$/u);
+  assert.match(
+    url.searchParams.get("code_challenge") ?? "",
+    /^[A-Za-z0-9_-]{43}$/u,
+  );
   assert.ok((url.searchParams.get("state") ?? "").length >= 16);
-  console.log("PASS: independent official MCP Inspector initiated OAuth with own PKCE S256 and loopback callback");
+  console.log(
+    "PASS: independent official MCP Inspector initiated OAuth with own PKCE S256 and loopback callback",
+  );
 
   const page = await ctx.newPage();
   await page.goto(authUrl, { timeout: 18000 });
   assert.equal(new URL(page.url()).origin, new URL(issuer).origin);
   await page.locator("#username").fill("phase16-user-ci");
-  await page.locator("#password").fill("phase16-ci-browser-only-not-a-real-secret");
+  await page
+    .locator("#password")
+    .fill("phase16-ci-browser-only-not-a-real-secret");
   await page.locator("#kc-login").click();
-  await page.locator('[name="accept"]').waitFor({ state: "visible", timeout: 14000 });
+  await page
+    .locator('[name="accept"]')
+    .waitFor({ state: "visible", timeout: 14000 });
   await Promise.all([
-    page.waitForURL((u) => u.origin + u.pathname === callback, { timeout: 16000 }),
+    page.waitForURL((u) => u.origin + u.pathname === callback, {
+      timeout: 16000,
+    }),
     page.locator('[name="accept"]').click(),
   ]);
-  assert.equal(new URL(page.url()).origin + new URL(page.url()).pathname, callback);
-  console.log("PASS: real Chrome drove official Keycloak login and consent to Inspector-owned callback");
+  assert.equal(
+    new URL(page.url()).origin + new URL(page.url()).pathname,
+    callback,
+  );
+  console.log(
+    "PASS: real Chrome drove official Keycloak login and consent to Inspector-owned callback",
+  );
 
   const outcome = await Promise.race([
     inspector.completion,
-    new Promise((_, reject) => setTimeout(() => reject(new Error("Inspector did not return MCP result after OAuth")), 35000)),
+    new Promise((_, reject) =>
+      setTimeout(
+        () =>
+          reject(new Error("Inspector did not return MCP result after OAuth")),
+        35000,
+      ),
+    ),
   ]);
   if (outcome.code !== 0) {
     // Only a restricted error CLASS — never print stderr, which can include
@@ -203,7 +259,9 @@ try {
       containsInvalidClient: /invalid.client/iu.test(outcome.stderr),
       containsCallbackError: /callback|timeout/iu.test(outcome.stderr),
     };
-    throw new Error("real Inspector OAuth client failed: " + JSON.stringify(flags));
+    throw new Error(
+      "real Inspector OAuth client failed: " + JSON.stringify(flags),
+    );
   }
   checkJson(outcome.stdout);
   console.log("RESULT: KEYCLOAK_REAL_INSPECTOR_INTERACTIVE_OAUTH_MCP_PASS");
