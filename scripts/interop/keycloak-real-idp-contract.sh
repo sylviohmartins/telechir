@@ -2,8 +2,8 @@
 # Real upstream IdP issuing a JWT in a disposable CI environment; no production.
 set -euo pipefail
 umask 077
-repo_root="$(cd "$(dirname "\${BASH_SOURCE[0]}")/../.." && pwd)"
-[[ "\${GITHUB_ACTIONS:-}" == "true" && "$(uname -s)" == "Linux" ]] || {
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+[[ "${GITHUB_ACTIONS:-}" == "true" && "$(uname -s)" == "Linux" ]] || {
   echo "FAIL: real IdP smoke is restricted to ephemeral GitHub Actions Linux CI" >&2
   exit 1
 }
