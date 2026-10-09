@@ -98,7 +98,12 @@ function fetcher(
   pkceMethods: string[] = ["S256"],
 ) {
   const calls: string[] = [];
-  const fetch = async (input: RequestInfo | URL): Promise<Response> => {
+  const fetch = async (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ): Promise<Response> => {
+    // Workerd does not implement redirect="error"; manual is fail-closed.
+    expect(init?.redirect).toBe("manual");
     const url = String(input);
     calls.push(url);
     if (
@@ -209,6 +214,38 @@ describe("OAuth resource server", () => {
         error.code === OAuthErrorCode.InvalidToken
       );
     });
+  });
+
+  it("rejects OAuth metadata redirects without following the untrusted Location", async () => {
+    await seedUser();
+    const material = await signingMaterial();
+    const received: string[] = [];
+    const noRedirectFetch = async (
+      input: RequestInfo | URL,
+      init?: RequestInit,
+    ): Promise<Response> => {
+      received.push(String(input));
+      expect(init?.redirect).toBe("manual");
+      return new Response(null, {
+        status: 302,
+        headers: { location: "https://untrusted.example/jwks.json" },
+      });
+    };
+    const verifier = new JwtAccessTokenVerifier(
+      bindings.DB,
+      discoveredConfig(),
+      noRedirectFetch,
+    );
+    await expect(
+      verifier.verifyAccessToken(await token(material.privateKey)),
+    ).rejects.toSatisfy(
+      (error: unknown) =>
+        OAuthError.isInstance(error) &&
+        error.code === OAuthErrorCode.InvalidToken,
+    );
+    expect(received).toEqual([
+      "https://auth.telechir.test/.well-known/oauth-authorization-server",
+    ]);
   });
 
   it("rejects an authorization server that does not advertise PKCE S256", async () => {

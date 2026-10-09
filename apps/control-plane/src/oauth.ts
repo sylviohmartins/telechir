@@ -197,11 +197,13 @@ async function fetchJson(
     headers: {
       accept: "application/json",
     },
-    redirect: "error",
+    // Workerd supports "manual" but rejects Fetch redirect="error".
+    // A 3xx or an already-followed response is always denied below.
+    redirect: "manual",
     signal: AbortSignal.timeout(REMOTE_FETCH_TIMEOUT_MS),
   });
 
-  if (!response.ok) {
+  if (!response.ok || response.redirected) {
     throw new Error(`remote OAuth document returned ${response.status}`);
   }
 

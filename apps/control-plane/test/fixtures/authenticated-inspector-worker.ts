@@ -3,7 +3,8 @@
  * Never import this fixture in src/index.ts or package as a production worker.
  *
  * HTTPS MCP traffic uses mcpHttpRoute and the production JwtAccessTokenVerifier.
- * Only remote OAuth discovery/JWKS responses are synthetic.
+ * Default fixture replays public OAuth documents, whereas explicit real-IdP
+ * CI mode exercises production native fetch directly over verified TLS.
  */
 import type { Env } from "../../src/env";
 import { mcpHttpRoute } from "../../src/mcp-http";
@@ -18,6 +19,7 @@ export { DeviceCoordinator } from "../../src/device-coordinator";
 type FixtureEnv = Env & {
   PHASE16_TEST_JWKS?: string;
   PHASE16_TEST_AUTHORIZATION_METADATA?: string;
+  PHASE16_TEST_DIRECT_KEYCLOAK?: string;
 };
 
 function testOnlyDocuments(
@@ -118,27 +120,98 @@ export default {
     if (url.pathname === "/health" && request.method === "GET") {
       return Response.json({ status: "ok", fixture: "phase16" });
     }
+    if (
+      url.pathname === "/__phase16_direct_idp_probe" &&
+      env.PHASE16_TEST_DIRECT_KEYCLOAK === "true" &&
+      env.OAUTH_ISSUER === "https://127.0.0.1:9443/realms/telechir-phase16" &&
+      !env.PHASE16_TEST_JWKS &&
+      !env.PHASE16_TEST_AUTHORIZATION_METADATA
+    ) {
+      // CI-only read-only network diagnostic: native fetch, no JWTs or secrets.
+      try {
+        const response = await fetch(
+          "https://127.0.0.1:9443/.well-known/oauth-authorization-server/realms/telechir-phase16",
+          { redirect: "manual", signal: AbortSignal.timeout(5000) },
+        );
+        if (!response.ok || response.redirected) {
+          return Response.json(
+            { kind: "REMOTE_HTTP_ERROR", status: response.status },
+            { status: 502 },
+          );
+        }
+        const metadata: unknown = await response.json();
+        if (
+          !metadata ||
+          typeof metadata !== "object" ||
+          !("issuer" in metadata) ||
+          metadata.issuer !== env.OAUTH_ISSUER ||
+          !("jwks_uri" in metadata) ||
+          metadata.jwks_uri !==
+            env.OAUTH_ISSUER + "/protocol/openid-connect/certs"
+        ) {
+          return Response.json({ kind: "METADATA_MISMATCH" }, { status: 502 });
+        }
+        const jwksResponse = await fetch(metadata.jwks_uri, {
+          redirect: "manual",
+          signal: AbortSignal.timeout(5000),
+        });
+        const jwks: unknown = jwksResponse.ok
+          ? await jwksResponse.json()
+          : null;
+        if (
+          !jwksResponse.ok ||
+          jwksResponse.redirected ||
+          !jwks ||
+          typeof jwks !== "object" ||
+          !("keys" in jwks) ||
+          !Array.isArray(jwks.keys) ||
+          jwks.keys.length === 0
+        ) {
+          return Response.json({ kind: "JWKS_UNAVAILABLE" }, { status: 502 });
+        }
+        return Response.json({ kind: "DIRECT_IDP_TLS_PASS", docs: 2 });
+      } catch (error) {
+        const cause = error instanceof Error ? error.message : "unknown";
+        return Response.json(
+          { kind: "NATIVE_FETCH_FAILED", reason: cause.slice(0, 240) },
+          { status: 502 },
+        );
+      }
+    }
     if (url.pathname === "/.well-known/oauth-protected-resource") {
       return protectedResourceMetadataResponse(env, request);
     }
     if (url.pathname !== "/mcp") {
       return new Response(null, { status: 404 });
     }
-    if (!env.PHASE16_TEST_JWKS) {
+    const directKeycloak = env.PHASE16_TEST_DIRECT_KEYCLOAK === "true";
+    if (!directKeycloak && !env.PHASE16_TEST_JWKS) {
       return new Response(null, { status: 503 });
     }
     try {
       const config = oauthConfigFromEnv(env);
       const { explicitJwksUri: _omitted, ...discovered } = config;
-      const verifier = new JwtAccessTokenVerifier(
-        env.DB,
-        discovered,
-        testOnlyDocuments(
-          discovered.issuer,
-          env.PHASE16_TEST_JWKS,
-          env.PHASE16_TEST_AUTHORIZATION_METADATA,
-        ),
-      );
+      if (
+        directKeycloak &&
+        (discovered.issuer !==
+          "https://127.0.0.1:9443/realms/telechir-phase16" ||
+          env.PHASE16_TEST_JWKS ||
+          env.PHASE16_TEST_AUTHORIZATION_METADATA)
+      ) {
+        // Never silently fall back to trusted snapshots in direct mode.
+        return new Response(null, { status: 503 });
+      }
+      const verifier = directKeycloak
+        ? new JwtAccessTokenVerifier(env.DB, discovered)
+        : new JwtAccessTokenVerifier(
+            env.DB,
+            discovered,
+            testOnlyDocuments(
+              discovered.issuer,
+              env.PHASE16_TEST_JWKS!,
+              env.PHASE16_TEST_AUTHORIZATION_METADATA,
+            ),
+          );
       return (
         (await mcpHttpRoute(request, env, url, verifier)) ??
         new Response(null, { status: 404 })
