@@ -9,7 +9,7 @@
 |---|---|---|---|---|
 | `@modelcontextprotocol/client` (test harness do repo) | SDK lockfile 2.3.0, MCP moderno 2026-07-28 | PASS — Vitest `mcp.test.ts` | N/A — SDK | `apps/control-plane/test/mcp.test.ts` |
 | Wire JSON-RPC sem SDK externo de produto | MCP legado 2025-11-25, Streamable HTTP/SSE | PASS — `initialize`, `tools/list`, 24 tools | N/A — wire | `apps/control-plane/test/mcp.test.ts` Phase 16 |
-| MCP Inspector CLI externo | 2.5.0, HTTPS Streamable HTTP, runner Linux descartável | PASS — TLS validado, metadata, 401/WWW-Authenticate | PASS somente para challenge sem token (`auth_required`, exit 3); autenticado NOT_TESTED | [GitHub Actions #37845791616](https://github.com/sylviohmartins/telechir/actions/runs/37845791616) |
+| MCP Inspector CLI externo | 2.5.0, HTTPS Streamable HTTP, runner Linux descartável | PASS — TLS validado, metadata, 401/WWW-Authenticate | PASS para challenge sem token e sessão autenticada JWT RS256 sintética (24 tools, `list_devices` e recusa de escrita); fluxo PKCE/IdP real NOT_TESTED | [GitHub Actions #37845791616](https://github.com/sylviohmartins/telechir/actions/runs/37845791616) |
 | ChatGPT plugin Telechir | Remote HTTPS, OAuth e package sujeito a review | BLOCKED — sem endpoint autorizado | BLOCKED — plugin não publicado | Issue #15 e gates externos |
 | Codex CLI/IDE | MCP HTTP, versão não aferida | NOT_TESTED | BLOCKED — CLI não instalada/sem MCP HTTPS de teste | `codex mcp list`, sessão consentida |
 | Claude Code | MCP HTTP, versão não aferida | NOT_TESTED | BLOCKED — CLI não instalada/sem MCP HTTPS de teste | `claude mcp list`, sessão consentida |
@@ -23,7 +23,7 @@ O job `independent-inspector` executa o `@modelcontextprotocol/inspector@2.5.0` 
 
 ## Ensaio autenticado independente (CI; conclusão a verificar)
 
-Adicionado harness `scripts/interop/inspector-authenticated-smoke.sh`: Worker de fixture isolado com rota MCP real, `JwtAccessTokenVerifier` real, JWT RS256 efêmero, descoberta OAuth/JWKS sintética, D1 local com usuário/device sintético, HTTPS local com pinning, Inspector CLI 2.5.0 real verificando initialize, 24 tools, leitura `list_devices` e negação de escrita. **Até CI remoto concluir, status NOT_VERIFIED.** A evidência completa e os limites estão em `docs/testing/acceptance/phase16-authenticated-inspector-ci-2026-10-09.md`. Não é IdP real nem cliente comercial certificado.
+Adicionado harness `scripts/interop/inspector-authenticated-smoke.sh`: Worker de fixture isolado com rota MCP real, `JwtAccessTokenVerifier` real, JWT RS256 efêmero, descoberta OAuth/JWKS sintética, D1 local com usuário/device sintético, HTTPS local com pinning, Inspector CLI 2.5.0 real verificando initialize, 24 tools, leitura `list_devices` e negação de escrita. **PASS REMOTO VERIFICADO:** [GitHub Actions #37881808611](https://github.com/sylviohmartins/telechir/actions/runs/37881808611) concluiu os dois jobs `success` (125/125 testes do control plane, Inspector CLI autenticado). O Inspector executou `initialize`, enumerou as 24 ferramentas e leu dispositivo sintético vinculado ao JWT RS256. O Inspector preventivamente recusou escrita por falta do scope; a rota real também retornou HTTP 403 quando invocada diretamente. Não houve fluxo authorization code/PKCE nem IdP real. A evidência completa e os limites estão em `docs/testing/acceptance/phase16-authenticated-inspector-ci-2026-10-09.md`. Não é IdP real nem cliente comercial certificado.
 
 ## Regressões do verificador OAuth (in-process)
 
