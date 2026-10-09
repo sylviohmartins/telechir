@@ -2,7 +2,7 @@
 
 **Data:** 2026-10-09
 **Issue:** #49
-**Estado:** PENDING_CI
+**Estado:** **PASS delimitado** — [CI #37998515165](https://github.com/sylviohmartins/telechir/actions/runs/37998515165), 3/3 jobs success no commit `6ae376e`, marcador `KEYCLOAK_GEMINI_CLI_RFC9207_OAUTH_PREFLIGHT_PASS`; revalidar no último head documental antes do merge.
 
 ## Escopo comprovável
 
@@ -22,3 +22,9 @@ O preflight Gemini verifica se a configuração exigirá a chave `authorizationR
 ## Limite inegociável
 
 **Mesmo após esse PASS, OAuth interativo do Gemini CLI continua NÃO CERTIFICADO.** Não há execução do `/mcp auth` do Gemini, token gerado pelo Gemini, callback consumido pelo Gemini ou `list_devices` executado pelo Gemini após OAuth. Esses são gates separados, potencialmente dependentes de sessão interativa da CLI e requerem validação própria. A conexão `gemini mcp list` com JWT previamente fornecido não é um substituto. Documentação oficial: https://geminicli.com/docs/tools/mcp-server/ e https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/commands.md.
+
+## Evidência da execução
+
+A execução #37998515165 verificou a criação do cliente público Gemini com **escopo opcional read-only** via Keycloak Admin REST e preservação dos escopos padrão, confirmou em **Chrome real** o callback do Keycloak e gerou somente a classificação booleana da resposta `iss`. O preflight RFC 9207 terminou PASS, incluindo a recusa da substituição do emissor na lógica de configuração. Em seguida o gate independente do Inspector permaneceu aprovado. Nenhuma alteração em `src/` nem em configuração de perfil real do Gemini. O token de acesso, senha, state e authorization code não foram registrados.
+
+A conclusão **não** implica execução de `/mcp auth` no Gemini CLI, pois a versão executada no CI continua usando `gemini mcp list` com credencial de fixture para o teste separado de conectividade. A autenticação interativa iniciada pelo fornecedor segue pendente.
