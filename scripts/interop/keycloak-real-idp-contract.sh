@@ -44,7 +44,10 @@ openssl verify -CAfile "$tmp/root.crt" -purpose sslserver "$tmp/tls.crt" >/dev/n
 # Keycloak runs as uid 1000. Keep the key unreadable to other users
 # while making the disposable mounted key accessible to that unprivileged uid.
 sudo chown 1000:0 "$tmp/tls.key" "$tmp/tls.crt"
-sudo chmod 0640 "$tmp/tls.key" "$tmp/tls.crt"
+sudo chmod 0640 "$tmp/tls.key"
+# The public leaf certificate is safe to read by the non-root CI verifier;
+# the private key remains restricted to the Keycloak container user.
+sudo chmod 0644 "$tmp/tls.crt"
 # The bind-mounted import DIRECTORY must be searchable by uid 1000.\nchmod 0755 "$tmp/import"\nchmod 0644 "$tmp/import/telechir-phase16-realm.json"
 # Do not use --rm here: we need bounded logs if the container exits.
 # The EXIT trap is the only cleanup owner and removes it on success/failure.
