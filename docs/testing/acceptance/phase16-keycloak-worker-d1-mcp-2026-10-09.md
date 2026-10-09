@@ -4,7 +4,7 @@
 
 **Issue:** #49
 
-**Status:** `PENDING_CI` — implementação em branch, sujeita aos três jobs do GitHub Actions no head final.
+**Status:** **PASS delimitado no gate Keycloak** — [CI #37980819190](https://github.com/sylviohmartins/telechir/actions/runs/37980819190), com `KEYCLOAK_WORKER_D1_MCP_AUTHENTICATED_PASS`, `KEYCLOAK_WORKER_D1_MCP_READONLY_PASS` e `KEYCLOAK_WORKER_D1_DISABLED_USER_PASS`. Verificar novamente os **três jobs no último head** antes do merge.
 
 ## Critério de aceite
 
@@ -39,4 +39,4 @@ Execução restrita ao GitHub Actions Ubuntu, loopback, CA e certificados gerado
 - `apps/control-plane/test/fixtures/keycloak-worker-mcp-probe.mjs` — controle positivo e negativas com HTTP real.
 - `.github/workflows/mcp-interop.yml` — job Keycloak existente e dois jobs independentes, sem deploy.
 
-Referência anterior: [PR #66](https://github.com/sylviohmartins/telechir/pull/66), [CI #37979406170](https://github.com/sylviohmartins/telechir/actions/runs/37979406170). **Adicionar link do CI deste gate apenas depois de comprovação do head final.**
+Referência anterior: [PR #66](https://github.com/sylviohmartins/telechir/pull/66), [CI #37979406170](https://github.com/sylviohmartins/telechir/actions/runs/37979406170). **Primeira evidência remota do gate:** [CI #37980819190](https://github.com/sylviohmartins/telechir/actions/runs/37980819190), job Keycloak `success` e predicados citados. O último commit documental precisa também de 3/3 jobs `success`.
