@@ -40,11 +40,19 @@ node test/fixtures/create-authenticated-inspector-fixture.mjs \
   "$work_dir" "$url" "$issuer"
 # Private signing material never leaves RAM. All issued tokens stay inside
 # the private temp directory, deleted by trap even when the smoke fails.
-./node_modules/.bin/wrangler d1 migrations apply DB --local --yes \
-  --persist-to "$work_dir/state" >"$work_dir/migrations.log" 2>&1
-./node_modules/.bin/wrangler d1 execute DB --local \
+if ! ./node_modules/.bin/wrangler d1 migrations apply DB --local --yes \
+  --persist-to "$work_dir/state" >"$work_dir/migrations.log" 2>&1; then
+  echo "FAIL: isolated D1 migration did not apply" >&2
+  sed -n '1,100p' "$work_dir/migrations.log" >&2
+  exit 1
+fi
+if ! ./node_modules/.bin/wrangler d1 execute DB --local \
   --persist-to "$work_dir/state" --file "$work_dir/seed.sql" \
-  >"$work_dir/seed.log" 2>&1
+  >"$work_dir/seed.log" 2>&1; then
+  echo "FAIL: synthetic D1 user/device could not be seeded" >&2
+  sed -n '1,100p' "$work_dir/seed.log" >&2
+  exit 1
+fi
 echo "PASS: ephemeral D1 schema and synthetic identity seeded"
 
 mkdir -p "$work_dir/oauth-store"
