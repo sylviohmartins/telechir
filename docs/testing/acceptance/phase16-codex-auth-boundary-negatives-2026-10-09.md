@@ -6,7 +6,7 @@
 
 **Cliente testado:** `@openai/codex@0.162.0`, executável real, via `codex app-server` com API `mcpServer/tool/call`.
 
-**Estado inicial:** aguardando execução CI da branch.
+**Resultado observado:** PASS de todos os cinco cenários no [GitHub Actions #37964924397](https://github.com/sylviohmartins/telechir/actions/runs/37964924397), com 2/2 jobs `success`; o commit documental final deve ter os próprios checks aprovados antes do merge.
 
 ## Objetivo e mecanismo
 
@@ -38,4 +38,18 @@ Referências:
 - `scripts/interop/inspector-authenticated-smoke.sh`
 - `docs/testing/acceptance/phase16-codex-app-server-authenticated-readonly-2026-10-09.md`
 
-**Evidência CI:** registrar somente após confirmação de 2/2 jobs `success`.
+## Evidência de execução (CI #37964924397)
+
+Os logs do GitHub Actions mostram os resultados abaixo, emitidos após a execução de **processos reais independentes `@openai/codex@0.162.0`**:
+
+- `CODEX_APP_SERVER_AUTHENTICATED_READONLY_TOOL_PASS` — leitura do dispositivo sintético autorizado.
+- `CODEX_AUTH_BOUNDARY_NO_TOKEN_PASS` — o **próprio Codex** rejeitou inicialização MCP com `PHASE16_CODEX_BEARER` ausente; **não é evidência de HTTP 401 enviado ao Telechir**.
+- `CODEX_AUTH_BOUNDARY_WRONG_AUDIENCE_PASS` — token RSA assinado com audience incorreta foi recusado durante handshake, com `Auth required`.
+- `CODEX_AUTH_BOUNDARY_MALFORMED_PASS` — token malformado recusado no handshake, com `Auth required`.
+- `CODEX_AUTH_BOUNDARY_WRITE_DENIED_PASS` — `write_file` com scope somente de leitura gerou `Insufficient scope`, sem retorno de ferramenta e sem escrita.
+- `INDEPENDENT_AUTHENTICATED_INSPECTOR_SMOKE_PASS`, `GEMINI_CLI_AUTHENTICATED_MCP_DISCOVERY_PASS`, `CLAUDE_CODE_AUTHENTICATED_MCP_DISCOVERY_PASS` e `ISOLATED_PKCE_HTTPS_PROTOCOL_SMOKE_PASS` permaneceram aprovados.
+- Job de regressões TypeScript, formato, segurança, Worker dry-run, audit e testes do control plane: `success`.
+
+**Evidência:** [GitHub Actions run #37964924397](https://github.com/sylviohmartins/telechir/actions/runs/37964924397). A verificação final é feita no último head do PR antes do merge.
+
+**Limite:** a ausência de credencial foi bloqueada no cliente; tokens inválidos foram recusados no handshake; a falta de escopo foi recusada na chamada de escrita. Isto não demonstra token revogado, login via IdP externo, refresh, consentimento nem escolha de ferramenta por LLM.
