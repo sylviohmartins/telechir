@@ -10,4 +10,4 @@ command -v python3 >/dev/null || {
 # The subprocess sets CODEX_CA_CERTIFICATE only for its own lifetime.
 # No global Linux CA installation and no TLS verification bypass.
 timeout 180s python3 "$repo_root/scripts/interop/codex-app-server-readonly-probe.py" \
-  "$work_dir" "$url" "$cert" "$work_dir/device-id"
+  "$work_dir" "$url" "$ca_cert" "$work_dir/device-id"
