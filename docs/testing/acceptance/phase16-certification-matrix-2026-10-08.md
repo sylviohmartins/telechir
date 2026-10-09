@@ -48,7 +48,7 @@ O incremento subsequente utiliza o **JWT RS256 emitido pelo Keycloak oficial 26.
 
 ## Gemini CLI — pré-validação de issuer OAuth RFC 9207 (não é login CLI)
 
-**PENDING_CI:** Keycloak e Chrome reais produzem evidência booleana de `iss` em authorization response, validando o emissor esperado e compatibilidade do parâmetro `authorizationResponseIssParameterSupported` documentado pelo Gemini CLI. Cliente público adicional com PKCE S256 e apenas `telechir:devices:read`, sem alteração dos escopos padrão do Keycloak. **Não comprova** `/mcp auth`, callback recebido pelo Gemini, token armazenado pelo Gemini ou ferramenta MCP executada após OAuth. Documento: `phase16-gemini-oauth-rfc9207-preflight-2026-10-09.md`.
+**PASS delimitado:** [CI #37998515165](https://github.com/sylviohmartins/telechir/actions/runs/37998515165), 3/3 jobs success no commit `6ae376e`; marcador `KEYCLOAK_GEMINI_CLI_RFC9207_OAUTH_PREFLIGHT_PASS`. Keycloak e Chrome reais produziram evidência booleana de `iss` em authorization response, validando o emissor esperado e compatibilidade do parâmetro `authorizationResponseIssParameterSupported` documentado pelo Gemini CLI. Cliente público adicional com PKCE S256 e apenas `telechir:devices:read`, sem alteração dos escopos padrão do Keycloak. **Não comprova** `/mcp auth`, callback recebido pelo Gemini, token armazenado pelo Gemini ou ferramenta MCP executada após OAuth. Documento: `phase16-gemini-oauth-rfc9207-preflight-2026-10-09.md`.
 
 ## Inspector CLI oficial — início de OAuth interativo Keycloak real
 
