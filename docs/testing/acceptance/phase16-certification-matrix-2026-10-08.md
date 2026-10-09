@@ -14,7 +14,7 @@
 | ChatGPT plugin Telechir | Remote HTTPS, OAuth e package sujeito a review | BLOCKED — sem endpoint autorizado | BLOCKED — plugin não publicado | Issue #15 e gates externos |
 | Codex CLI/IDE | MCP HTTP, versão não aferida | NOT_TESTED | BLOCKED — CLI não instalada/sem MCP HTTPS de teste | `codex mcp list`, sessão consentida |
 | Claude Code | MCP HTTP, versão não aferida | NOT_TESTED | BLOCKED — CLI não instalada/sem MCP HTTPS de teste | `claude mcp list`, sessão consentida |
-| Gemini CLI | Streamable HTTP, versão não aferida | NOT_TESTED | BLOCKED — CLI não instalada/sem MCP HTTPS de teste | `gemini mcp list`, sessão consentida |
+| Gemini CLI | **0.63.0**, Streamable HTTPS, JWT RS256, runner Linux | **PASS limitado — conexão MCP de CLI real** com recurso protegido e Bearer sintético | **CONNECTED** em `gemini mcp list`; tool call via LLM, PKCE via CLI e IdP real NOT_TESTED | [PR #58](https://github.com/sylviohmartins/telechir/pull/58), `gemini-cli-authenticated-probe.sh` |
 | GitHub Copilot | IDE/Agent, versão e policy não aferidas | NOT_TESTED | BLOCKED — sem host/endpoint de homologação | IDE real com aprovação |
 | Cursor/Cline/Roo/OpenCode/Goose | A definir individualmente | NOT_TESTED | NOT_TESTED | Pesquisa oficial e smoke por versão |
 
@@ -30,9 +30,13 @@ Adicionado harness `scripts/interop/inspector-authenticated-smoke.sh`: Worker de
 
 GitHub Actions [#37887181576](https://github.com/sylviohmartins/telechir/actions/runs/37887181576) confirmou **PASS** no smoke `scripts/interop/oauth-pkce-https-smoke.sh`: issuer/JWKS via HTTPS de loopback com TLS pinning; authorization code + `state`; troca com `code_verifier` S256; bearer JWT RS256 vinculado a `resource`; negações de downgrade, audience/client/redirect/scope inadequados, verificador inválido e replay. **O emissor, o cliente e a identidade são sintéticos**. Este não é um login PKCE via MCP Inspector nem teste de IdP real. A matriz de clientes comerciais não muda. Detalhes em `docs/testing/acceptance/phase16-pkce-https-isolated-2026-10-09.md`.
 
+## Gemini CLI real — conexão com JWT assinado, sem inferência LLM
+
+No [PR #58](https://github.com/sylviohmartins/telechir/pull/58), o **Google Gemini CLI 0.63.0 real** reconheceu e conectou `telechir-fixture` por Streamable HTTPS com Bearer RS256 válido, pinning de certificado, JWKS sintética e banco D1 isolado. O primeiro teste diagnosticou `Disabled` por diretório temporário não confiável (comportamento de segurança correto do cliente); o CI passou a conceder trust apenas para o processo naquele diretório descartável. O segundo revelou que o status `Connected` é enviado a `stderr`, corrigindo-se o verificador de saída sem relaxar o predicado. O teste de conexão não inclui comando de modelo Gemini, execução de tool por LLM, fluxo PKCE dentro da CLI ou IdP de terceiros. A documentação de aceitação está em `docs/testing/acceptance/phase16-gemini-cli-authenticated-2026-10-09.md`.
+
 ## Regressões do verificador OAuth (in-process)
 
-O ciclo adicional de Phase 16 acrescentou casos de **usuário desativado**, **deduplicação de scopes JWT como string/array** e **rejeição de token malformado/alg=none antes de busca JWKS** no verificador real. Ensaio direcionado `oauth.test.ts`: **13/13 PASS**. **Isto não é um teste do Inspector autenticado.** A integração cliente externo + JWT válido + D1 de homologação permanece `NOT_TESTED`. Detalhes em `docs/testing/acceptance/phase16-oauth-fail-closed-regression-2026-10-08.md`.
+O ciclo adicional de Phase 16 acrescentou casos de **usuário desativado**, **deduplicação de scopes JWT como string/array** e **rejeição de token malformado/alg=none antes de busca JWKS** no verificador real. Ensaio direcionado `oauth.test.ts`: **13/13 PASS**. **Isto não é um teste do Inspector autenticado.** A integração externa CLI + JWT válido + D1 foi posteriormente testada com Inspector e Gemini CLI; o texto acima refere-se ao gate de 2026-10-08. Detalhes em `docs/testing/acceptance/phase16-oauth-fail-closed-regression-2026-10-08.md`.
 
 ## Casos e invariantes obrigatórios
 
