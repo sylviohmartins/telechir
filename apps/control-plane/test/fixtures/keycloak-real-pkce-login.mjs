@@ -174,9 +174,22 @@ async function authorize(options = {}) {
         html.includes('id="input-error"') ||
         html.includes('id="kc-error-message"') ||
         html.includes('class="alert-error"');
+      const formKind = html.includes('id="kc-form-login"')
+        ? "LOGIN_REPROMPT"
+        : html.includes('kc-update-profile-form')
+          ? "UPDATE_PROFILE"
+          : html.includes('kc-terms-text')
+            ? "TERMS"
+            : "OTHER_HTML";
+      const formCount = [...html.matchAll(/<form\\b/giu)].length;
+      // Report only structural flags/counts; no HTML, cookie values or codes.
       throw new Error(
-        "Keycloak login did not advance; errorPanel=" +
+        "Keycloak login did not advance; formKind=" +
+          formKind +
+          "; errorPanel=" +
           errorPanel +
+          "; forms=" +
+          formCount +
           "; sessionCookies=" +
           jar.size,
       );
