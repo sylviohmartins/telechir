@@ -175,8 +175,10 @@ async function authorize(options = {}) {
         html.includes('id="kc-error-message"') ||
         html.includes('class="alert-error"');
       throw new Error(
-        "Keycloak login did not advance; errorPanel=" + errorPanel +
-          "; sessionCookies=" + jar.size,
+        "Keycloak login did not advance; errorPanel=" +
+          errorPanel +
+          "; sessionCookies=" +
+          jar.size,
       );
     }
     next = loginAction(html);

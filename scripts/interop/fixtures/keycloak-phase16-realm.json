@@ -57,9 +57,7 @@
       "directAccessGrantsEnabled": false,
       "implicitFlowEnabled": false,
       "consentRequired": false,
-      "redirectUris": [
-        "http://127.0.0.1:8798/callback"
-      ],
+      "redirectUris": ["http://127.0.0.1:8798/callback"],
       "webOrigins": [],
       "attributes": {
         "pkce.code.challenge.method": "S256"
