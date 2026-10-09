@@ -33,7 +33,9 @@ NODE
 # without LLM inference, a Google account, or browser authorization.
 cd "$work_dir"
 set +e
-timeout 180s npx --yes @google/gemini-cli@0.63.0 mcp list \
+# Trust only this freshly created disposable directory for this one command.
+# Official headless Gemini mechanism; does not trust any repository or host.
+GEMINI_CLI_TRUST_WORKSPACE=true timeout 180s npx --yes @google/gemini-cli@0.63.0 mcp list \
   >"$work_dir/gemini-list.out" 2>"$work_dir/gemini-list.err"
 gemini_exit=$?
 set -e
