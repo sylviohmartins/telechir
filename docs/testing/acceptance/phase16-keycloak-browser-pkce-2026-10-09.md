@@ -6,7 +6,7 @@
 
 ## Objetivo
 
-Avançar da autenticação HTTP dirigida sem browser (PR #69) para uma **instância real de Chromium headless automatizada por Playwright**, com formulário visual de login do Keycloak 26.8.0 e tela de consentimento oficial. O cliente OAuth adicional `telechir-phase16-browser` é **público**, exige `PKCE S256`, `standardFlowEnabled=true`, `consentRequired=true`, sem acesso implícito, password grant, service account ou callback externo. Os contratos existentes `telechir-phase16-ci` e `telechir-phase16-pkce` não mudam.
+Avançar da autenticação HTTP dirigida sem browser (PR #69) para uma **instância real de Google Chrome Stable headless (Chromium) preinstalada no runner e automatizada por Playwright**, com formulário visual de login do Keycloak 26.8.0 e tela de consentimento oficial. O cliente OAuth adicional `telechir-phase16-browser` é **público**, exige `PKCE S256`, `standardFlowEnabled=true`, `consentRequired=true`, sem acesso implícito, password grant, service account ou callback externo. Os contratos existentes `telechir-phase16-ci` e `telechir-phase16-pkce` não mudam.
 
 ## Controles e evidências exigidas
 
@@ -16,7 +16,7 @@ Avançar da autenticação HTTP dirigida sem browser (PR #69) para uma **instân
 - Nova sessão/contexto: clicar **Accept**, comprovar `state` e emissão de authorization code verdadeiro. Um callback adulterado em memória deve falhar na validação **client-side** de `state`.
 - Troca por token via HTTPS validado com `code_verifier` S256, `iss/aud/azp/sub` e escopo limitado assinados pela JWKS real; rejeitar repetição do code, troca com verifier errado e code expirado. Laboratório define TTL de authorization code reduzido somente para testar expiração; isso não é garantia de revogação de access token.
 - Vincular token de browser ao D1 Wrangler isolado por SHA-256(`sub`), ler somente device próprio no MCP Worker com JWKS direto do Keycloak; rejeitar assinatura alterada e Bearer ausente (401), escrita sem scope (403), e JWT válido de usuário localmente desativado (401).
-- Nenhuma senha, cookie, authorization code ou access token pode aparecer em logs, screenshots, traces, artefatos ou outputs; diretório privado `mktemp`, cleanup por trap; Playwright `1.58.2` fixado apenas para o job CI.
+- Nenhuma senha, cookie, authorization code ou access token pode aparecer em logs, screenshots, traces, artefatos ou outputs; diretório privado `mktemp`, cleanup por trap; Playwright `1.58.2` fixado apenas para o job CI; utiliza o Google Chrome Stable da imagem do GitHub Actions, sem baixar um segundo navegador.
 
 ## Não objetivos
 
