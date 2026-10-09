@@ -56,7 +56,11 @@ def main():
     config.chmod(0o600)
 
     env = dict(os.environ)
-    for key in ("OPENAI_API_KEY", "CODEX_API_KEY", "CODEX_ACCESS_TOKEN"):
+    for key in (
+        "OPENAI_API_KEY", "CODEX_API_KEY", "CODEX_ACCESS_TOKEN",
+        "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY",
+        "http_proxy", "https_proxy", "all_proxy",
+    ):
         env.pop(key, None)
     env.update({
         "CODEX_HOME": str(codex_home),
@@ -157,7 +161,9 @@ def main():
                     detail = re.sub(
                         r"[A-Za-z0-9_-]{110,}", "[OPAQUE_REDACTED]", detail
                     )
-                    detail = " ".join(detail.split())[:450]
+                    detail = " ".join(detail.split())
+                    if len(detail) > 900:
+                        detail = detail[:160] + " [TRUNCATED] " + detail[-720:]
                     print(f"DIAG: Codex sanitized MCP error: {detail}", flush=True)
                     raise AppServerError(
                         f"Codex {method} returned protocol error {code}, category={category}"
