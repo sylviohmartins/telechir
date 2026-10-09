@@ -218,6 +218,15 @@ try {
   );
   assert.ok((authorize.searchParams.get("state") ?? "").length >= 16);
   assert.equal(authorize.searchParams.get("scope"), "telechir:devices:read");
+  // Known Codex/rmcp RFC8707 regression: configured oauth_resource must
+  // not create a second authorization resource alongside the MCP URL.
+  // Check count/value before sending credentials to the IdP (fail closed).
+  assert.deepEqual(
+    authorize.searchParams.getAll("resource"),
+    [mcp],
+    "Codex authorization must contain exactly one MCP resource",
+  );
+
   const callback = new URL(authorize.searchParams.get("redirect_uri") ?? "");
   assert.equal(callback.origin, callbackHost);
   assert.ok(
