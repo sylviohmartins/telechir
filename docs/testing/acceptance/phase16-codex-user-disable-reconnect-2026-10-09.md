@@ -1,10 +1,10 @@
 # Phase 16 — suspensão de usuário e reconexão fail-closed no Codex App Server
 
-**Data:** 2026-10-09  
-**Issue:** [#49](https://github.com/sylviohmartins/telechir/issues/49)  
+**Data:** 2026-10-09
+**Issue:** [#49](https://github.com/sylviohmartins/telechir/issues/49)
 **Cliente:** distribuição oficial `@openai/codex@0.162.0`, `codex app-server`.
 
-**Estado:** PENDENTE de CI no PR. Não atribuir PASS antecipado.
+**Estado:** PASS limitado — [CI #37967586920](https://github.com/sylviohmartins/telechir/actions/runs/37967586920), 2/2 jobs `success`.
 
 ## Delimitação do mecanismo
 
@@ -28,4 +28,19 @@ As provas devem incluir o sucesso antes da desativação, resultado da mutação
 
 A verificação de usuário desativado aplica-se às chamadas autenticadas atuais: não é prova de desconexão ativa de todos os transportes, revogação `jti` imediata, expiração de sessão browser ou logout de provedores externos.
 
-**Evidência CI:** aguarda execução no GitHub Actions.
+## Resultados auditáveis
+
+O [run GitHub Actions #37967586920](https://github.com/sylviohmartins/telechir/actions/runs/37967586920) terminou com os dois jobs `success`. Os logs do job de interoperabilidade registram:
+
+- `CODEX_APP_SERVER_AUTHENTICATED_READONLY_TOOL_PASS` — controle de leitura positiva antes da desativação.
+- `CODEX_AUTH_BOUNDARY_EXPIRED_PASS` — JWT assinado com `exp` anterior ao horário do teste rejeitado; o token é válido quanto a audiência/assinatura, não quanto ao prazo.
+- `CODEX_IN_SESSION_USER_DISABLED_PASS` — leitura prévia confirmada; desativação do mesmo usuário sintético via D1 persistido; uma nova chamada pela **mesma sessão Codex** não recuperou os devices.
+- `CODEX_AUTH_BOUNDARY_DISABLED_USER_PASS` e `CODEX_DISABLED_USER_NEW_SESSION_PASS` — **novo processo Codex** com o mesmo JWT assinado ainda dentro de `exp` também foi recusado.
+- `INDEPENDENT_AUTHENTICATED_INSPECTOR_SMOKE_PASS`, `GEMINI_CLI_AUTHENTICATED_MCP_DISCOVERY_PASS`, `CLAUDE_CODE_AUTHENTICATED_MCP_DISCOVERY_PASS`, os quatro gates anteriores de autorização Codex e `ISOLATED_PKCE_HTTPS_PROTOCOL_SMOKE_PASS` permaneceram aprovados.
+- Testes do control plane, typecheck, formatação, Worker dry-run, auditoria e TLS unit tests: `success`.
+
+Os scripts não simulam rejeição do MCP: chamam a rota real de produção (no Worker de fixture), o `JwtAccessTokenVerifier` real e o D1 real em execução local, com credenciais/dados descartáveis. A mutação de `disabled_at` é feita fora do processo Codex, enquanto o cliente original continua ativo.
+
+**Fronteiras mantidas:** revogar um usuário inteiro não é revogar um único `jti`; a resposta negativa da nova chamada não demonstra desconexão ativa de transportes ociosos, nem nega todos os endpoints da plataforma; não houve autenticação ou consentimento de IdP externo, nem chamada de ferramenta escolhida por LLM.
+
+**Evidência CI:** [#37967586920](https://github.com/sylviohmartins/telechir/actions/runs/37967586920).
