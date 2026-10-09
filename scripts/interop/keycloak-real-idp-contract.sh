@@ -49,16 +49,19 @@ sudo chmod 0640 "$tmp/tls.key" "$tmp/tls.crt"
 docker run -d --name "$container" --network host --memory=1200m \
   -e KC_BOOTSTRAP_ADMIN_USERNAME=phase16-ci \
   -e KC_BOOTSTRAP_ADMIN_PASSWORD=phase16-ci-fixture-not-a-real-secret \
-  --mount "type=bind,src=$tmp/import,dst=/opt/keycloak/data/import,readonly" \
   --mount "type=bind,src=$tmp/tls.crt,dst=/opt/keycloak/conf/phase16-tls.crt,readonly" \
   --mount "type=bind,src=$tmp/tls.key,dst=/opt/keycloak/conf/phase16-tls.key,readonly" \
   quay.io/keycloak/keycloak:26.8.0 \
-  start-dev --verbose --import-realm --hostname=https://127.0.0.1:9443 \
+  start-dev --verbose --hostname=https://127.0.0.1:9443 \
   --https-port=9443 \
   --https-certificate-file=/opt/keycloak/conf/phase16-tls.crt \
   --https-certificate-key-file=/opt/keycloak/conf/phase16-tls.key \
   --http-enabled=false >"$tmp/container-id"
 issuer="https://127.0.0.1:9443/realms/telechir-phase16"
+# The upstream Keycloak realm import bootstrap cannot be trusted on an
+# ephemeral bind mount across non-root UIDs. Provision the same test realm via
+# its official, authenticated Admin REST API after master realm boots.
+master_issuer="https://127.0.0.1:9443/realms/master"
 ready=false
 for _ in $(seq 1 180); do
   if ! docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null | grep -qx true; then
@@ -69,8 +72,8 @@ for _ in $(seq 1 180); do
     exit 1
   fi
   if curl --fail --silent --cacert "$tmp/root.crt" --connect-timeout 2 \
-    --max-time 3 "$issuer/.well-known/openid-configuration" \
-    -o "$tmp/oidc.json" && jq -e --arg iss "$issuer" \
+    --max-time 3 "$master_issuer/.well-known/openid-configuration" \
+    -o "$tmp/oidc.json" && jq -e --arg iss "$master_issuer" \
     '.issuer == $iss and .jwks_uri and .token_endpoint' "$tmp/oidc.json" \
     >/dev/null; then
     ready=true
@@ -81,7 +84,34 @@ done
 [[ "$ready" == "true" ]] || {
   echo "FAIL: real HTTPS Keycloak realm not ready" >&2; exit 1;
 }
-echo "PASS: actual Keycloak 26.8.0 HTTPS realm OIDC discovery"
+echo "PASS: actual Keycloak 26.8.0 master realm HTTPS OIDC discovery"
+# Admin credentials are CI-only fixtures, never valid outside this container.
+curl --fail --silent --show-error --cacert "$tmp/root.crt" --max-time 12 \
+  -X POST "$master_issuer/protocol/openid-connect/token" \
+  --data-urlencode 'grant_type=password' \
+  --data-urlencode 'client_id=admin-cli' \
+  --data-urlencode 'username=phase16-ci' \
+  --data-urlencode 'password=phase16-ci-fixture-not-a-real-secret' \
+  -o "$tmp/admin-token.json"
+admin_token="$(jq -er '.access_token' "$tmp/admin-token.json")" || {
+  echo "FAIL: Keycloak CI admin token unavailable" >&2
+  exit 1
+}
+create_code="$(curl --silent --show-error --cacert "$tmp/root.crt" \
+  --max-time 20 --output "$tmp/create-realm.json" --write-out "%{http_code}" \
+  -X POST "https://127.0.0.1:9443/admin/realms" \
+  -H "Authorization: Bearer $admin_token" \
+  -H "Content-Type: application/json" \
+  --data-binary "@$tmp/import/telechir-phase16-realm.json")"
+unset admin_token
+[[ "$create_code" == "201" ]] || {
+  echo "FAIL: Keycloak Admin API realm creation returned HTTP $create_code" >&2
+  exit 1
+}
+curl --fail --silent --show-error --cacert "$tmp/root.crt" --max-time 10 \
+  "$issuer/.well-known/openid-configuration" -o "$tmp/oidc.json"
+jq -e --arg iss "$issuer" '.issuer==$iss' "$tmp/oidc.json" >/dev/null
+echo "PASS: real Keycloak realm provisioned through authenticated Admin REST API"
 token_url="$(jq -r '.token_endpoint' "$tmp/oidc.json")"
 jwks_url="$(jq -r '.jwks_uri' "$tmp/oidc.json")"
 [[ "$token_url" == "$issuer/protocol/openid-connect/token" ]] || {
