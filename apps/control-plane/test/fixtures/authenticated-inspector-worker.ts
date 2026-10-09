@@ -93,13 +93,14 @@ function testOnlyDocuments(
       candidate.authorization_endpoint !==
         `${issuer}/protocol/openid-connect/auth` ||
       !("token_endpoint" in candidate) ||
-      candidate.token_endpoint !==
-        `${issuer}/protocol/openid-connect/token` ||
+      candidate.token_endpoint !== `${issuer}/protocol/openid-connect/token` ||
       !("code_challenge_methods_supported" in candidate) ||
       !Array.isArray(candidate.code_challenge_methods_supported) ||
       !candidate.code_challenge_methods_supported.includes("S256")
     ) {
-      throw new Error("Real IdP OAuth metadata does not match the pinned issuer");
+      throw new Error(
+        "Real IdP OAuth metadata does not match the pinned issuer",
+      );
     }
     metadata = candidate as typeof synthetic;
   }

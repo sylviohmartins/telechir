@@ -16,9 +16,7 @@ assert.equal(typeof token, "string");
 const claims = decodeJwt(token);
 assert.equal(claims.iss, issuer);
 assert.ok(typeof claims.sub === "string" && claims.sub.length > 0);
-const subjectHash = createHash("sha256")
-  .update(claims.sub)
-  .digest("base64url");
+const subjectHash = createHash("sha256").update(claims.sub).digest("base64url");
 const linkedId = randomUUID();
 const foreignId = randomUUID();
 const deviceId = randomUUID();
@@ -35,17 +33,29 @@ const seed = [
   `INSERT INTO devices (id, user_id, display_name, os, arch, agent_version, status_hint, last_seen_at, created_at, revoked_at) VALUES ('${deviceId}', '${linkedId}', 'Keycloak CI device', 'linux', 'x86_64', '0.1.0', 'offline', NULL, '${now}', NULL);`,
   `INSERT INTO devices (id, user_id, display_name, os, arch, agent_version, status_hint, last_seen_at, created_at, revoked_at) VALUES ('${foreignDevice}', '${foreignId}', 'Other-owner CI device', 'linux', 'x86_64', '0.1.0', 'offline', NULL, '${now}', NULL);`,
 ];
-writeFileSync(join(temp, "worker-seed.sql"), seed.join("\n") + "\n", { mode: 0o600 });
-writeFileSync(join(temp, "worker-disable.sql"),
+writeFileSync(join(temp, "worker-seed.sql"), seed.join("\n") + "\n", {
+  mode: 0o600,
+});
+writeFileSync(
+  join(temp, "worker-disable.sql"),
   `UPDATE users SET disabled_at = CURRENT_TIMESTAMP WHERE id = '${linkedId}';\n`,
-  { mode: 0o600 });
+  { mode: 0o600 },
+);
 writeFileSync(join(temp, "worker-device-id"), deviceId, { mode: 0o600 });
-writeFileSync(join(temp, "worker-foreign-device-id"), foreignDevice, { mode: 0o600 });
+writeFileSync(join(temp, "worker-foreign-device-id"), foreignDevice, {
+  mode: 0o600,
+});
 const parts = token.split(".");
 assert.equal(parts.length, 3);
 const first = parts[2][0];
 const tampered =
-  parts[0] + "." + parts[1] + "." +
-  (first === "A" ? "B" : "A") + parts[2].slice(1);
+  parts[0] +
+  "." +
+  parts[1] +
+  "." +
+  (first === "A" ? "B" : "A") +
+  parts[2].slice(1);
 writeFileSync(join(temp, "worker-tampered.token"), tampered, { mode: 0o600 });
-console.log("PASS: isolated D1 seed prepared for genuine Keycloak subject plus foreign-owner device");
+console.log(
+  "PASS: isolated D1 seed prepared for genuine Keycloak subject plus foreign-owner device",
+);
