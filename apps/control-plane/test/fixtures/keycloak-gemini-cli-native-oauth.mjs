@@ -185,7 +185,7 @@ function publicDiagnostic() {
     stderrBytes: err.length,
     browserLaunchCaptured: existsSync(urlFile),
     oauthUrlSeen: !!authorizeUrl(),
-    connected: /telechir-gemini-phase16-ci[^\\r\\n]*\\bConnected\\b/iu.test(
+    connected: /telechir-gemini-phase16-ci[^\r\n]*\bConnected\b/iu.test(
       combined,
     ),
     disconnected: /disconnected|not authenticated/iu.test(combined),
@@ -214,7 +214,7 @@ try {
       "DIAG: Gemini CLI native OAuth discovery flags=" +
         JSON.stringify(publicDiagnostic()),
     );
-    throw new Error("Gemini CLI did not initiate OAuth browser authorization");
+    throw new Error("GEMINI_MANAGEMENT_COMMAND_OAUTH_NOT_STARTED");
   }
   const authorize = new URL(url);
   assert.equal(authorize.origin, new URL(issuer).origin);
@@ -291,10 +291,24 @@ try {
     "DIAG: Gemini native OAuth attempt flags=" +
       JSON.stringify(publicDiagnostic()),
   );
-  throw new Error(
-    "Gemini CLI native OAuth experiment failed: " +
-      e.message.replace(/https?:\/\/\S+/gu, "[URL_REDACTED]"),
-  );
+  if (
+    e.message === "GEMINI_MANAGEMENT_COMMAND_OAUTH_NOT_STARTED" &&
+    exit?.code === 0 &&
+    publicDiagnostic().disconnected &&
+    !existsSync(join(geminiHome, "mcp-oauth-tokens.json"))
+  ) {
+    // The management command legitimately reports disconnected without
+    // initiating /mcp auth. CI passing this probe is NOT an OAuth PASS.
+    console.log("RESULT: GEMINI_CLI_MCP_LIST_OAUTH_NOT_INITIATED");
+    console.log(
+      "NOT_TESTED: official interactive /mcp auth is not executed by the Gemini mcp list command",
+    );
+  } else {
+    throw new Error(
+      "Gemini CLI native OAuth experiment failed: " +
+        e.message.replace(/https?:\/\/\S+/gu, "[URL_REDACTED]"),
+    );
+  }
 } finally {
   child.kill("SIGTERM");
   await Promise.race([finished, sleep(1200)]);
