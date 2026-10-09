@@ -3,7 +3,7 @@
 **Data:** 2026-10-09
 **Issue:** #49
 **Escopo:** JWT emitido pelo Keycloak 26.8.0 oficial, consumido pelo código real de produção `JwtAccessTokenVerifier`, com consulta de identidade simulada e **sem Worker/D1 HTTP**.
-**Status:** gate implementado, **aguardando CI do head final do PR**.
+**Status:** **PASS limitado** — [CI #37979177621](https://github.com/sylviohmartins/telechir/actions/runs/37979177621) aprovou três jobs no commit `bbdc3f0`, incluindo o verificador de produção. O merge ainda depende de novo PASS no último commit documental.
 
 ## Objetivo e cadeia de confiança
 
