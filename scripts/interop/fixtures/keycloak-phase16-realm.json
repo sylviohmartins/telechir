@@ -45,6 +45,68 @@
           }
         }
       ]
+    },
+    {
+      "clientId": "telechir-phase16-pkce",
+      "name": "Telechir CI-only human authorization-code S256 lab",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "serviceAccountsEnabled": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "consentRequired": false,
+      "redirectUris": [
+        "http://127.0.0.1:8798/callback"
+      ],
+      "webOrigins": [],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "protocolMappers": [
+        {
+          "name": "telechir-resource-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "https://127.0.0.1:8988/mcp",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        },
+        {
+          "name": "telechir-read-scope",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "telechir_scope_fixture",
+            "claim.value": "telechir:devices:read",
+            "jsonType.label": "String",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "phase16-user-ci",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Phase16",
+      "lastName": "CI Fixture",
+      "requiredActions": [],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "phase16-ci-browser-only-not-a-real-secret",
+          "temporary": false
+        }
+      ]
     }
   ]
 }
