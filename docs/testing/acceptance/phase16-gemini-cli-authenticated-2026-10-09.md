@@ -1,8 +1,8 @@
 # Phase 16 — conexão MCP do Gemini CLI real via JWT assinado
 
-**Data:** 2026-10-09  
-**Issue:** #49  
-**Cliente externo:** Google Gemini CLI `0.63.0` (versão fixa, lançamento estável 06/10/2026).  
+**Data:** 2026-10-09
+**Issue:** #49
+**Cliente externo:** Google Gemini CLI `0.63.0` (versão fixa, lançamento estável 06/10/2026).
 **Evidência:** CLI real retornou `Connected` em HTTPS com JWT assinado nos logs de CI do [PR #58](https://github.com/sylviohmartins/telechir/pull/58). A confirmação final depende de dois jobs verdes no commit de merge.
 
 ## Novo gate de cliente real
