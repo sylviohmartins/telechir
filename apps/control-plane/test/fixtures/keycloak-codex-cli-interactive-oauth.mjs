@@ -174,7 +174,7 @@ try {
     noBrowserUnsupported:/unexpected argument|unrecognized|unknown argument/iu.test(err),
     callback:/callback/iu.test(err),};
   console.error("DIAG: official Codex login sanitized flags="+JSON.stringify(diagnostic));
-  throw new Error(e instanceof assert.AssertionError?"Codex OAuth assertion failed: "+e.message.replaceAll(raw??"","[OAUTH_URL_REDACTED]"):"Codex OAuth gate rejected ("+e?.name+")");
+  throw new Error("Codex OAuth gate rejected; check sanitized failure flags and step markers");
 } finally {
   if(!settled)child.kill("SIGTERM");
   await ctx.close();
