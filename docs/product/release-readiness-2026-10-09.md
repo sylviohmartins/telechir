@@ -3,7 +3,7 @@
 **Data da auditoria:** 2026-10-09 (America/Sao_Paulo)  
 **Baseline revalidado:** `main` em `7362d348dea9bbcbb4431582e9c291514a2f3120` (PR #72 integrado após PR #73), checkout Windows limpo.  
 **Natureza:** plano de gates verificáveis, **não** autorização para implantar, contratar serviços, publicar plugin ou abrir uma Phase 17.  
-**Fontes duráveis:** [estado](../../../PROJECT_STATE.md), [roadmap](../roadmap.md), [regras](../../../AGENTS.md), [matriz Phase 16](../../testing/acceptance/phase16-certification-matrix-2026-10-08.md), [issue #49](https://github.com/sylviohmartins/telechir/issues/49), [#15](https://github.com/sylviohmartins/telechir/issues/15), [#14](https://github.com/sylviohmartins/telechir/issues/14).
+**Fontes duráveis:** [estado](../../PROJECT_STATE.md), [roadmap](roadmap.md), [regras](../../AGENTS.md), [matriz Phase 16](../testing/acceptance/phase16-certification-matrix-2026-10-08.md), [issue #49](https://github.com/sylviohmartins/telechir/issues/49), [#15](https://github.com/sylviohmartins/telechir/issues/15), [#14](https://github.com/sylviohmartins/telechir/issues/14).
 
 ## 1. Diagnóstico executivo: três conceitos diferentes
 
@@ -66,7 +66,7 @@
 ## 5. Lacunas de evidência e próximos atos verificáveis
 
 - **Já comprovado:** [PR #73](https://github.com/sylviohmartins/telechir/pull/73) integrado (`dbd4bf8`); [PR #72](https://github.com/sylviohmartins/telechir/pull/72) integrado (`7362d34`); CI Codex [#38000131102](https://github.com/sylviohmartins/telechir/actions/runs/38000131102) com 3/3 jobs `success`. Estes resultados abrangem laboratório, não produção.
-- **Cliente independente:** [Inspector interativo](../../testing/acceptance/phase16-inspector-interactive-oauth-2026-10-09.md) e [Codex CLI interativo](../../testing/acceptance/phase16-codex-cli-interactive-oauth-2026-10-09.md) demonstrados; Gemini possui apenas [preflight RFC 9207](../../testing/acceptance/phase16-gemini-oauth-rfc9207-preflight-2026-10-09.md).
+- **Cliente independente:** [Inspector interativo](../testing/acceptance/phase16-inspector-interactive-oauth-2026-10-09.md) e [Codex CLI interativo](../testing/acceptance/phase16-codex-cli-interactive-oauth-2026-10-09.md) demonstrados; Gemini possui apenas [preflight RFC 9207](../testing/acceptance/phase16-gemini-oauth-rfc9207-preflight-2026-10-09.md).
 - **A fazer imediatamente:** selecionar um próximo gate exequível de OAuth/tool call nativo; atualizar a matriz agregada que ainda conserva algumas frases históricas `NOT_TESTED` após PRs recentes; executar negativas e atualizar #49 por evidência.
 - **A fazer antes de release:** abrir planejamento/aceites específicos para B–F após aprovação do escopo; **não** criar Phase 17 ou infraestrutura em decorrência deste documento.
 - **Bloqueadores humanos/externos:** contas autorizadas, domínio e IdP hospedado, billing/infra, dispositivos de homologação e publisher/review exigem permissão/ações verificáveis; nunca mascará-los por testes sintéticos.
