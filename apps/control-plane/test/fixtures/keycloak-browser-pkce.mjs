@@ -37,13 +37,17 @@ const callbackServer = createServer((request, response) => {
     "x-content-type-options": "nosniff",
   });
   // Never log or render code/state: the browser client inspects URL internally.
-  response.end(safe ? "<!doctype html><title>Telechir CI OAuth callback</title>" : "");
+  response.end(
+    safe ? "<!doctype html><title>Telechir CI OAuth callback</title>" : "",
+  );
 });
 await new Promise((resolve, reject) => {
   callbackServer.once("error", reject);
   callbackServer.listen(8798, "127.0.0.1", resolve);
 });
-console.log("PASS: isolated OAuth browser callback listener bound to 127.0.0.1");
+console.log(
+  "PASS: isolated OAuth browser callback listener bound to 127.0.0.1",
+);
 const dir = join(temp, "browser-pkce");
 mkdirSync(dir, { recursive: true, mode: 0o700 });
 const metadata = JSON.parse(readFileSync(join(temp, "oidc.json"), "utf8"));
