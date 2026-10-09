@@ -72,6 +72,7 @@ async function browser(home, ca) {
   // No ignoreHTTPSErrors or --ignore-certificate-errors, ever.
   return chromium.launch({
     headless: true,
+    channel: "chrome",
     env: { ...process.env, HOME: home },
     args: ["--no-first-run", "--no-default-browser-check"],
   });
