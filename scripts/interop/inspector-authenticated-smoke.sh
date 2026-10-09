@@ -213,3 +213,9 @@ fi
 if [[ "${PHASE16_REAL_CLAUDE_CODE:-0}" == "1" ]]; then
   source "$repo_root/scripts/interop/claude-code-authenticated-probe.sh"
 fi
+
+# Exercise a real MCP read-only tool invocation through the official Codex
+# app-server. This is a genuine vendor runtime call, not LLM inference.
+if [[ "${PHASE16_REAL_CODEX_APP_SERVER:-0}" == "1" ]]; then
+  source "$repo_root/scripts/interop/codex-app-server-readonly-probe.sh"
+fi
