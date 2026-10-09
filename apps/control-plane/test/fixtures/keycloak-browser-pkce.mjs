@@ -5,7 +5,7 @@
  * Each browser has a disposable Linux NSS store trusting only a pinned CI CA.
  */
 import assert from "node:assert/strict";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -336,38 +336,39 @@ try {
   );
   console.log("PASS: Keycloak refuses expired browser authorization code");
 
-  const linked = randomUUID();
-  const device = randomUUID();
+  // The earlier scripted-PKCE gate authenticated this SAME Keycloak user and
+  // disabled its D1 identity. Reuse it: D1 intentionally enforces uniqueness
+  // of (identity_provider, provider_subject_hash). Different OAuth clients
+  // must never create duplicate Telechir owners for the same human subject.
+  const priorHuman = JSON.parse(
+    readFileSync(join(temp, "pkce", "token.json"), "utf8"),
+  );
+  assert.equal(
+    signed.payload.sub,
+    decodeJwt(priorHuman.access_token).sub,
+    "browser and HTTP client must represent the same Keycloak account",
+  );
+  const device = readFileSync(
+    join(temp, "pkce", "worker-device-id"),
+    "utf8",
+  );
   const foreign = readFileSync(join(temp, "worker-device-id"), "utf8");
   const hash = createHash("sha256")
     .update(signed.payload.sub)
     .digest("base64url");
-  const now = new Date().toISOString();
-  const seed =
-    [
-      "INSERT INTO users (id, identity_provider, provider_subject_hash, display_name, created_at, disabled_at) VALUES ('" +
-        linked +
-        "', '" +
-        issuer +
-        "', '" +
-        hash +
-        "', 'Chromium PKCE CI user', '" +
-        now +
-        "', NULL);",
-      "INSERT INTO devices (id, user_id, display_name, os, arch, agent_version, status_hint, last_seen_at, created_at, revoked_at) VALUES ('" +
-        device +
-        "', '" +
-        linked +
-        "', 'Chromium PKCE CI Device', 'linux', 'x86_64', '0.1.0', 'offline', NULL, '" +
-        now +
-        "', NULL);",
-    ].join("\n") + "\n";
-  writeFileSync(join(dir, "seed.sql"), seed, { mode: 0o600 });
+  // Only reactivate the existing lab principal; never INSERT a second user.
+  // This is scoped to exactly one real issuer + subject hash in disposable D1.
+  const matching =
+    " WHERE identity_provider = '" + issuer +
+    "' AND provider_subject_hash = '" + hash + "'";
+  writeFileSync(
+    join(dir, "seed.sql"),
+    "UPDATE users SET disabled_at = NULL" + matching + ";\n",
+    { mode: 0o600 },
+  );
   writeFileSync(
     join(dir, "disable.sql"),
-    "UPDATE users SET disabled_at = CURRENT_TIMESTAMP WHERE id = '" +
-      linked +
-      "';\n",
+    "UPDATE users SET disabled_at = CURRENT_TIMESTAMP" + matching + ";\n",
     { mode: 0o600 },
   );
   writeFileSync(
