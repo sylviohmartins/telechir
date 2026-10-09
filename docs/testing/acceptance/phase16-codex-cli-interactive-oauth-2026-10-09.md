@@ -10,6 +10,10 @@ Este gate avança além do Inspector oficial do PR #71. Usa o **Codex CLI real p
 
 Depois, o **app-server oficial do Codex**, processo diferente, deve ler as credenciais OAuth daquele mesmo `CODEX_HOME`, criar thread efêmera e chamar `mcpServer/tool/call` com `list_devices`, obtendo exclusivamente o dispositivo do sujeito Keycloak. O gate só aceita um resultado real do app-server. Após `disabled_at` ser definido no D1 local real, um **novo app-server com o mesmo token OAuth armazenado** deve falhar em autorização mesmo antes de expirar o JWT.
 
+## Compatibilidade com terminal interativo
+
+Na primeira execução do PR #72, os gates anteriores passaram, mas `codex mcp login --no-browser` encerrou com código 1 **antes de publicar URL de autorização**, quando iniciado com pipes de `stdio`. A classificação segura apontou requisito de terminal/TTY da interface do Codex, mesmo no modo `--no-browser`. A chamada passou a usar o utilitário **util-linux `script` para criar um PTY descartável**, executando `stty -echo` antes do CLI (não ecoar o callback). Os streams continuam capturados exclusivamente em memória, sem gravar transcript ou liberar a URL no log. O modo de login não é substituído por fixture; o próprio Codex recebe o callback e realiza a troca PKCE.
+
 ## Configuração de homologação
 
 - IdP real Keycloak 26.8.0 em contêiner GitHub Actions descartável, realm e conta humana sintéticos; cliente público `telechir-phase16-codex`, padrão, PKCE obrigatório `S256`, consentimento obrigatório, sem implicit/password grants.
