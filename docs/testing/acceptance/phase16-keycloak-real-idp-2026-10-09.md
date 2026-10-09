@@ -1,8 +1,8 @@
 # Phase 16 — provedor OAuth real Keycloak no CI isolado
 
-**Data:** 2026-10-09  
-**Issue:** [#49](https://github.com/sylviohmartins/telechir/issues/49)  
-**Versão fixada:** Keycloak `26.8.0` (imagem oficial `quay.io/keycloak/keycloak:26.8.0`).  
+**Data:** 2026-10-09
+**Issue:** [#49](https://github.com/sylviohmartins/telechir/issues/49)
+**Versão fixada:** Keycloak `26.8.0` (imagem oficial `quay.io/keycloak/keycloak:26.8.0`).
 **Estado:** `NOT_VERIFIED` até execução CI final.
 
 ## Objetivo
