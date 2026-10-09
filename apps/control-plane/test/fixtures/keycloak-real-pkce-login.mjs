@@ -167,10 +167,18 @@ async function authorize(options = {}) {
       };
     }
     const html = await response.text();
-    if (loggedIn)
+    if (loggedIn) {
+      // Do not print login HTML or cookies: classify structural error signals
+      // only. They contain no user credentials or authentication codes.
+      const errorPanel =
+        html.includes('id="input-error"') ||
+        html.includes('id="kc-error-message"') ||
+        html.includes('class="alert-error"');
       throw new Error(
-        "unexpected second Keycloak login HTML form / consent step",
+        "Keycloak login did not advance; errorPanel=" + errorPanel +
+          "; sessionCookies=" + jar.size,
       );
+    }
     next = loginAction(html);
     loggedIn = true;
     method = "POST";
