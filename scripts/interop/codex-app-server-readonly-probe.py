@@ -128,7 +128,26 @@ def main():
                 if "error" in message:
                     error = message["error"]
                     code = error.get("code") if isinstance(error, dict) else "unknown"
-                    raise AppServerError(f"Codex {method} returned protocol error {code}")
+                    raw = str(error.get("message", "")) if isinstance(error, dict) else ""
+                    lowered = raw.lower()
+                    # Classification only: raw vendor diagnostics can contain
+                    # config paths, Authorization details or ephemeral tokens.
+                    categories = {
+                        "unknown_server": ("unknown mcp server", "server not found", "no such server"),
+                        "unknown_tool": ("unknown tool", "tool not found", "not available"),
+                        "tls": ("certificate", "tls", "ssl", "unknown issuer"),
+                        "authorization": ("unauthorized", "authentication", "permission", "401", "403"),
+                        "connection": ("connect", "dns", "transport", "network"),
+                        "initialization": ("initialize", "handshake", "start up", "startup"),
+                    }
+                    category = next(
+                        (name for name, needles in categories.items()
+                         if any(needle in lowered for needle in needles)),
+                        "unclassified",
+                    )
+                    raise AppServerError(
+                        f"Codex {method} returned protocol error {code}, category={category}"
+                    )
                 result = message.get("result")
                 check(isinstance(result, dict), f"Codex {method} missing result object")
                 return result
