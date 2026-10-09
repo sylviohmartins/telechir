@@ -183,7 +183,10 @@ def main():
                     # The Codex process has no real user credentials. Even so,
                     # scrub the synthetic JWT, bearer headers, private paths,
                     # and very long opaque strings before diagnostic output.
-                    detail = raw.replace(token, "[SYNTHETIC_JWT_REDACTED]")
+                    detail = (
+                        raw.replace(token, "[SYNTHETIC_JWT_REDACTED]")
+                        if token else raw
+                    )
                     detail = detail.replace(str(root), "[EPHEMERAL_DIR]")
                     detail = detail.replace(
                         "Bearer " + token, "Bearer [REDACTED]"
@@ -274,6 +277,7 @@ def main():
                         "401", "unauthorized", "unauthenticated", "invalid_token",
                         "token", "bearer", "credentials", "authentication",
                         "missing environment variable", "environment variable",
+                        "auth required", "authorization required",
                     )
                 check(
                     any(marker in lowered for marker in auth_markers),
@@ -298,7 +302,7 @@ def main():
                     ("403", "forbidden", "insufficient_scope", "telechir:files:write")
                     if scenario == "write-denied"
                     else ("401", "unauthorized", "invalid_token",
-                          "token", "authentication")
+                          "token", "authentication", "auth required")
                 )
                 check(
                     any(marker in encoded for marker in markers),
