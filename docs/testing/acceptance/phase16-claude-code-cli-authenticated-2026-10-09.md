@@ -6,7 +6,7 @@
 
 **Cliente:** `@anthropic-ai/claude-code@2.1.295` (npm, versão fixada neste gate).
 
-**Status:** `NOT_VERIFIED` até GitHub Actions completar os dois jobs.
+**Status:** `PASS` limitado — cliente real conectado em GitHub Actions [#37890233252](https://github.com/sylviohmartins/telechir/actions/runs/37890233252), 2/2 jobs `success`.
 
 ## Escopo do ensaio
 
@@ -35,4 +35,4 @@ Fontes oficiais:
 - [Claude Code — `CLAUDE_CONFIG_DIR`](https://code.claude.com/docs/en/settings).
 - [Pacote npm oficial](https://www.npmjs.com/package/@anthropic-ai/claude-code).
 
-**Evidência CI final:** pendente.
+**Evidência CI final:** [run #37890233252](https://github.com/sylviohmartins/telechir/actions/runs/37890233252) — `CLAUDE_CODE_AUTHENTICATED_MCP_DISCOVERY_PASS`, `GEMINI_CLI_AUTHENTICATED_MCP_DISCOVERY_PASS`, `INDEPENDENT_AUTHENTICATED_INSPECTOR_SMOKE_PASS`, `ISOLATED_PKCE_HTTPS_PROTOCOL_SMOKE_PASS`. Os 125 testes e gates de segurança do control plane também foram aprovados. A primeira execução falhou por configuração de home isolado: a correção evitou a sobreposição de `CLAUDE_CONFIG_DIR` ao path de `.claude.json` e o CLI real conectou no novo CI. Não houve login ou execução de modelo.
