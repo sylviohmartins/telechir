@@ -348,10 +348,7 @@ try {
     decodeJwt(priorHuman.access_token).sub,
     "browser and HTTP client must represent the same Keycloak account",
   );
-  const device = readFileSync(
-    join(temp, "pkce", "worker-device-id"),
-    "utf8",
-  );
+  const device = readFileSync(join(temp, "pkce", "worker-device-id"), "utf8");
   const foreign = readFileSync(join(temp, "worker-device-id"), "utf8");
   const hash = createHash("sha256")
     .update(signed.payload.sub)
@@ -359,8 +356,11 @@ try {
   // Only reactivate the existing lab principal; never INSERT a second user.
   // This is scoped to exactly one real issuer + subject hash in disposable D1.
   const matching =
-    " WHERE identity_provider = '" + issuer +
-    "' AND provider_subject_hash = '" + hash + "'";
+    " WHERE identity_provider = '" +
+    issuer +
+    "' AND provider_subject_hash = '" +
+    hash +
+    "'";
   writeFileSync(
     join(dir, "seed.sql"),
     "UPDATE users SET disabled_at = NULL" + matching + ";\n",
