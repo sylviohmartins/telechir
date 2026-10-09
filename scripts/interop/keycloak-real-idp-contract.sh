@@ -162,24 +162,29 @@ curl --fail --silent --show-error --cacert "$tmp/root.crt" --max-time 12 \
 inspector_scope_id="$(jq -er \
   '[.[] | select(.name=="telechir:devices:read")] | if length==1 then .[0].id else error("Inspector scope not unique") end' \
   "$tmp/inspector-scopes.json")"
-curl --fail --silent --show-error --cacert "$tmp/root.crt" --max-time 12 \
-  -H "Authorization: Bearer $admin_token" \
-  "https://127.0.0.1:9443/admin/realms/telechir-phase16/clients?clientId=telechir-phase16-inspector" \
-  -o "$tmp/inspector-client.json"
-inspector_client_uuid="$(jq -er \
-  '[.[] | select(.clientId=="telechir-phase16-inspector")] | if length==1 then .[0].id else error("Inspector client not unique") end' \
-  "$tmp/inspector-client.json")"
-inspector_scope_link_code="$(curl --silent --show-error --cacert "$tmp/root.crt" \
-  --max-time 20 --output "$tmp/link-inspector-scope.json" \
-  --write-out "%{http_code}" \
-  -X PUT "https://127.0.0.1:9443/admin/realms/telechir-phase16/clients/$inspector_client_uuid/optional-client-scopes/$inspector_scope_id" \
-  -H "Authorization: Bearer $admin_token")"
+# Isolate consented read-only access to both independent MCP clients
+# without changing Keycloak's existing profile/email defaults.
+for oauth_client in telechir-phase16-inspector telechir-phase16-codex; do
+  curl --fail --silent --show-error --cacert "$tmp/root.crt" --max-time 12 \
+    -H "Authorization: Bearer $admin_token" \
+    "https://127.0.0.1:9443/admin/realms/telechir-phase16/clients?clientId=$oauth_client" \
+    -o "$tmp/oauth-client.json"
+  oauth_client_uuid="$(jq -er --arg id "$oauth_client" \
+    '[.[] | select(.clientId==$id)] | if length==1 then .[0].id else error("OAuth client not unique") end' \
+    "$tmp/oauth-client.json")"
+  optional_scope_code="$(curl --silent --show-error --cacert "$tmp/root.crt" \
+    --max-time 20 --output "$tmp/link-oauth-scope.json" \
+    --write-out "%{http_code}" \
+    -X PUT "https://127.0.0.1:9443/admin/realms/telechir-phase16/clients/$oauth_client_uuid/optional-client-scopes/$inspector_scope_id" \
+    -H "Authorization: Bearer $admin_token")"
+  [[ "$optional_scope_code" == "204" ]] || {
+    unset admin_token
+    echo "FAIL: unable to link read-only scope for OAuth client (HTTP $optional_scope_code)" >&2
+    exit 1
+  }
+done
 unset admin_token
-[[ "$inspector_scope_link_code" == "204" ]] || {
-  echo "FAIL: unable to link optional read-only Inspector scope (HTTP $inspector_scope_link_code)" >&2
-  exit 1
-}
-echo "PASS: Keycloak Admin REST created and assigned Inspector devices:read without altering built-in realm defaults"
+echo "PASS: Keycloak Admin REST assigned independent Inspector and Codex clients devices:read without mutating built-in OIDC scopes"
 curl --fail --silent --show-error --cacert "$tmp/root.crt" --max-time 10 \
   "$issuer/.well-known/openid-configuration" -o "$tmp/oidc.json"
 jq -e --arg iss "$issuer" '.issuer==$iss' "$tmp/oidc.json" >/dev/null
