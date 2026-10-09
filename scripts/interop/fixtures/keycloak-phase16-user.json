@@ -1,0 +1,15 @@
+{
+  "username": "phase16-user-ci",
+  "enabled": true,
+  "emailVerified": true,
+  "firstName": "Phase16",
+  "lastName": "CI Fixture",
+  "requiredActions": [],
+  "credentials": [
+    {
+      "type": "password",
+      "value": "phase16-ci-browser-only-not-a-real-secret",
+      "temporary": false
+    }
+  ]
+}
