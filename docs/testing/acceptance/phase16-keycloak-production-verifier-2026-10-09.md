@@ -33,4 +33,4 @@ Próximo gate: usar o mesmo JWT real no Worker MCP/fixture D1 de laboratório, v
 - `apps/control-plane/src/oauth.ts` (código de produção **inalterado**)
 - `.github/workflows/mcp-interop.yml` (mesmos três jobs)
 
-Base anterior: [PR #65](https://github.com/sylviohmartins/telechir/pull/65) e [CI #37975016365](https://github.com/sylviohmartins/telechir/actions/runs/37975016365). Evidência desta alteração: registrar **somente após** CI final confirmada.
+Base anterior: [PR #65](https://github.com/sylviohmartins/telechir/pull/65) e [CI #37975016365](https://github.com/sylviohmartins/telechir/actions/runs/37975016365). Evidência de integração: [CI #37979177621](https://github.com/sylviohmartins/telechir/actions/runs/37979177621), 3/3 jobs success no commit `bbdc3f0`, incluindo `KEYCLOAK_TELECHIR_PRODUCTION_VERIFIER_PASS`. O commit final do PR deve ser revalidado antes do merge.
