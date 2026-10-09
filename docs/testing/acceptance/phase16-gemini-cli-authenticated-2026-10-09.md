@@ -3,7 +3,7 @@
 **Data:** 2026-10-09  
 **Issue:** #49  
 **Cliente externo:** Google Gemini CLI `0.63.0` (versão fixa, lançamento estável 06/10/2026).  
-**Status inicial:** aguardando execução CI da branch.
+**Evidência:** CLI real retornou `Connected` em HTTPS com JWT assinado nos logs de CI do [PR #58](https://github.com/sylviohmartins/telechir/pull/58). A confirmação final depende de dois jobs verdes no commit de merge.
 
 ## Novo gate de cliente real
 
@@ -26,4 +26,6 @@ Um eventual PASS atesta somente **conexão inicial e descoberta MCP com o Gemini
 
 Referências oficiais: [Gemini CLI MCP](https://geminicli.com/docs/tools/mcp-server/), [configuração e GEMINI_CLI_HOME](https://geminicli.com/docs/reference/configuration/), [release 0.63.0](https://geminicli.com/docs/changelogs/latest/).
 
-**Evidência CI:** preencher somente após observação de sucesso do run remoto.
+**Diagnóstico de integração:** Gemini CLI 0.63.0 desabilita os MCP servers em workspace não confiável. O CI cria um diretório privado descartável e autoriza confiança **apenas para o processo do Gemini executado naquele diretório** com `GEMINI_CLI_TRUST_WORKSPACE=true`, seguindo [Trusted Folders — headless CI](https://geminicli.com/docs/cli/trusted-folders/). Essa opção não é usada para confiar no repositório, host ou qualquer diretório persistente. A CLI escreve o status `✓ telechir-fixture: ... (http) - Connected` em **stderr**, não stdout; o verificador aceita o texto somente com o alias correto em qualquer um dos dois canais, sem registrar bearer ou configuração privada.
+
+**Evidência CI:** [checks do PR #58](https://github.com/sylviohmartins/telechir/pull/58/checks). Concluir somente com ambos os jobs `success`. Não converter essa conexão MCP numa homologação de login OAuth externo ou de chamada de ferramenta por modelo.
