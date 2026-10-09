@@ -9,6 +9,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { createServer } from "node:http";
 import { chromium } from "playwright";
 import { createLocalJWKSet, decodeJwt, jwtVerify } from "jose";
 
@@ -23,6 +24,26 @@ const username = "phase16-user-ci";
 const password = "phase16-ci-browser-only-not-a-real-secret";
 const cert = join(temp, "root.crt");
 const otherCert = join(temp, "worker-root.crt");
+const callbackServer = createServer((request, response) => {
+  const requestUrl = new URL(request.url ?? "/", callback);
+  const safe =
+    request.method === "GET" &&
+    requestUrl.origin + requestUrl.pathname === callback;
+  response.writeHead(safe ? 200 : 404, {
+    "content-type": "text/html; charset=utf-8",
+    "cache-control": "no-store",
+    "referrer-policy": "no-referrer",
+    "content-security-policy": "default-src 'none'",
+    "x-content-type-options": "nosniff",
+  });
+  // Never log or render code/state: the browser client inspects URL internally.
+  response.end(safe ? "<!doctype html><title>Telechir CI OAuth callback</title>" : "");
+});
+await new Promise((resolve, reject) => {
+  callbackServer.once("error", reject);
+  callbackServer.listen(8798, "127.0.0.1", resolve);
+});
+console.log("PASS: isolated OAuth browser callback listener bound to 127.0.0.1");
 const dir = join(temp, "browser-pkce");
 mkdirSync(dir, { recursive: true, mode: 0o700 });
 const metadata = JSON.parse(readFileSync(join(temp, "oidc.json"), "utf8"));
@@ -112,15 +133,8 @@ async function context() {
   });
   await ctx.route("**/*", (route) => {
     const url = new URL(route.request().url());
-    if (
-      url.href.startsWith(callback + "?") &&
-      url.origin + url.pathname === callback
-    ) {
-      return route.fulfill({
-        status: 200,
-        contentType: "text/html",
-        body: "<html><body>CI-only OAuth callback received</body></html>",
-      });
+    if (url.origin + url.pathname === callback) {
+      return route.continue();
     }
     if (
       url.origin === new URL(issuer).origin &&
@@ -379,4 +393,6 @@ try {
   );
 } finally {
   await chrome.close();
+  callbackServer.closeAllConnections();
+  await new Promise((resolve) => callbackServer.close(resolve));
 }
