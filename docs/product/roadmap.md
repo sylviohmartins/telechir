@@ -48,6 +48,8 @@ Este roadmap é intencionalmente gated. Ele descreve a ordem de maturação do p
 14. Browser automation — **concluída**
 15. Multi-device/workspace concurrency — **concluída**
 16. Multi-AI compatibility certification — **em andamento (issue #49); certificação real pendente**
-17. Public release hardening
+17. Public release hardening — **proposta futura, não aprovada nem iniciada**; não atravessar o gate da Phase 16 automaticamente.
 
 A implementação não deve atravessar gates apenas porque uma fase posterior é tecnicamente possível.
+
+Para o caminho verificável até beta, staging, produção e publicação, consulte [auditoria de prontidão para release (2026-10-09)](release-readiness-2026-10-09.md). As frentes operacionais desse documento **não** criam fases oficiais adicionais.
