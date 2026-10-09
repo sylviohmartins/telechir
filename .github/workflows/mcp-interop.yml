@@ -150,6 +150,9 @@ jobs:
           bash -n scripts/interop/keycloak-inspector-interactive-oauth-smoke.sh
           node --check apps/control-plane/test/fixtures/keycloak-inspector-interactive-oauth.mjs
           node --check apps/control-plane/test/fixtures/keycloak-gemini-issuer-preflight.mjs
+          bash -n scripts/interop/keycloak-codex-cli-interactive-oauth-smoke.sh
+          node --check apps/control-plane/test/fixtures/keycloak-codex-cli-interactive-oauth.mjs
+          python3 -m py_compile scripts/interop/codex-app-server-oauth-readonly.py
 
       - name: Verify real disposable Keycloak HTTPS OIDC and JWT issuance
         run: bash scripts/interop/keycloak-real-idp-contract.sh

@@ -1,0 +1,59 @@
+# Phase 16 — Codex CLI oficial inicia OAuth interativo e executa MCP
+
+**Data:** 2026-10-09
+**Issue:** #49
+**Estado:** **PASS delimitado** — [CI #38000131102](https://github.com/sylviohmartins/telechir/actions/runs/38000131102), **3/3 jobs success** no commit `0b59b5d`, incluindo os quatro marcadores de login e app-server listados abaixo. Reconfirmar no último head documental antes do merge.
+
+## Objetivo e limites
+
+Este gate avança além do Inspector oficial do PR #71. Usa o **Codex CLI real publicado no npm**, versão `@openai/codex@0.162.0`, sem conta ChatGPT, OpenAI API key nem inferência. O comando `codex mcp login telechir_ci --no-browser --scopes telechir:devices:read` **deve iniciar a própria autorização OAuth**, gerar `state` e PKCE S256, aceitar o callback completo do navegador em stdin (modo headless oficial), verificar `state`, trocar o code com o próprio verificador e armazenar credenciais por servidor em `CODEX_HOME` efêmero. **O harness NÃO gera code/verifier nem injeta bearer token.**
+
+Depois, o **app-server oficial do Codex**, processo diferente, deve ler as credenciais OAuth daquele mesmo `CODEX_HOME`, criar thread efêmera e chamar `mcpServer/tool/call` com `list_devices`, obtendo exclusivamente o dispositivo do sujeito Keycloak. O gate só aceita um resultado real do app-server. Após `disabled_at` ser definido no D1 local real, um **novo app-server com o mesmo token OAuth armazenado** deve falhar em autorização mesmo antes de expirar o JWT.
+
+## Compatibilidade com terminal interativo
+
+Na primeira execução do PR #72, os gates anteriores passaram, mas `codex mcp login --no-browser` encerrou com código 1 **antes de publicar URL de autorização**, quando iniciado com pipes de `stdio`. A classificação segura apontou requisito de terminal/TTY da interface do Codex, mesmo no modo `--no-browser`. A chamada passou a usar o utilitário **util-linux `script` para criar um PTY descartável**, executando `stty -echo` antes do CLI (não ecoar o callback). Os streams continuam capturados exclusivamente em memória, sem gravar transcript ou liberar a URL no log. O modo de login não é substituído por fixture; o próprio Codex recebe o callback e realiza a troca PKCE.
+
+## Diagnóstico do cliente Codex 0.162.0
+
+Após habilitar o PTY, a mensagem do CLI foi classificada em laboratório como recusa `Dynamic registration failed` / `HTTP 403` pela política **Trusted Hosts** do Keycloak. Não foi uma falha do Telechir nem motivo para autorizar DCR. A análise do **código-fonte da versão 0.162.0** revelou que o Codex só utiliza um OAuth client público pré-registrado quando a propriedade está no bloco TOML **`[mcp_servers.telechir_ci.oauth]`** com `client_id = "telechir-phase16-codex"`; a chave `oauth_client_id` na raiz do servidor era ignorada. O harness foi corrigido para seguir a configuração nativa do fornecedor. Não relaxar `Trusted Hosts` ou cadastrar clientes dinamicamente.
+
+## Causa-raiz de erro de autorização e correção
+
+A primeira execução com OAuth PKCE real gerado pelo Codex CLI 0.162.0 chegou ao Keycloak, mas retornou `invalid_request` ainda antes do login. O diagnóstico **somente com nomes de parâmetros**, sem expor a URL, identificou dois campos `resource`. A configuração experimental incluía `oauth_resource = "<URL MCP>"`, porém o `rmcp` usado pelo Codex já inseria o indicador RFC 8707 diretamente a partir da URL MCP. Essa duplicação era um defeito de interoperabilidade conhecido do Codex — [openai/codex#34467](https://github.com/openai/codex/issues/34467) e [openai/codex#28830](https://github.com/openai/codex/issues/28830).
+
+**Correção:** retirar exclusivamente `oauth_resource` redundante do TOML de CI. O endpoint MCP continua sendo a referência protegida correta; não há gateway reescrevendo URLs, mudança de audience, afrouxamento no Keycloak ou bypass TLS. A execução positiva confirmou a presença de **apenas um** parâmetro `resource`.
+
+O PR do Gemini (#73) havia sido incorporado à `main` enquanto a branch Codex estava aberta. Na reconciliação, foram mantidos os **três clientes públicos** (Inspector, Gemini e Codex) com escopo opcional somente leitura e ambos os smoke tests. Conflitos de CI, matriz, realm e provisionamento foram resolvidos com merge real, preservando todos os gates anteriores.
+
+## Evidência executada
+
+A rodada [#38000131102](https://github.com/sylviohmartins/telechir/actions/runs/38000131102) foi **3/3 jobs success**, no commit `0b59b5d`. O Keycloak real registrou:
+
+- `KEYCLOAK_CODEX_OFFICIAL_PKCE_LOGIN_PASS` — Codex CLI próprio gera estado e S256, navegador opera apenas a UI Keycloak, o Codex valida callback, troca code e armazena OAuth
+- `KEYCLOAK_CODEX_OAUTH_APP_SERVER_DEVICE_READ_PASS` — outro processo oficial Codex app-server reutiliza a sessão armazenada para `list_devices` na rota Workerd/D1
+- `KEYCLOAK_CODEX_OAUTH_APP_SERVER_DISABLED_USER_PASS` — o mesmo acesso é negado após marcar o owner como desativado no D1
+- `KEYCLOAK_CODEX_OFFICIAL_OAUTH_MCP_D1_PASS` — conclusão do gate composto de login+uso+revogação local
+
+O teste com conta/realm sintéticos **não** atesta inferência via modelo, ChatGPT Apps, OAuth em tenant hospedado, MFA, dispositivo físico ou credenciais reais. O aceite de Phase 16 permanece parcial.
+
+## Configuração de homologação
+
+- IdP real Keycloak 26.8.0 em contêiner GitHub Actions descartável, realm e conta humana sintéticos; cliente público `telechir-phase16-codex`, padrão, PKCE obrigatório `S256`, consentimento obrigatório, sem implicit/password grants.
+- Callback loopback específico do laboratório `http://127.0.0.1:1455/callback/*` (permitido somente nesse cliente CI). No `--no-browser`, o browser Chrome headless efetua login/consentimento reais e retorna URL de callback à entrada padrão do Codex, sem executar a troca de token.
+- `telechir:devices:read` é o **único escopo solicitado** pelo Codex. A autorização é associada ao cliente Codex pela API Admin REST **após** criar o realm, preservando os escopos OIDC padrão e os gates anteriores. A audiência do access token continua sendo `https://127.0.0.1:8988/mcp`.
+- Leaf + CA de Keycloak e Worker verificadas por preflight antes de qualquer credencial. Chrome confia só na CA do Keycloak via NSS temporário; Codex recebe bundle efêmero dessas duas CAs por env do seu subprocesso. Nunca `NODE_TLS_REJECT_UNAUTHORIZED=0`, `ignoreHTTPSErrors=true`, `--insecure` nem modificação do trust store do host.
+- Codex home privado/0700; `config.toml` protegido/0600; stdout e stderr do CLI em memória e logs do app-server gravados só em arquivos temporários apagados no trap. Não imprimir URLs de autorização/callback, JWTs, cookies, headers, senhas nem corpo de erro arbitrário.
+- `CODEX_HOME` separado de profiles pessoais, APIs externas de modelos e dados físicos, sem deploy de Worker hospedado.
+- Verificação final: `KEYCLOAK_CODEX_OFFICIAL_PKCE_LOGIN_PASS`, `KEYCLOAK_CODEX_OAUTH_APP_SERVER_DEVICE_READ_PASS`, `KEYCLOAK_CODEX_OAUTH_APP_SERVER_DISABLED_USER_PASS`, `KEYCLOAK_CODEX_OFFICIAL_OAUTH_MCP_D1_PASS`.
+
+**Limitação importante:** prova **Codex CLI e app-server reais** com credencial de IdP local; não prova interação do modelo em inferência, usuário real, UX da extensão IDE, ChatGPT plugin, Cloudflare hospedado ou clientes Claude/Gemini/Copilot.
+
+## Artefatos
+
+- `apps/control-plane/test/fixtures/keycloak-codex-cli-interactive-oauth.mjs` — dirige somente login/consentimento no navegador, repassa callback ao Codex.
+- `scripts/interop/codex-app-server-oauth-readonly.py` — chamada `list_devices` via app-server usando credencial persistida pelo Codex, negativa após desativação.
+- `scripts/interop/keycloak-codex-cli-interactive-oauth-smoke.sh` — Workerd, D1, TLS, OAuth e negativa.
+- `scripts/interop/keycloak-real-idp-contract.sh`, `scripts/interop/fixtures/keycloak-phase16-realm.json` e `.github/workflows/mcp-interop.yml`.
+
+Referências técnicas oficiais: [Codex CLI MCP source](https://github.com/openai/codex/blob/main/codex-rs/cli/src/mcp_cmd.rs), [Codex MCP](https://developers.openai.com/codex/mcp), [OAuth MCP](https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization).
