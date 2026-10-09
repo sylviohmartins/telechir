@@ -44,7 +44,7 @@ if [[ "$gemini_exit" -ne 0 ]]; then
   exit 1
 fi
 if ! grep -Eqi 'telechir-fixture.*[[:space:]]-[[:space:]]Connected|telechir-fixture.*CONNECTED' \
-  "$work_dir/gemini-list.out"; then
+  "$work_dir/gemini-list.out" "$work_dir/gemini-list.err"; then
   echo "FAIL: real Gemini CLI did not report an authenticated MCP connection" >&2
   # Emit only Boolean classifications; NEVER print raw CLI output or tokens.
   node --input-type=module - "$work_dir" <<'NODE'
