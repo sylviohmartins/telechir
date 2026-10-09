@@ -118,11 +118,26 @@ create_code="$(curl --silent --show-error --cacert "$tmp/root.crt" \
   -H "Authorization: Bearer $admin_token" \
   -H "Content-Type: application/json" \
   --data-binary "@$tmp/import/telechir-phase16-realm.json")"
-unset admin_token
 [[ "$create_code" == "201" ]] || {
+  unset admin_token
   echo "FAIL: Keycloak Admin API realm creation returned HTTP $create_code" >&2
   exit 1
 }
+# Realm creation does not guarantee the embedded users array was provisioned.
+# Use the official authenticated Admin REST endpoint for a deterministic CI
+# human principal. Credentials are disposable fixture values only.
+pkce_user_code="$(curl --silent --show-error --cacert "$tmp/root.crt" \
+  --max-time 20 --output "$tmp/create-pkce-user.json" --write-out "%{http_code}" \
+  -X POST "https://127.0.0.1:9443/admin/realms/telechir-phase16/users" \
+  -H "Authorization: Bearer $admin_token" \
+  -H "Content-Type: application/json" \
+  --data-binary "@$repo_root/scripts/interop/fixtures/keycloak-phase16-user.json")"
+unset admin_token
+[[ "$pkce_user_code" == "201" ]] || {
+  echo "FAIL: Keycloak Admin REST PKCE test-user creation HTTP $pkce_user_code" >&2
+  exit 1
+}
+echo "PASS: official Keycloak Admin REST created disposable human PKCE account"
 curl --fail --silent --show-error --cacert "$tmp/root.crt" --max-time 10 \
   "$issuer/.well-known/openid-configuration" -o "$tmp/oidc.json"
 jq -e --arg iss "$issuer" '.issuer==$iss' "$tmp/oidc.json" >/dev/null
