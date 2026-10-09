@@ -1,0 +1,50 @@
+{
+  "realm": "telechir-phase16",
+  "enabled": true,
+  "displayName": "Telechir Phase16 CI Only",
+  "sslRequired": "all",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "clients": [
+    {
+      "clientId": "telechir-phase16-ci",
+      "name": "Telechir CI-only token issuer contract",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "frontchannelLogout": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "phase16-ci-fixture-not-a-real-secret",
+      "protocolMappers": [
+        {
+          "name": "telechir-resource-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "https://127.0.0.1:8988/mcp",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        },
+        {
+          "name": "telechir-read-scope",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "telechir_scope_fixture",
+            "claim.value": "telechir:devices:read",
+            "jsonType.label": "String",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ]
+}
