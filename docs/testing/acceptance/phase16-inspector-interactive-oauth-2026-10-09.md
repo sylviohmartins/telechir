@@ -1,7 +1,7 @@
 # Phase 16 — Inspector oficial inicia OAuth interativo e retorna ao MCP
 
-**Data:** 2026-10-09  
-**Issue:** #49  
+**Data:** 2026-10-09
+**Issue:** #49
 **Estado do gate:** **PASS delimitado** — [CI #37992688505](https://github.com/sylviohmartins/telechir/actions/runs/37992688505), 3/3 jobs success no commit `b9b24b7`. Marcadores `KEYCLOAK_REAL_INSPECTOR_INTERACTIVE_OAUTH_MCP_PASS` e `KEYCLOAK_INSPECTOR_EXTERNAL_OAUTH_CLIENT_PASS`. Revalidar no último head após atualização documental.
 
 ## Objetivo e separação de evidências
