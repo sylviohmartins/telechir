@@ -181,14 +181,23 @@ inspector --method tools/call --tool-name write_file \
   >"$work_dir/write.json" 2>"$work_dir/write.err"
 write_exit=$?
 set -e
-if [[ "$write_exit" -ne 3 ]]; then
-  # Print only the classified error code, never bearer tokens or raw traces.
+# The Inspector validates the advertised tool security scheme before sending
+# a call. On 2.5.0 it proactively rejects this scope with exit 1 and the
+# exact 'Insufficient scope' error. The raw HTTP 403 above separately proves
+# the server does not rely on client-side scope filtering.
+if [[ "$write_exit" -eq 1 ]] && \
+   tail -n 1 "$work_dir/write.err" | jq -e \
+     '.error.code=="error" and .error.status==null and (.error.message | startswith("Insufficient scope: required") and contains("telechir:files:write"))' >/dev/null; then
+  echo "PASS: Inspector proactively blocks insufficient-scope write without dispatch"
+elif [[ "$write_exit" -eq 3 ]] && \
+     tail -n 1 "$work_dir/write.err" | jq -e '.error.code=="auth_required"' >/dev/null; then
+  echo "PASS: Inspector reports OAuth scope escalation as auth_required"
+else
+  # Print only a bounded error classification, never raw bearer credentials.
   classified_error="$(tail -n 1 "$work_dir/write.err" | jq -c '.error | {code,status,message}' 2>/dev/null || echo '"unclassified"')"
-  # Test-only server and token. Strip any unexpected echoed bearer first.
   classified_error="$(printf '%s' "$classified_error" | sed -E 's/Bearer [A-Za-z0-9._-]+/Bearer [REDACTED]/g')"
-  echo "FAIL: Inspector wrong-scope write exit was $write_exit (expected 3), error=$classified_error" >&2
+  echo "FAIL: Inspector scope gate returned exit $write_exit with error=$classified_error" >&2
   exit 1
 fi
-echo "PASS: Inspector surfaces OAuth 403 escalation as auth_required (exit 3)"
 echo "RESULT: INDEPENDENT_AUTHENTICATED_INSPECTOR_SMOKE_PASS"
 echo "NOTE: provider documents/JWKS synthetic, no browser OAuth PKCE or commercial client certified."
