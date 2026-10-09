@@ -90,3 +90,9 @@ jobs:
 
       - name: Run isolated signed JWT MCP Inspector CLI integration
         run: bash ../../scripts/interop/inspector-authenticated-smoke.sh
+
+      - name: Check synthetic PKCE HTTPS harness shell syntax
+        run: bash -n ../../scripts/interop/oauth-pkce-https-smoke.sh
+
+      - name: Run real HTTPS Authorization Code + PKCE S256 protocol smoke
+        run: bash ../../scripts/interop/oauth-pkce-https-smoke.sh

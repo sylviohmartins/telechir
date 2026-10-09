@@ -8,6 +8,7 @@
 | Sujeito | Versão/transport | Protocol probe | Cliente real | Evidência necessária |
 |---|---|---|---|---|
 | `@modelcontextprotocol/client` (test harness do repo) | SDK lockfile 2.3.0, MCP moderno 2026-07-28 | PASS — Vitest `mcp.test.ts` | N/A — SDK | `apps/control-plane/test/mcp.test.ts` |
+| OAuth Authorization Code/PKCE S256 fixture | Emissor sintético HTTPS loopback e cliente de teste Node 24 | PASS — discovery, code/state, PKCE S256, JWKS/RS256, resource binding, replay e negativas | N/A — não é IdP nem cliente comercial | [CI #37887181576](https://github.com/sylviohmartins/telechir/actions/runs/37887181576), `oauth-pkce-https-smoke.mjs` |
 | Wire JSON-RPC sem SDK externo de produto | MCP legado 2025-11-25, Streamable HTTP/SSE | PASS — `initialize`, `tools/list`, 24 tools | N/A — wire | `apps/control-plane/test/mcp.test.ts` Phase 16 |
 | MCP Inspector CLI externo | 2.5.0, HTTPS Streamable HTTP, runner Linux descartável | PASS — TLS validado, metadata, 401/WWW-Authenticate | PASS para challenge sem token e sessão autenticada JWT RS256 sintética (24 tools, `list_devices` e recusa de escrita); fluxo PKCE/IdP real NOT_TESTED | [GitHub Actions #37845791616](https://github.com/sylviohmartins/telechir/actions/runs/37845791616) |
 | ChatGPT plugin Telechir | Remote HTTPS, OAuth e package sujeito a review | BLOCKED — sem endpoint autorizado | BLOCKED — plugin não publicado | Issue #15 e gates externos |
@@ -24,6 +25,10 @@ O job `independent-inspector` executa o `@modelcontextprotocol/inspector@2.5.0` 
 ## Ensaio autenticado independente (CI; conclusão a verificar)
 
 Adicionado harness `scripts/interop/inspector-authenticated-smoke.sh`: Worker de fixture isolado com rota MCP real, `JwtAccessTokenVerifier` real, JWT RS256 efêmero, descoberta OAuth/JWKS sintética, D1 local com usuário/device sintético, HTTPS local com pinning, Inspector CLI 2.5.0 real verificando initialize, 24 tools, leitura `list_devices` e negação de escrita. **PASS REMOTO VERIFICADO:** [GitHub Actions #37881808611](https://github.com/sylviohmartins/telechir/actions/runs/37881808611) concluiu os dois jobs `success` (125/125 testes do control plane, Inspector CLI autenticado). O Inspector executou `initialize`, enumerou as 24 ferramentas e leu dispositivo sintético vinculado ao JWT RS256. O Inspector preventivamente recusou escrita por falta do scope; a rota real também retornou HTTP 403 quando invocada diretamente. Não houve fluxo authorization code/PKCE nem IdP real. A evidência completa e os limites estão em `docs/testing/acceptance/phase16-authenticated-inspector-ci-2026-10-09.md`. Não é IdP real nem cliente comercial certificado.
+
+## PKCE S256 com servidor OAuth sintético em HTTPS (2026-10-09)
+
+GitHub Actions [#37887181576](https://github.com/sylviohmartins/telechir/actions/runs/37887181576) confirmou **PASS** no smoke `scripts/interop/oauth-pkce-https-smoke.sh`: issuer/JWKS via HTTPS de loopback com TLS pinning; authorization code + `state`; troca com `code_verifier` S256; bearer JWT RS256 vinculado a `resource`; negações de downgrade, audience/client/redirect/scope inadequados, verificador inválido e replay. **O emissor, o cliente e a identidade são sintéticos**. Este não é um login PKCE via MCP Inspector nem teste de IdP real. A matriz de clientes comerciais não muda. Detalhes em `docs/testing/acceptance/phase16-pkce-https-isolated-2026-10-09.md`.
 
 ## Regressões do verificador OAuth (in-process)
 
