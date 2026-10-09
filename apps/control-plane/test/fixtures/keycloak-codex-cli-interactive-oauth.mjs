@@ -27,10 +27,14 @@ const config = [
   "mcp_oauth_callback_port = 1455",
   "[mcp_servers." + alias + "]",
   'url = "' + mcp + '"',
-  'oauth_client_id = "' + clientId + '"',
   'oauth_resource = "' + mcp + '"',
   "startup_timeout_sec = 20",
   "tool_timeout_sec = 20",
+  // Codex 0.162.0 expects the pre-registered client in the *nested* oauth
+  // table. A root oauth_client_id is ignored, causing an unsafe/unsupported
+  // Dynamic Client Registration attempt rejected by Keycloak Trusted Hosts.
+  "[mcp_servers." + alias + ".oauth]",
+  'client_id = "' + clientId + '"',
   "",
 ].join("\n");
 writeFileSync(join(codexHome, "config.toml"), config, { mode: 0o600 });
