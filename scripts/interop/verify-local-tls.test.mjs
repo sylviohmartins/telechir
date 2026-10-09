@@ -51,6 +51,23 @@ test("rejects invalid endpoints and missing certificate", () => {
   );
 });
 
+test("accepts a separate ephemeral issuer CA without relaxing leaf pinning", () => {
+  const parsed = parseArgs([
+    "--cert",
+    "synthetic-leaf.pem",
+    "--ca",
+    "synthetic-root-ca.pem",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "8988",
+  ]);
+  assert.equal(parsed.certPath, "synthetic-leaf.pem");
+  assert.equal(parsed.caCertPath, "synthetic-root-ca.pem");
+  assert.equal(parsed.host, "127.0.0.1");
+  assert.equal(parsed.port, 8988);
+});
+
 test("detects substituted certificates using SHA-256 fingerprint", () => {
   assert.equal(fingerprintsMatch("AA:BB:12", "aa:bb:12"), true);
   assert.equal(fingerprintsMatch("AA:BB:13", "AA:BB:12"), false);

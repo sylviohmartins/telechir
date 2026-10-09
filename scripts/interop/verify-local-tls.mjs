@@ -27,7 +27,7 @@ export function parseArgs(argv) {
     const value = argv[i + 1];
     if (
       !value ||
-      !["--host", "--port", "--cert", "--timeout-ms"].includes(flag)
+      !["--host", "--port", "--cert", "--ca", "--timeout-ms"].includes(flag)
     ) {
       throw new Error(
         "Usage: verify-local-tls.mjs --cert <public.pem> [--host localhost] [--port 8787]",
@@ -35,6 +35,7 @@ export function parseArgs(argv) {
     }
     if (flag === "--host") options.host = value;
     if (flag === "--cert") options.certPath = value;
+    if (flag === "--ca") options.caCertPath = value;
     if (flag === "--port") options.port = Number(value);
     if (flag === "--timeout-ms") options.timeoutMs = Number(value);
   }
@@ -103,6 +104,11 @@ function readPeerCertificate({ host, port, timeoutMs }, expectedCert) {
 
 export async function verifyLocalTls(options) {
   const expectedCert = readFileSync(options.certPath);
+  // Pin the leaf that the server actually presents; trust may be a separate
+  // ephemeral issuer CA. Legacy self-signed callers omit --ca.
+  const trustedCa = options.caCertPath
+    ? readFileSync(options.caCertPath)
+    : expectedCert;
   const expected = new X509Certificate(expectedCert).fingerprint256;
   // A diagnostic-only TLS handshake: inspect certificate, send NO HTTP data.
   const presented = await readPeerCertificate(options);
@@ -116,7 +122,7 @@ export async function verifyLocalTls(options) {
     };
   }
   // Only validate trust after the certificate has matched the pinned value.
-  const validated = await readPeerCertificate(options, expectedCert);
+  const validated = await readPeerCertificate(options, trustedCa);
   if (!fingerprintsMatch(validated.fingerprint256, expected)) {
     return { status: "FAIL", code: "TLS_CERTIFICATE_CHANGED_AFTER_PIN_CHECK" };
   }
