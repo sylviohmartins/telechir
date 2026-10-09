@@ -98,7 +98,10 @@ function fetcher(
   pkceMethods: string[] = ["S256"],
 ) {
   const calls: string[] = [];
-  const fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+  const fetch = async (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ): Promise<Response> => {
     // Workerd does not implement redirect="error"; manual is fail-closed.
     expect(init?.redirect).toBe("manual");
     const url = String(input);
