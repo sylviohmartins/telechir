@@ -40,7 +40,7 @@ node test/fixtures/create-authenticated-inspector-fixture.mjs \
   "$work_dir" "$url" "$issuer"
 # Private signing material never leaves RAM. All issued tokens stay inside
 # the private temp directory, deleted by trap even when the smoke fails.
-if ! ./node_modules/.bin/wrangler d1 migrations apply DB --local --yes \
+if ! ./node_modules/.bin/wrangler d1 migrations apply DB --local \
   --persist-to "$work_dir/state" >"$work_dir/migrations.log" 2>&1; then
   echo "FAIL: isolated D1 migration did not apply" >&2
   sed -n '1,100p' "$work_dir/migrations.log" >&2
