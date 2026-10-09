@@ -1,7 +1,9 @@
 # Phase 16 — Authorization Code + PKCE S256 em HTTPS isolado
 
-**Data:** 2026-10-09  
-**Issue:** #49  
+**Data:** 2026-10-09
+
+**Issue:** #49
+
 **Tipo de evidência:** protocolo OAuth em emissor de teste independente de produto, não homologação externa.
 
 ## Objetivo
@@ -31,4 +33,4 @@ Não elevar o status da Phase 16 para COMPLETE por causa deste incremento. Regis
 - [RFC 8707 — Resource Indicators for OAuth 2.0](https://www.rfc-editor.org/rfc/rfc8707)
 - [MCP Authorization Specification, 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization)
 
-**Resultado CI:** aguardando validação no PR.
+**Resultado CI:** **PASS verificado no GitHub Actions [#37887181576](https://github.com/sylviohmartins/telechir/actions/runs/37887181576)**. O job `independent-inspector` confirmou `ISOLATED_PKCE_HTTPS_PROTOCOL_SMOKE_PASS` com TLS pinning, descoberta, S256, vínculo `client`/`redirect`/`resource`, RS256/JWKS e negativas de segurança; o job `control-plane` também terminou `success` com 125 testes, formatação, tipos, dry-run e auditoria de dependências. A prova atesta o emissor OAuth **sintético**, não homologação com IdP externo.
