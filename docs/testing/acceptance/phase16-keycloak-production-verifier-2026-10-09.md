@@ -1,8 +1,8 @@
 # Phase 16 — token Keycloak real consumido pelo verificador Telechir
 
-**Data:** 2026-10-09  
-**Issue:** #49  
-**Escopo:** JWT emitido pelo Keycloak 26.8.0 oficial, consumido pelo código real de produção `JwtAccessTokenVerifier`, com consulta de identidade simulada e **sem Worker/D1 HTTP**.  
+**Data:** 2026-10-09
+**Issue:** #49
+**Escopo:** JWT emitido pelo Keycloak 26.8.0 oficial, consumido pelo código real de produção `JwtAccessTokenVerifier`, com consulta de identidade simulada e **sem Worker/D1 HTTP**.
 **Status:** gate implementado, **aguardando CI do head final do PR**.
 
 ## Objetivo e cadeia de confiança
