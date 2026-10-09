@@ -35,7 +35,7 @@ A implementação possui Local Agent Core, control plane, identidade/pairing Ed2
 - [x] Phase 13 — Computer use: **`PHASE_13_COMPLETE`**.
 - [x] Phase 14 — Browser automation: **`PHASE_14_COMPLETE`**.
 - [x] Phase 15 — Multi-device/workspace concurrency: **`PHASE_15_COMPLETE`**.
-- [~] Phase 16 — Multi-AI compatibility certification em andamento: discovery oficial, matriz e harness MCP moderno/legado testados; CI GitHub Actions com regressões aprovada; integração do SDK cliente com JWT RS256/JWKS reais (documentos OAuth sintéticos, 3/3 testes locais PASS); **MCP Inspector CLI 2.5.0 real** comprovou o caminho HTTPS/OAuth **sem token** (401 e `auth_required`, run #37845791616) em runner Ubuntu descartável, sem relaxar TLS. No Windows, Avast substitui certificado de loopback. Descoberta autenticada das 24 tools e certificação de clientes de IA fornecedores ainda pendentes.
+- [~] Phase 16 — Multi-AI compatibility certification em andamento: discovery oficial, matriz e harness MCP moderno/legado testados; CI GitHub Actions com regressões aprovada; integração do SDK cliente com JWT RS256/JWKS reais (documentos OAuth sintéticos, 3/3 testes locais PASS); **MCP Inspector CLI 2.5.0 real** comprovou o caminho HTTPS/OAuth **sem token** (401 e `auth_required`, run #37845791616) em runner Ubuntu descartável, sem relaxar TLS. No Windows, Avast substitui certificado de loopback. **MCP Inspector autenticado** comprovou descoberta das 24 tools, `list_devices` e escopo fail-closed com JWT RS256/JWKS sintéticos em HTTPS real isolado (run #37881808611, ambos jobs CI success). Fluxo OAuth authorization code/PKCE com IdP real e certificação de clientes de IA fornecedores continuam pendentes.
 
 ## Decisões atuais
 
@@ -122,6 +122,7 @@ As avaliações relevantes estão em:
 - `docs/testing/acceptance/phase16-independent-inspector-gate-2026-10-08.md`
 - `docs/testing/acceptance/phase16-oauth-fail-closed-regression-2026-10-08.md`
 - `docs/testing/acceptance/phase16-signed-jwt-client-integration-2026-10-09.md`
+- `docs/testing/acceptance/phase16-authenticated-inspector-ci-2026-10-09.md`
 - `docs/research/mcp/phase16-external-client-smoke-plan-2026-10-08.md`
 - `docs/security/threat-model/phase16-client-interoperability-2026-10-08.md`
 
