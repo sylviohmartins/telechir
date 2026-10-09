@@ -83,13 +83,11 @@ try {
   });
   try {
     await assert.rejects(
-      badContext
-        .newPage()
-        .then((page) =>
-          page.goto(issuer + "/.well-known/openid-configuration", {
-            timeout: 12000,
-          }),
-        ),
+      badContext.newPage().then((page) =>
+        page.goto(issuer + "/.well-known/openid-configuration", {
+          timeout: 12000,
+        }),
+      ),
       /ERR_CERT_AUTHORITY_INVALID|ERR_CERT_INVALID/u,
       "Chromium must reject Keycloak when the only trusted CA belongs to Worker",
     );
