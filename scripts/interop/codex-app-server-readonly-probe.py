@@ -267,7 +267,9 @@ def main():
                     "arguments": arguments,
                 }, seconds=80)
             except CodexToolCallRejected as rejected:
-                if scenario == "read":
+                if scenario in ("read", "live-user-disable"):
+                    # The live scenario's FIRST read must succeed before the
+                    # suspension. Its SECOND read has a dedicated assertion.
                     raise
                 lowered = rejected.raw.lower()
                 if scenario == "write-denied":
