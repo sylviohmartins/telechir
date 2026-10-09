@@ -2,7 +2,7 @@
 
 **Data:** 2026-10-09
 **Issue:** #49
-**Gate:** PENDING_CI — não atribuir PASS antes de 3/3 jobs success no head final e dos dois marcadores `KEYCLOAK_CHROMIUM_BROWSER_PKCE_CONSENT_PASS` e `KEYCLOAK_CHROMIUM_BROWSER_PKCE_MCP_D1_PASS`.
+**Gate:** **PASS delimitado** — [CI #37989967995](https://github.com/sylviohmartins/telechir/actions/runs/37989967995), 3/3 jobs success no commit `b8a7737`, com ambos os marcadores `KEYCLOAK_CHROMIUM_BROWSER_PKCE_CONSENT_PASS` e `KEYCLOAK_CHROMIUM_BROWSER_PKCE_MCP_D1_PASS`. Reconfirmar 3/3 no último head documental antes do merge.
 
 ## Objetivo
 
@@ -21,6 +21,12 @@ Avançar da autenticação HTTP dirigida sem browser (PR #69) para uma **instân
 ## Continuidade da identidade do usuário
 
 O login HTTP do PR #69 e o login no Chrome utilizam **a mesma pessoa sintética no Keycloak**. O D1 possui restrição `UNIQUE(identity_provider, provider_subject_hash)`, impedindo corretamente um segundo registro para o mesmo `sub`. Após a desativação do usuário pelo gate anterior, o teste de browser compara os dois JWTs de clientes diferentes, exige `sub` idêntico, **reativa exclusivamente o registro existente por issuer + hash** e reutiliza seu único dispositivo de CI para validar a continuidade da conta. Depois, desativa novamente esse usuário e exige HTTP 401 com o JWT ainda vigente. Não são criados novos owners nem contornada a unicidade.
+
+## Execução, falhas corrigidas e evidência
+
+A primeira execução de Chromium comprovou TLS fail-closed com a CA errada, mas a navegação do browser falhou com `ERR_CONNECTION_REFUSED` ao retornar para um callback sem listener real. O fixture passou a abrir um servidor HTTP efêmero ligado somente a `127.0.0.1:8798`, sem registrar nem renderizar códigos ou tokens. O gate seguinte **passou integralmente na UI**, mas o teste de D1 tentou duplicar a identidade já vinculada pelo cliente PKCE do PR #69 e recebeu a recusa correta `SQLITE_CONSTRAINT_UNIQUE` para `identity_provider + provider_subject_hash`. O teste foi corrigido para exigir o **mesmo `sub`** entre os dois clientes OAuth e reativar temporariamente o mesmo usuário/dispositivo no D1 (sem novo `INSERT users`).
+
+A execução [#37989967995](https://github.com/sylviohmartins/telechir/actions/runs/37989967995) comprovou: Chrome Stable real e NSS separado, recusa de CA incorreta, consentimento cancelado (`access_denied`, sem code), consentimento aceito, troca do code PKCE, `state` substituído recusado pelo cliente, JWT real com audience MCP, replay/verifier incorreto/código expirado negados, identidade única entre os dois OAuth clients, dispositivo do proprietário na rota Workerd real e `401` após desativação no D1. Nenhuma credencial externa ou bypass TLS foi usado.
 
 ## Não objetivos
 
