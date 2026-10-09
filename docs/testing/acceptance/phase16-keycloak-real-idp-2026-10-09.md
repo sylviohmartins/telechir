@@ -3,7 +3,7 @@
 **Data:** 2026-10-09
 **Issue:** [#49](https://github.com/sylviohmartins/telechir/issues/49)
 **Versão fixada:** Keycloak `26.8.0` (imagem oficial `quay.io/keycloak/keycloak:26.8.0`).
-**Estado:** `PASS` limitado para a validação do JWT com IdP real, confirmado no [CI #37971040190](https://github.com/sylviohmartins/telechir/actions/runs/37971040190), job Keycloak `success`. Reexecução final dos três jobs após a correção Prettier ainda pendente.
+**Estado:** `PASS` limitado para a validação do JWT com IdP real, confirmado no [CI #37971040190](https://github.com/sylviohmartins/telechir/actions/runs/37971040190), job Keycloak `success`. A integração em `main` exige confirmação de **3/3 jobs `success`** no último commit do PR, além desta evidência funcional.
 
 ## Objetivo
 
