@@ -39,7 +39,14 @@ openssl x509 -req -in "$tmp/tls.csr" \
   -extfile "$tmp/leaf.ext" >/dev/null 2>&1
 openssl verify -CAfile "$tmp/root.crt" -purpose sslserver "$tmp/tls.crt" >/dev/null
 
-docker run --rm -d --name "$container" --network host --memory=1200m \
+# Keycloak runs as uid 1000. Keep the key unreadable to other users
+# while making the disposable mounted key accessible to that unprivileged uid.
+sudo chown 1000:0 "$tmp/tls.key" "$tmp/tls.crt"
+chmod 0640 "$tmp/tls.key" "$tmp/tls.crt"
+chmod 0644 "$tmp/import/realm.json"
+# Do not use --rm here: we need bounded logs if the container exits.
+# The EXIT trap is the only cleanup owner and removes it on success/failure.
+docker run -d --name "$container" --network host --memory=1200m \
   -e KC_BOOTSTRAP_ADMIN_USERNAME=phase16-ci \
   -e KC_BOOTSTRAP_ADMIN_PASSWORD=phase16-ci-fixture-not-a-real-secret \
   --mount "type=bind,src=$tmp/import,dst=/opt/keycloak/data/import,readonly" \
