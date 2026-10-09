@@ -115,7 +115,7 @@ jobs:
   real-keycloak-idp:
     name: Real Keycloak HTTPS issuer and access-token contract (Linux)
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 25
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -149,6 +149,7 @@ jobs:
           node --check apps/control-plane/test/fixtures/keycloak-browser-pkce.mjs
           bash -n scripts/interop/keycloak-inspector-interactive-oauth-smoke.sh
           node --check apps/control-plane/test/fixtures/keycloak-inspector-interactive-oauth.mjs
+          node --check apps/control-plane/test/fixtures/keycloak-gemini-issuer-preflight.mjs
           bash -n scripts/interop/keycloak-codex-cli-interactive-oauth-smoke.sh
           node --check apps/control-plane/test/fixtures/keycloak-codex-cli-interactive-oauth.mjs
           python3 -m py_compile scripts/interop/codex-app-server-oauth-readonly.py

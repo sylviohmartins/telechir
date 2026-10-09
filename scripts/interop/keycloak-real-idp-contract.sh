@@ -162,9 +162,9 @@ curl --fail --silent --show-error --cacert "$tmp/root.crt" --max-time 12 \
 inspector_scope_id="$(jq -er \
   '[.[] | select(.name=="telechir:devices:read")] | if length==1 then .[0].id else error("Inspector scope not unique") end' \
   "$tmp/inspector-scopes.json")"
-# Isolate consented read-only access to both independent MCP clients
+# Isolate consented read-only access to all three independent MCP clients
 # without changing Keycloak's existing profile/email defaults.
-for oauth_client in telechir-phase16-inspector telechir-phase16-codex; do
+for oauth_client in telechir-phase16-inspector telechir-phase16-gemini telechir-phase16-codex; do
   curl --fail --silent --show-error --cacert "$tmp/root.crt" --max-time 12 \
     -H "Authorization: Bearer $admin_token" \
     "https://127.0.0.1:9443/admin/realms/telechir-phase16/clients?clientId=$oauth_client" \
@@ -184,7 +184,7 @@ for oauth_client in telechir-phase16-inspector telechir-phase16-codex; do
   }
 done
 unset admin_token
-echo "PASS: Keycloak Admin REST assigned independent Inspector and Codex clients devices:read without mutating built-in OIDC scopes"
+echo "PASS: Keycloak Admin REST assigned independent Inspector, Gemini and Codex clients devices:read without mutating built-in OIDC scopes"
 curl --fail --silent --show-error --cacert "$tmp/root.crt" --max-time 10 \
   "$issuer/.well-known/openid-configuration" -o "$tmp/oidc.json"
 jq -e --arg iss "$issuer" '.issuer==$iss' "$tmp/oidc.json" >/dev/null
@@ -232,9 +232,11 @@ source "$repo_root/scripts/interop/keycloak-workerd-direct-tls-smoke.sh"
 source "$repo_root/scripts/interop/keycloak-real-pkce-mcp-smoke.sh"
 # Real headless Chromium UI with separately configured consent-required public client.
 source "$repo_root/scripts/interop/keycloak-browser-pkce-mcp-smoke.sh"
+# Provider-specific RFC9207 preflight only; not a Gemini interactive auth claim.
+NODE_EXTRA_CA_CERTS="$work_dir/root.crt" node "$repo_root/apps/control-plane/test/fixtures/keycloak-gemini-issuer-preflight.mjs" "$work_dir" "$issuer" "$worker_url"
 # Independent published MCP Inspector CLI performs its OWN interactive OAuth.
 source "$repo_root/scripts/interop/keycloak-inspector-interactive-oauth-smoke.sh"
-# Official Codex CLI itself owns interactive OAuth and stored credential.
+# Official Codex CLI OAuth login + app-server stored token gate.
 source "$repo_root/scripts/interop/keycloak-codex-cli-interactive-oauth-smoke.sh"
 echo "RESULT: KEYCLOAK_REAL_IDP_ISSUANCE_CONTRACT_PASS"
 echo "NOTE: Keycloak credentials, scripted PKCE, headless Chromium login and consent tested against local Worker/D1; no production hosted tenant/Worker, model-initiated UI or real-world user."
