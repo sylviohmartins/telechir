@@ -57,7 +57,9 @@
       "directAccessGrantsEnabled": false,
       "implicitFlowEnabled": false,
       "consentRequired": false,
-      "redirectUris": ["http://127.0.0.1:8798/callback"],
+      "redirectUris": [
+        "http://127.0.0.1:8798/callback"
+      ],
       "webOrigins": [],
       "attributes": {
         "pkce.code.challenge.method": "S256"
@@ -100,7 +102,9 @@
       "directAccessGrantsEnabled": false,
       "implicitFlowEnabled": false,
       "consentRequired": true,
-      "redirectUris": ["http://127.0.0.1:8798/callback"],
+      "redirectUris": [
+        "http://127.0.0.1:8798/callback"
+      ],
       "webOrigins": [],
       "attributes": {
         "pkce.code.challenge.method": "S256"
@@ -143,7 +147,9 @@
       "directAccessGrantsEnabled": false,
       "implicitFlowEnabled": false,
       "consentRequired": true,
-      "redirectUris": ["http://127.0.0.1:6276/oauth/callback"],
+      "redirectUris": [
+        "http://127.0.0.1:6276/oauth/callback"
+      ],
       "webOrigins": [],
       "attributes": {
         "pkce.code.challenge.method": "S256"
@@ -173,8 +179,22 @@
             "id.token.claim": "false"
           }
         }
+      ],
+      "optionalClientScopes": [
+        "telechir:devices:read"
       ]
     }
   ],
-  "accessCodeLifespan": 12
+  "accessCodeLifespan": 12,
+  "clientScopes": [
+    {
+      "name": "telechir:devices:read",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true",
+        "consent.screen.text": "Read Telechir devices"
+      }
+    }
+  ]
 }
