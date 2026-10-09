@@ -225,23 +225,34 @@ try {
   console.log(
     "PASS: official Codex CLI generated OAuth URL, S256 challenge, state and read-only scope; no injected token",
   );
-  console.log("DIAG: Codex OAuth authorization parameter names="+
-    [...authorize.searchParams.keys()].sort().join(","));
+  console.log(
+    "DIAG: Codex OAuth authorization parameter names=" +
+      [...authorize.searchParams.keys()].sort().join(","),
+  );
 
   const page = await ctx.newPage();
   await page.goto(raw, { timeout: 19000 });
   const landed = new URL(page.url());
   if (landed.origin === callbackHost) {
-    const known = ["invalid_scope", "invalid_request", "invalid_client",
-      "access_denied", "unauthorized_client", "unsupported_response_type"];
+    const known = [
+      "invalid_scope",
+      "invalid_request",
+      "invalid_client",
+      "access_denied",
+      "unauthorized_client",
+      "unsupported_response_type",
+    ];
     const code = landed.searchParams.get("error");
-    console.error("DIAG: Keycloak Codex OAuth refused before login: " +
-      JSON.stringify({
-        error: known.includes(code) ? code : "OTHER",
-        callbackStateMatched:
-          landed.searchParams.get("state") === authorize.searchParams.get("state"),
-        containsNoCode: !landed.searchParams.has("code"),
-      }));
+    console.error(
+      "DIAG: Keycloak Codex OAuth refused before login: " +
+        JSON.stringify({
+          error: known.includes(code) ? code : "OTHER",
+          callbackStateMatched:
+            landed.searchParams.get("state") ===
+            authorize.searchParams.get("state"),
+          containsNoCode: !landed.searchParams.has("code"),
+        }),
+    );
     throw new Error("Keycloak refused Codex OAuth authorization request");
   }
   assert.equal(
