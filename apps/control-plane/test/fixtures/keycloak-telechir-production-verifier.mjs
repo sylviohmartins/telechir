@@ -6,6 +6,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { decodeJwt, decodeProtectedHeader } from "jose";
+import { OAuthError, OAuthErrorCode } from "@modelcontextprotocol/server";
 
 const [metadataFile, tokenFile, issuer, verifierBundle] = process.argv.slice(2);
 const resourceUri = "https://127.0.0.1:8988/mcp";
@@ -81,8 +82,8 @@ async function rejected(jwt, target, reason, shouldQueryDb = false) {
   await assert.rejects(
     () => target.verifyAccessToken(jwt),
     (error) => {
-      assert.equal(error?.name, "OAuthError", "auth failures must be classified, not generic transport errors: " + reason);
-      assert.match(String(error.message), /invalid/i);
+      assert.ok(OAuthError.isInstance(error), "auth failures must be classified, not generic transport errors: " + reason);
+      assert.equal(error.code, OAuthErrorCode.InvalidToken);
       return true;
     },
     reason,
