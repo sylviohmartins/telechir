@@ -277,16 +277,30 @@ try {
     stdoutBytes: out.length,
     stderrBytes: err.length,
     unknownServer: /No MCP server named|No such MCP server/iu.test(combined),
-    missingConfig: /config(uration)?.*(missing|not found|invalid|load)|parse config/iu.test(combined),
-    noBrowserUnsupported: /unexpected argument|unrecognized|unknown argument|unknown option/iu.test(combined),
-    unknownSubcommand: /unrecognized subcommand|invalid subcommand/iu.test(combined),
-    noAuthSupport: /no authorization support|unsupported.*oauth/iu.test(combined),
+    missingConfig:
+      /config(uration)?.*(missing|not found|invalid|load)|parse config/iu.test(
+        combined,
+      ),
+    noBrowserUnsupported:
+      /unexpected argument|unrecognized|unknown argument|unknown option/iu.test(
+        combined,
+      ),
+    unknownSubcommand: /unrecognized subcommand|invalid subcommand/iu.test(
+      combined,
+    ),
+    noAuthSupport: /no authorization support|unsupported.*oauth/iu.test(
+      combined,
+    ),
     terminalRequired: /terminal|tty|stdin|interactive/iu.test(combined),
     registryIssue: /npm error|npm ERR|ENOENT|E404/iu.test(combined),
     keycloakUrlPresent: combined.includes("https://127.0.0.1:9443"),
-    authPromptPresent: /paste.*callback|paste.*redirect|visit.*http/iu.test(combined),
+    authPromptPresent: /paste.*callback|paste.*redirect|visit.*http/iu.test(
+      combined,
+    ),
     oauthError: /invalid_scope|invalid_client|invalid_request/iu.test(combined),
-    tls: /certificate|tls|ssl|unknown issuer|certificate verify/iu.test(combined),
+    tls: /certificate|tls|ssl|unknown issuer|certificate verify/iu.test(
+      combined,
+    ),
     otherCliError: /error:/iu.test(combined),
   };
   console.error(
