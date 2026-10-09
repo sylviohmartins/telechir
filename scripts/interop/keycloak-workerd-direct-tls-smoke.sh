@@ -100,6 +100,20 @@ stop_direct_worker
 # Positive: only Wrangler/Workerd receive the private temporary IdP CA.
 # No global trust-store change, NODE_TLS_REJECT_UNAUTHORIZED bypass or replay.
 start_direct_worker "$work_dir/root.crt" "trusted"
+# Directly interrogate native workerd fetch from a read-only CI-only endpoint
+# before sending the Keycloak bearer to the unchanged production verifier.
+probe_status="$(curl --silent --show-error --cacert "$worker_ca" --max-time 15 \
+  --output "$work_dir/direct-native-fetch-diagnostic.json" \
+  --write-out "%{http_code}" "$worker_base/__phase16_direct_idp_probe")"
+if [[ "$probe_status" != "200" ]] ||
+   ! jq -e '.kind=="DIRECT_IDP_TLS_PASS" and .docs==2' \
+     "$work_dir/direct-native-fetch-diagnostic.json" >/dev/null; then
+  jq -c 'with_entries(select(.key=="kind" or .key=="reason" or .key=="status"))' \
+    "$work_dir/direct-native-fetch-diagnostic.json" >&2 || true
+  echo "FAIL: native Workerd could not directly fetch genuine Keycloak metadata/JWKS" >&2
+  exit 1
+fi
+echo "PASS: native Workerd fetched live Keycloak RFC8414 metadata and JWKS over HTTPS"
 NODE_EXTRA_CA_CERTS="$worker_ca" NO_PROXY="127.0.0.1,localhost" \
   no_proxy="127.0.0.1,localhost" \
   node "$repo_root/apps/control-plane/test/fixtures/keycloak-worker-mcp-probe.mjs" \
