@@ -11,7 +11,7 @@ Avançar da autenticação HTTP dirigida sem browser (PR #69) para uma **instân
 ## Controles e evidências exigidas
 
 - Certificado do Keycloak validado por `verify-local-tls.mjs` (leaf apresentado e CA efêmera) antes de entrar no login; **Chromium com NSS DB exclusivamente temporário**, contendo somente aquela CA, e controle negativo com a CA distinta do Worker; `ignoreHTTPSErrors=false`; sem flags globais de bypass.
-- Login com controles DOM verdadeiros `#username`, `#password` e `#kc-login` no Chromium headless em `127.0.0.1:9443`. Bloquear navegação/requisições cross-origin não esperadas; callback loopback é capturado localmente pela interceptação Playwright e nunca enviado a serviço externo.
+- Login com controles DOM verdadeiros `#username`, `#password` e `#kc-login` no Chromium headless em `127.0.0.1:9443`. Bloquear navegação/requisições cross-origin não esperadas; callback loopback é atendido por um servidor HTTP real temporário restrito a `127.0.0.1:8798`, sem enviar `code` ou `state` a serviço externo nem registrá-los em logs.
 - Primeira sessão: clicar **Cancel** na tela de consentimento e comprovar `access_denied`, mesmo `state` e ausência de `code`.
 - Nova sessão/contexto: clicar **Accept**, comprovar `state` e emissão de authorization code verdadeiro. Um callback adulterado em memória deve falhar na validação **client-side** de `state`.
 - Troca por token via HTTPS validado com `code_verifier` S256, `iss/aud/azp/sub` e escopo limitado assinados pela JWKS real; rejeitar repetição do code, troca com verifier errado e code expirado. Laboratório define TTL de authorization code reduzido somente para testar expiração; isso não é garantia de revogação de access token.
