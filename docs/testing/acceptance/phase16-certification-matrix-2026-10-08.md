@@ -60,4 +60,8 @@ Na regressão local final desta etapa, os 18 arquivos de teste do control plane 
 
 Ver `phase16-interop-regression-ci-2026-10-08.md` e `docs/research/mcp/phase16-external-client-smoke-plan-2026-10-08.md`.
 
+### Integração com JWT RS256 real + cliente oficial (2026-10-09)
+
+O harness adicional `apps/control-plane/test/mcp-signed-client.test.ts` executa clientes reais do SDK (`@modelcontextprotocol/client`) usando **JWTs RS256 assinados e verificados por `JwtAccessTokenVerifier`**, metadata OAuth e JWKS sintéticos, e contas D1 vinculadas por hash de subject. Teste dirigido **3/3 PASS**: modos moderno/legado, discovery das 24 tools, dois owners isolados, scope de escrita negado em HTTP 403 e audience errada negada em HTTP 401. É integração in-process com fetch injetado e issuer de fixture; **não equivale a autenticação com IdP real ou certificação de clientes externos**. Evidência em `docs/testing/acceptance/phase16-signed-jwt-client-integration-2026-10-09.md`.
+
 A execução de um único smoke local não satisfaz o DoD de compatibilidade multi-IA.
