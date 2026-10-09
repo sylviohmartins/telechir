@@ -142,11 +142,20 @@ const auth = new Promise((resolve, reject) => {
   resolveAuth = resolve;
   rejectAuth = reject;
 });
-const child = spawn("npx", args, {
-  cwd: codexHome,
-  env: childEnv,
-  stdio: ["pipe", "pipe", "pipe"],
-});
+// The official Codex PasteCallback mode requires a real TTY. The util-linux
+// 'script' helper provides a disposable PTY, while this harness still keeps
+// stdout, stderr and the pasted callback private in memory. Disable echo on
+// the child PTY to avoid copying the callback to its transcript.
+const ptyCommand = "stty -echo && exec npx " + args.join(" ");
+const child = spawn(
+  "script",
+  ["--quiet", "--return", "--command", ptyCommand, "/dev/null"],
+  {
+    cwd: codexHome,
+    env: { ...childEnv, TERM: "xterm-256color", COLUMNS: "240", LINES: "40" },
+    stdio: ["pipe", "pipe", "pipe"],
+  },
+);
 function consume(data, isErr) {
   if (isErr) err += String(data);
   else out += String(data);
