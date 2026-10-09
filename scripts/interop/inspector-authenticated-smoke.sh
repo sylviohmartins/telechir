@@ -183,8 +183,10 @@ write_exit=$?
 set -e
 if [[ "$write_exit" -ne 3 ]]; then
   # Print only the classified error code, never bearer tokens or raw traces.
-  classified_error="$(tail -n 1 "$work_dir/write.err" | jq -r '.error.code // "unknown"' 2>/dev/null || echo "unclassified")"
-  echo "FAIL: Inspector wrong-scope write exit was $write_exit (expected 3), error_code=$classified_error" >&2
+  classified_error="$(tail -n 1 "$work_dir/write.err" | jq -c '.error | {code,status,message}' 2>/dev/null || echo '"unclassified"')"
+  # Test-only server and token. Strip any unexpected echoed bearer first.
+  classified_error="$(printf '%s' "$classified_error" | sed -E 's/Bearer [A-Za-z0-9._-]+/Bearer [REDACTED]/g')"
+  echo "FAIL: Inspector wrong-scope write exit was $write_exit (expected 3), error=$classified_error" >&2
   exit 1
 fi
 echo "PASS: Inspector surfaces OAuth 403 escalation as auth_required (exit 3)"
