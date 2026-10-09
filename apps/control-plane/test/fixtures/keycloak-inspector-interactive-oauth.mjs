@@ -247,8 +247,17 @@ try {
     const code = landing.searchParams.get("error") ?? "unknown";
     // Only report an OAuth error CLASS. Never print callback query,
     // code/state/issuer detail or token. Error descriptions can be sensitive.
-    const known = ["invalid_scope", "invalid_client", "invalid_request", "access_denied", "unauthorized_client"];
-    throw new Error("Keycloak immediate OAuth refusal: " + (known.includes(code) ? code : "other"));
+    const known = [
+      "invalid_scope",
+      "invalid_client",
+      "invalid_request",
+      "access_denied",
+      "unauthorized_client",
+    ];
+    throw new Error(
+      "Keycloak immediate OAuth refusal: " +
+        (known.includes(code) ? code : "other"),
+    );
   }
   assert.equal(landing.origin, new URL(issuer).origin);
 
