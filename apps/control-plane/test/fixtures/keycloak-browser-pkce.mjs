@@ -256,6 +256,33 @@ try {
   );
 
   const accepted = await consent("accept");
+  // Gemini CLI requires RFC9207 authorization response issuer protection.
+  // Extract only non-sensitive issuer diagnostics: never save the callback URL,
+  // code, state, cookie, JWT, or user credentials.
+  const responseIss = accepted.uri.searchParams.get("iss");
+  const keycloakIssuerDiscovery =
+    metadata.authorization_response_iss_parameter_supported;
+  assert.ok(
+    keycloakIssuerDiscovery == null ||
+      typeof keycloakIssuerDiscovery === "boolean",
+  );
+  if (responseIss !== null) {
+    assert.equal(responseIss, issuer, "Keycloak OAuth callback issuer mismatch");
+  }
+  if (keycloakIssuerDiscovery === true) {
+    assert.equal(responseIss, issuer, "advertised RFC9207 issuer missing");
+  }
+  writeFileSync(
+    join(dir, "gemini-issuer-preflight.json"),
+    JSON.stringify({
+      authorizationResponseIssuerAdvertised: keycloakIssuerDiscovery ?? null,
+      authorizationResponseIssuerPresent: responseIss !== null,
+      issuerMatchesExpected: responseIss === issuer,
+      keycloakBrowserCallbackObserved: true,
+    }),
+    { mode: 0o600 },
+  );
+  console.log("PASS: real Keycloak browser callback issuer recorded for Gemini RFC9207 compatibility check");
   const fake = new URL(accepted.uri);
   fake.searchParams.set("state", randomBytes(24).toString("base64url"));
   assert.throws(
