@@ -120,6 +120,64 @@ export default {
     if (url.pathname === "/health" && request.method === "GET") {
       return Response.json({ status: "ok", fixture: "phase16" });
     }
+    if (
+      url.pathname === "/__phase16_direct_idp_probe" &&
+      env.PHASE16_TEST_DIRECT_KEYCLOAK === "true" &&
+      env.OAUTH_ISSUER ===
+        "https://127.0.0.1:9443/realms/telechir-phase16" &&
+      !env.PHASE16_TEST_JWKS &&
+      !env.PHASE16_TEST_AUTHORIZATION_METADATA
+    ) {
+      // CI-only read-only network diagnostic: native fetch, no JWTs or secrets.
+      try {
+        const response = await fetch(
+          "https://127.0.0.1:9443/.well-known/oauth-authorization-server/realms/telechir-phase16",
+          { redirect: "error", signal: AbortSignal.timeout(5000) },
+        );
+        if (!response.ok) {
+          return Response.json(
+            { kind: "REMOTE_HTTP_ERROR", status: response.status },
+            { status: 502 },
+          );
+        }
+        const metadata: unknown = await response.json();
+        if (
+          !metadata ||
+          typeof metadata !== "object" ||
+          !("issuer" in metadata) ||
+          metadata.issuer !== env.OAUTH_ISSUER ||
+          !("jwks_uri" in metadata) ||
+          metadata.jwks_uri !==
+            env.OAUTH_ISSUER + "/protocol/openid-connect/certs"
+        ) {
+          return Response.json({ kind: "METADATA_MISMATCH" }, { status: 502 });
+        }
+        const jwksResponse = await fetch(metadata.jwks_uri, {
+          redirect: "error",
+          signal: AbortSignal.timeout(5000),
+        });
+        const jwks: unknown = jwksResponse.ok
+          ? await jwksResponse.json()
+          : null;
+        if (
+          !jwksResponse.ok ||
+          !jwks ||
+          typeof jwks !== "object" ||
+          !("keys" in jwks) ||
+          !Array.isArray(jwks.keys) ||
+          jwks.keys.length === 0
+        ) {
+          return Response.json({ kind: "JWKS_UNAVAILABLE" }, { status: 502 });
+        }
+        return Response.json({ kind: "DIRECT_IDP_TLS_PASS", docs: 2 });
+      } catch (error) {
+        const cause = error instanceof Error ? error.message : "unknown";
+        return Response.json(
+          { kind: "NATIVE_FETCH_FAILED", reason: cause.slice(0, 240) },
+          { status: 502 },
+        );
+      }
+    }
     if (url.pathname === "/.well-known/oauth-protected-resource") {
       return protectedResourceMetadataResponse(env, request);
     }
