@@ -185,5 +185,7 @@ source "$repo_root/scripts/interop/keycloak-workerd-direct-tls-smoke.sh"
 source "$repo_root/scripts/interop/keycloak-real-pkce-mcp-smoke.sh"
 # Real headless Chromium UI with separately configured consent-required public client.
 source "$repo_root/scripts/interop/keycloak-browser-pkce-mcp-smoke.sh"
+# Independent published MCP Inspector CLI performs its OWN interactive OAuth.
+source "$repo_root/scripts/interop/keycloak-inspector-interactive-oauth-smoke.sh"
 echo "RESULT: KEYCLOAK_REAL_IDP_ISSUANCE_CONTRACT_PASS"
 echo "NOTE: Keycloak credentials, scripted PKCE, headless Chromium login and consent tested against local Worker/D1; no production hosted tenant/Worker, model-initiated UI or real-world user."
