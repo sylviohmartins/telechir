@@ -70,5 +70,7 @@ writeFileSync(
   JSON.stringify(realm),
   { mode: 0o600 },
 );
-console.log("PASS: disposable Keycloak realm and two ephemeral OAuth clients generated");
+console.log(
+  "PASS: disposable Keycloak realm and two ephemeral OAuth clients generated",
+);
 console.log("NOTE: secrets remain on CI runner and are never printed");

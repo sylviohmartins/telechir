@@ -15,13 +15,17 @@ import { decodeJwt, decodeProtectedHeader } from "jose";
 
 const [out, verifierModule] = process.argv.slice(2);
 if (!out || !verifierModule || process.argv.length !== 4) {
-  throw new Error("Usage: keycloak-real-idp-verify.mjs <private-temp-dir> <bundled-verifier.mjs>");
+  throw new Error(
+    "Usage: keycloak-real-idp-verify.mjs <private-temp-dir> <bundled-verifier.mjs>",
+  );
 }
 const issuer = "https://127.0.0.1:8844/realms/telechir-phase16";
 const resourceUri = "https://127.0.0.1:8988/mcp";
 const metadataUrl =
   "https://127.0.0.1:8844/.well-known/oauth-authorization-server/realms/telechir-phase16";
-const { JwtAccessTokenVerifier } = await import(pathToFileURL(verifierModule).href);
+const { JwtAccessTokenVerifier } = await import(
+  pathToFileURL(verifierModule).href
+);
 
 async function readJson(url, init) {
   const response = await fetch(url, {
@@ -38,7 +42,9 @@ const { status, body: metadata } = await readJson(metadataUrl);
 assert.equal(status, 200, "actual Keycloak must expose RFC8414 metadata");
 assert.equal(metadata.issuer, issuer);
 assert.ok(metadata.jwks_uri?.startsWith("https://127.0.0.1:8844/"));
-assert.ok(metadata.authorization_endpoint?.startsWith("https://127.0.0.1:8844/"));
+assert.ok(
+  metadata.authorization_endpoint?.startsWith("https://127.0.0.1:8844/"),
+);
 assert.ok(metadata.token_endpoint?.startsWith("https://127.0.0.1:8844/"));
 assert.ok(metadata.code_challenge_methods_supported?.includes("S256"));
 const { status: jwksStatus, body: jwks } = await readJson(metadata.jwks_uri);
@@ -48,7 +54,9 @@ for (const key of jwks.keys) {
   assert.equal(key.kty, "RSA", "Keycloak fixture must issue RS256 keys");
   assert.equal(key.d, undefined, "Keycloak JWKS must publish only public keys");
 }
-console.log("PASS: actual Keycloak RFC8414 discovery, HTTPS endpoints and public JWKS");
+console.log(
+  "PASS: actual Keycloak RFC8414 discovery, HTTPS endpoints and public JWKS",
+);
 
 async function grant(clientId) {
   const secret = readFileSync(join(out, clientId + ".secret"), "utf8").trim();
@@ -62,7 +70,11 @@ async function grant(clientId) {
       client_secret: secret,
     }),
   });
-  assert.equal(code, 200, "Keycloak OAuth client credentials grant must succeed");
+  assert.equal(
+    code,
+    200,
+    "Keycloak OAuth client credentials grant must succeed",
+  );
   assert.equal(body.token_type?.toLowerCase(), "bearer");
   assert.equal(typeof body.access_token, "string");
   assert.ok(body.expires_in > 0);
@@ -82,11 +94,13 @@ assert.ok(
 );
 assert.ok(
   typeof claims.scope === "string" &&
-  claims.scope.split(/\s+/u).includes("telechir:devices:read"),
+    claims.scope.split(/\s+/u).includes("telechir:devices:read"),
   "Keycloak must issue Telechir's least-privilege read scope",
 );
 assert.equal(typeof claims.sub, "string");
-console.log("PASS: actual Keycloak client_credentials grant issued signed resource-bound read JWT");
+console.log(
+  "PASS: actual Keycloak client_credentials grant issued signed resource-bound read JWT",
+);
 
 // This D1 adapter is scoped to subject-link verification, with the precise
 // SQL constraint asserted so no test can bypass linked-user disable behavior.
@@ -105,11 +119,11 @@ const db = {
       bind(foundIssuer, subjectHash) {
         return {
           async first() {
-            return (
-              !disabled &&
+            return !disabled &&
               foundIssuer === issuer &&
               subjectHash === expectedSubjectHash
-            ) ? { id: linkedUserId } : null;
+              ? { id: linkedUserId }
+              : null;
           },
         };
       },
@@ -119,7 +133,8 @@ const db = {
 const verifier = new JwtAccessTokenVerifier(db, {
   issuer,
   resourceUri,
-  resourceMetadataUrl: "https://127.0.0.1:8988/.well-known/oauth-protected-resource",
+  resourceMetadataUrl:
+    "https://127.0.0.1:8988/.well-known/oauth-protected-resource",
   subjectClaim: "sub",
   scopeClaim: "scope",
 });
@@ -129,7 +144,9 @@ assert.equal(verified.extra.telechir_user_id, linkedUserId);
 assert.ok(verified.scopes.includes("telechir:devices:read"));
 assert.equal(verified.resource.href, resourceUri);
 assert.equal(verified.token, token);
-console.log("PASS: Telechir PRODUCTION JwtAccessTokenVerifier validates real Keycloak JWT and linked subject");
+console.log(
+  "PASS: Telechir PRODUCTION JwtAccessTokenVerifier validates real Keycloak JWT and linked subject",
+);
 
 async function expectInvalid(bearer, reason) {
   let rejected = false;
@@ -146,8 +163,13 @@ assert.ok(
   ![].concat(decodeJwt(wrongAudienceToken).aud ?? []).includes(resourceUri),
   "Negative fixture must have genuinely wrong aud",
 );
-await expectInvalid(wrongAudienceToken, "validly signed Keycloak token with wrong audience");
-console.log("PASS: production verifier denies real Keycloak JWT with incorrect audience");
+await expectInvalid(
+  wrongAudienceToken,
+  "validly signed Keycloak token with wrong audience",
+);
+console.log(
+  "PASS: production verifier denies real Keycloak JWT with incorrect audience",
+);
 
 const parts = token.split(".");
 assert.equal(parts.length, 3);
@@ -155,16 +177,25 @@ assert.equal(parts.length, 3);
 // sometimes affect unused padding bits without changing signature bytes.
 const first = parts[2][0];
 const mutated = (first === "A" ? "B" : "A") + parts[2].slice(1);
-await expectInvalid(parts[0] + "." + parts[1] + "." + mutated, "modified Keycloak signature");
+await expectInvalid(
+  parts[0] + "." + parts[1] + "." + mutated,
+  "modified Keycloak signature",
+);
 console.log("PASS: production verifier denies JWT with changed signature");
 
 disabled = true;
 await expectInvalid(token, "deactivated linked synthetic principal");
-console.log("PASS: production verifier denies still-unexpired Keycloak JWT after linked-user disable");
+console.log(
+  "PASS: production verifier denies still-unexpired Keycloak JWT after linked-user disable",
+);
 disabled = false;
 const reenabled = await verifier.verifyAccessToken(token);
 assert.equal(reenabled.extra.telechir_user_id, linkedUserId);
-console.log("PASS: synthetic linked user re-enable restores valid Keycloak token verification");
+console.log(
+  "PASS: synthetic linked user re-enable restores valid Keycloak token verification",
+);
 
 console.log("RESULT: REAL_KEYCLOAK_IDP_PRODUCTION_JWT_VERIFIER_PASS");
-console.log("NOTE: genuine IdP/metadata/JWKS/token; in-process D1 adapter; no browser PKCE, LLM client or production endpoint");
+console.log(
+  "NOTE: genuine IdP/metadata/JWKS/token; in-process D1 adapter; no browser PKCE, LLM client or production endpoint",
+);
