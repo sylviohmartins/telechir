@@ -57,7 +57,9 @@
       "directAccessGrantsEnabled": false,
       "implicitFlowEnabled": false,
       "consentRequired": false,
-      "redirectUris": ["http://127.0.0.1:8798/callback"],
+      "redirectUris": [
+        "http://127.0.0.1:8798/callback"
+      ],
       "webOrigins": [],
       "attributes": {
         "pkce.code.challenge.method": "S256"
@@ -86,23 +88,6 @@
             "access.token.claim": "true",
             "id.token.claim": "false"
           }
-        }
-      ]
-    }
-  ],
-  "users": [
-    {
-      "username": "phase16-user-ci",
-      "enabled": true,
-      "emailVerified": true,
-      "firstName": "Phase16",
-      "lastName": "CI Fixture",
-      "requiredActions": [],
-      "credentials": [
-        {
-          "type": "password",
-          "value": "phase16-ci-browser-only-not-a-real-secret",
-          "temporary": false
         }
       ]
     }
