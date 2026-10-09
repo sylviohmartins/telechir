@@ -35,4 +35,18 @@ NODE_EXTRA_CA_CERTS="$work_dir/codex-oauth-dual-ca.crt" \
   "$repo_root/apps/control-plane/test/fixtures/keycloak-codex-cli-interactive-oauth.mjs" \
     "$work_dir" "$issuer" "$worker_url"
 echo "RESULT: KEYCLOAK_CODEX_OFFICIAL_PKCE_LOGIN_PASS"
-echo "NOTE: real Codex standalone mcp login, no API account, synthetic Keycloak and D1, not model inference."
+timeout 160s python3 "$repo_root/scripts/interop/codex-app-server-oauth-readonly.py" \
+  "$work_dir" "$work_dir/pkce/worker-device-id" read
+(
+  cd "$repo_root/apps/control-plane"
+  ./node_modules/.bin/wrangler d1 execute DB --local \
+    --persist-to "$worker_state" --file "$work_dir/browser-pkce/disable.sql" \
+    >"$work_dir/codex-disable.log" 2>&1 || {
+      echo "FAIL: Codex stored OAuth D1 principal could not be disabled" >&2
+      exit 1
+    }
+)
+timeout 160s python3 "$repo_root/scripts/interop/codex-app-server-oauth-readonly.py" \
+  "$work_dir" "$work_dir/pkce/worker-device-id" disabled
+echo "RESULT: KEYCLOAK_CODEX_OFFICIAL_OAUTH_MCP_D1_PASS"
+echo "NOTE: official Codex login + Codex app-server with same stored OAuth identity, no API account, model inference or real user."
