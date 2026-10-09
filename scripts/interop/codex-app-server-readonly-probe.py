@@ -63,6 +63,7 @@ def main():
         "HOME": str(root / "codex-user"),
         "PHASE16_CODEX_BEARER": token,
         "SSL_CERT_FILE": str(cert),
+        "CODEX_CA_CERTIFICATE": str(cert),
         "CURL_CA_BUNDLE": str(cert),
         "NODE_EXTRA_CA_CERTS": str(cert),
         "NO_PROXY": "127.0.0.1,localhost",
@@ -145,6 +146,22 @@ def main():
                          if any(needle in lowered for needle in needles)),
                         "unclassified",
                     )
+                    # The Codex process has no real user credentials. Even so,
+                    # scrub the synthetic JWT, bearer headers, private paths,
+                    # and very long opaque strings before diagnostic output.
+                    detail = raw.replace(token, "[SYNTHETIC_JWT_REDACTED]")
+                    detail = detail.replace(str(root), "[EPHEMERAL_DIR]")
+                    detail = re.sub(
+                        r"Bearer\\s+[^\\s,;'\\\"]+", "Bearer [REDACTED]",
+                        detail, flags=re.IGNORECASE,
+                    )
+                    detail = re.sub(
+                        r"eyJ[A-Za-z0-9_-]+\\.eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+",
+                        "[JWT_REDACTED]", detail,
+                    )
+                    detail = re.sub(r"[A-Za-z0-9_-]{150,}", "[OPAQUE_REDACTED]", detail)
+                    detail = re.sub(r"[\\r\\n\\t]+", " ", detail)[:450]
+                    print(f"DIAG: Codex sanitized MCP error: {detail}", flush=True)
                     raise AppServerError(
                         f"Codex {method} returned protocol error {code}, category={category}"
                     )
