@@ -174,12 +174,32 @@ inspector_scope_link_code="$(curl --silent --show-error --cacert "$tmp/root.crt"
   --write-out "%{http_code}" \
   -X PUT "https://127.0.0.1:9443/admin/realms/telechir-phase16/clients/$inspector_client_uuid/optional-client-scopes/$inspector_scope_id" \
   -H "Authorization: Bearer $admin_token")"
-unset admin_token
 [[ "$inspector_scope_link_code" == "204" ]] || {
+  unset admin_token
   echo "FAIL: unable to link optional read-only Inspector scope (HTTP $inspector_scope_link_code)" >&2
   exit 1
 }
 echo "PASS: Keycloak Admin REST created and assigned Inspector devices:read without altering built-in realm defaults"
+# Reuse the exact same optional read-only scope for the separate Gemini CI
+# client; do not change realm defaults or attach write-capable scopes.
+curl --fail --silent --show-error --cacert "$tmp/root.crt" --max-time 12 \
+  -H "Authorization: Bearer $admin_token" \
+  "https://127.0.0.1:9443/admin/realms/telechir-phase16/clients?clientId=telechir-phase16-gemini" \
+  -o "$tmp/gemini-client.json"
+gemini_client_uuid="$(jq -er \
+  '[.[] | select(.clientId=="telechir-phase16-gemini")] | if length==1 then .[0].id else error("Gemini client not unique") end' \
+  "$tmp/gemini-client.json")"
+gemini_scope_link_code="$(curl --silent --show-error --cacert "$tmp/root.crt" \
+  --max-time 20 --output "$tmp/link-gemini-scope.json" \
+  --write-out "%{http_code}" \
+  -X PUT "https://127.0.0.1:9443/admin/realms/telechir-phase16/clients/$gemini_client_uuid/optional-client-scopes/$inspector_scope_id" \
+  -H "Authorization: Bearer $admin_token")"
+unset admin_token
+[[ "$gemini_scope_link_code" == "204" ]] || {
+  echo "FAIL: unable to link read-only Gemini scope (HTTP $gemini_scope_link_code)" >&2
+  exit 1
+}
+echo "PASS: Gemini public OAuth test client registered with optional read-only scope; built-in Keycloak scopes unchanged"
 curl --fail --silent --show-error --cacert "$tmp/root.crt" --max-time 10 \
   "$issuer/.well-known/openid-configuration" -o "$tmp/oidc.json"
 jq -e --arg iss "$issuer" '.issuer==$iss' "$tmp/oidc.json" >/dev/null
@@ -227,6 +247,8 @@ source "$repo_root/scripts/interop/keycloak-workerd-direct-tls-smoke.sh"
 source "$repo_root/scripts/interop/keycloak-real-pkce-mcp-smoke.sh"
 # Real headless Chromium UI with separately configured consent-required public client.
 source "$repo_root/scripts/interop/keycloak-browser-pkce-mcp-smoke.sh"
+# Provider-specific RFC9207 preflight only; not a Gemini interactive auth claim.
+NODE_EXTRA_CA_CERTS="$work_dir/root.crt" node "$repo_root/apps/control-plane/test/fixtures/keycloak-gemini-issuer-preflight.mjs" "$work_dir" "$issuer" "$worker_url"
 # Independent published MCP Inspector CLI performs its OWN interactive OAuth.
 source "$repo_root/scripts/interop/keycloak-inspector-interactive-oauth-smoke.sh"
 echo "RESULT: KEYCLOAK_REAL_IDP_ISSUANCE_CONTRACT_PASS"
