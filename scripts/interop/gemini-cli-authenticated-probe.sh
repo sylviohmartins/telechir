@@ -44,6 +44,26 @@ fi
 if ! grep -Eqi 'telechir-fixture.*[[:space:]]-[[:space:]]Connected|telechir-fixture.*CONNECTED' \
   "$work_dir/gemini-list.out"; then
   echo "FAIL: real Gemini CLI did not report an authenticated MCP connection" >&2
+  # Emit only Boolean classifications; NEVER print raw CLI output or tokens.
+  node --input-type=module - "$work_dir" <<'NODE'
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+const [dir] = process.argv.slice(2);
+const plain = readFileSync(join(dir, "gemini-list.out"), "utf8")
+  .replace(/\x1b\[[0-9;]*m/g, "");
+const stderr = readFileSync(join(dir, "gemini-list.err"), "utf8");
+console.error("DIAG: " + JSON.stringify({
+  stdout_has_alias: plain.includes("telechir-fixture"),
+  stdout_has_connected: /\bconnected\b/i.test(plain),
+  stdout_has_disconnected: /\bdisconnected\b/i.test(plain),
+  stdout_has_no_servers: /no.*servers|no.*configured/i.test(plain),
+  stderr_has_auth: /authenticat|authorization/i.test(stderr),
+  stderr_has_tls: /certificate|tls|ssl/i.test(stderr),
+  stderr_has_config: /settings|config/i.test(stderr),
+  stdout_bytes: plain.length,
+  stderr_bytes: stderr.length,
+}));
+NODE
   # No raw output: may contain synthetic credentials in config diagnostics.
   exit 1
 fi
