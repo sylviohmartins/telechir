@@ -4,7 +4,7 @@
 **Issue:** #49
 **Gate:** execução do servidor oficial Keycloak **26.8.0** em contêiner descartável, com criação do realm sintético pela **Admin REST API oficial autenticada** e HTTPS no loopback.
 
-**Status inicial:** aguardando CI.
+**Status:** **PASS limitado** — Keycloak real emitindo JWT com audiência MCP e JWKS HTTPS no [GitHub Actions #37975016365](https://github.com/sylviohmartins/telechir/actions/runs/37975016365) (3/3 jobs success).
 
 ## Escopo do gate
 
@@ -27,4 +27,14 @@ O `JwtAccessTokenVerifier` admite parametrizar `OAUTH_SCOPE_CLAIM`; a claim espe
 
 Referências oficiais: [Keycloak: execução em Docker](https://www.keycloak.org/getting-started/getting-started-docker), [Keycloak: importação de realms](https://www.keycloak.org/server/containers), [Keycloak: Audience mapper](https://www.keycloak.org/docs/latest/server_admin/).
 
-**CI final:** pendente.
+**Prova CI de integração [#37975016365](https://github.com/sylviohmartins/telechir/actions/runs/37975016365):** três jobs `success` no head testado. O job Keycloak retornou:
+- `PASS: actual Keycloak 26.8.0 master realm HTTPS OIDC discovery`;
+- `PASS: real Keycloak realm provisioned through authenticated Admin REST API`;
+- `PASS: real Keycloak RS256 token verified against live HTTPS JWKS`;
+- `PASS: exact Telechir resource audience, linked subject, scope mapper, expiry and azp`;
+- `PASS: real Keycloak token fails closed with wrong MCP audience`;
+- `RESULT: KEYCLOAK_REAL_IDP_ISSUANCE_CONTRACT_PASS`.
+
+**Depuração:** a primeira tentativa com `--import-realm` encontrou erro de diretório no bootstrap da imagem. Para evitar depender de montagem e importação de arquivo na inicialização, o realm passou a ser criado pelo **endpoint administrativo oficial autenticado após o boot do realm master**. Nenhuma alteração no aplicativo Telechir ou na política de autenticação foi necessária. O teste definitivo do último commit documental deve confirmar novamente 3/3 jobs.
+
+**Limite de homologação:** JWT `client_credentials` real emitido por Keycloak, verificado pelo script `jose` contra JWKS reais, porém **ainda não consumido pelo Worker Telechir**. Não atribuir PASS de `Authorization Code + PKCE` real ou login humano a este gate.
