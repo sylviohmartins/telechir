@@ -3,7 +3,8 @@
  * Never import this fixture in src/index.ts or package as a production worker.
  *
  * HTTPS MCP traffic uses mcpHttpRoute and the production JwtAccessTokenVerifier.
- * Only remote OAuth discovery/JWKS responses are synthetic.
+ * Default fixture replays public OAuth documents, whereas explicit real-IdP
+ * CI mode exercises production native fetch directly over verified TLS.
  */
 import type { Env } from "../../src/env";
 import { mcpHttpRoute } from "../../src/mcp-http";
@@ -18,6 +19,7 @@ export { DeviceCoordinator } from "../../src/device-coordinator";
 type FixtureEnv = Env & {
   PHASE16_TEST_JWKS?: string;
   PHASE16_TEST_AUTHORIZATION_METADATA?: string;
+  PHASE16_TEST_DIRECT_KEYCLOAK?: string;
 };
 
 function testOnlyDocuments(
@@ -124,21 +126,34 @@ export default {
     if (url.pathname !== "/mcp") {
       return new Response(null, { status: 404 });
     }
-    if (!env.PHASE16_TEST_JWKS) {
+    const directKeycloak = env.PHASE16_TEST_DIRECT_KEYCLOAK === "true";
+    if (!directKeycloak && !env.PHASE16_TEST_JWKS) {
       return new Response(null, { status: 503 });
     }
     try {
       const config = oauthConfigFromEnv(env);
       const { explicitJwksUri: _omitted, ...discovered } = config;
-      const verifier = new JwtAccessTokenVerifier(
-        env.DB,
-        discovered,
-        testOnlyDocuments(
-          discovered.issuer,
-          env.PHASE16_TEST_JWKS,
-          env.PHASE16_TEST_AUTHORIZATION_METADATA,
-        ),
-      );
+      if (
+        directKeycloak &&
+        (discovered.issuer !==
+          "https://127.0.0.1:9443/realms/telechir-phase16" ||
+          env.PHASE16_TEST_JWKS ||
+          env.PHASE16_TEST_AUTHORIZATION_METADATA)
+      ) {
+        // Never silently fall back to trusted snapshots in direct mode.
+        return new Response(null, { status: 503 });
+      }
+      const verifier = directKeycloak
+        ? new JwtAccessTokenVerifier(env.DB, discovered)
+        : new JwtAccessTokenVerifier(
+            env.DB,
+            discovered,
+            testOnlyDocuments(
+              discovered.issuer,
+              env.PHASE16_TEST_JWKS!,
+              env.PHASE16_TEST_AUTHORIZATION_METADATA,
+            ),
+          );
       return (
         (await mcpHttpRoute(request, env, url, verifier)) ??
         new Response(null, { status: 404 })
