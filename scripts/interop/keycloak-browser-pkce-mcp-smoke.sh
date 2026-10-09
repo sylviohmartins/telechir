@@ -25,7 +25,7 @@ NODE_EXTRA_CA_CERTS="$work_dir/root.crt" \
       exit 1
     }
 )
-echo "PASS: Chromium login human subject linked to isolated D1 device"
+echo "PASS: same Keycloak human subject reactivated across distinct OAuth clients in unique D1 identity; no duplicate owner"
 start_direct_worker "$work_dir/root.crt" "chromium-browser-pkce"
 NODE_EXTRA_CA_CERTS="$worker_ca" NO_PROXY="127.0.0.1,localhost" \
   no_proxy="127.0.0.1,localhost" \
