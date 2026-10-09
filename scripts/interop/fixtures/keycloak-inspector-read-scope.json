@@ -1,0 +1,9 @@
+{
+  "name": "telechir:devices:read",
+  "protocol": "openid-connect",
+  "attributes": {
+    "include.in.token.scope": "true",
+    "display.on.consent.screen": "true",
+    "consent.screen.text": "Read Telechir devices"
+  }
+}
