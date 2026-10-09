@@ -65,7 +65,7 @@ for _ in $(seq 1 180); do
     echo "FAIL: Keycloak exited before realm was ready" >&2
     # Include bounded startup diagnostics only. Test credentials are static
     # fixture values and no tokens exist prior to a successful startup.
-    docker logs "$container" 2>&1 | tail -n 25 | sed -E 's/(password|secret|token)=([^ ]+)/\\1=[REDACTED]/Ig' >&2 || true
+    docker logs "$container" 2>&1 | grep -Ei 'ERROR|Caused by|FileNotFound|directory|Import|Permission|could not|NoSuchFile' | head -n 24 | sed -E 's/(password|secret|token)=([^ ]+)/\\1=[REDACTED]/Ig' >&2 || true
     exit 1
   fi
   if curl --fail --silent --cacert "$tmp/root.crt" --connect-timeout 2 \
