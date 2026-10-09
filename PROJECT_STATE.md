@@ -122,6 +122,7 @@ As avaliações relevantes estão em:
 - `docs/testing/acceptance/phase16-independent-inspector-gate-2026-10-08.md`
 - `docs/testing/acceptance/phase16-oauth-fail-closed-regression-2026-10-08.md`
 - `docs/testing/acceptance/phase16-signed-jwt-client-integration-2026-10-09.md`
+- `docs/testing/acceptance/phase16-authenticated-inspector-ci-2026-10-09.md`
 - `docs/research/mcp/phase16-external-client-smoke-plan-2026-10-08.md`
 - `docs/security/threat-model/phase16-client-interoperability-2026-10-08.md`
 

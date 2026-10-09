@@ -21,6 +21,10 @@
 
 O job `independent-inspector` executa o `@modelcontextprotocol/inspector@2.5.0` real em processo independente contra um Worker Wrangler isolado por HTTPS. Testa exclusivamente a negativa sem bearer: TLS com pinning, discovery de metadata OAuth, 401 no wire e código 3 (`auth_required`) no Inspector com `--stored-auth-only`. **PASS REAL VERIFICADO:** job Inspector CLI do run GitHub Actions [#37845791616](https://github.com/sylviohmartins/telechir/actions/runs/37845791616) concluído `success` com TLS pinning, metadata, 401 e `auth_required` (exit 3). Mesmo assim, acesso autenticado às 24 tools e clientes de IA de fornecedores continuam BLOCKED/NOT_TESTED. Evidência/limites: `docs/testing/acceptance/phase16-independent-inspector-gate-2026-10-08.md`.
 
+## Ensaio autenticado independente (CI; conclusão a verificar)
+
+Adicionado harness `scripts/interop/inspector-authenticated-smoke.sh`: Worker de fixture isolado com rota MCP real, `JwtAccessTokenVerifier` real, JWT RS256 efêmero, descoberta OAuth/JWKS sintética, D1 local com usuário/device sintético, HTTPS local com pinning, Inspector CLI 2.5.0 real verificando initialize, 24 tools, leitura `list_devices` e negação de escrita. **Até CI remoto concluir, status NOT_VERIFIED.** A evidência completa e os limites estão em `docs/testing/acceptance/phase16-authenticated-inspector-ci-2026-10-09.md`. Não é IdP real nem cliente comercial certificado.
+
 ## Regressões do verificador OAuth (in-process)
 
 O ciclo adicional de Phase 16 acrescentou casos de **usuário desativado**, **deduplicação de scopes JWT como string/array** e **rejeição de token malformado/alg=none antes de busca JWKS** no verificador real. Ensaio direcionado `oauth.test.ts`: **13/13 PASS**. **Isto não é um teste do Inspector autenticado.** A integração cliente externo + JWT válido + D1 de homologação permanece `NOT_TESTED`. Detalhes em `docs/testing/acceptance/phase16-oauth-fail-closed-regression-2026-10-08.md`.

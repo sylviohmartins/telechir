@@ -84,3 +84,9 @@ jobs:
 
       - name: Run isolated real MCP Inspector CLI without credentials
         run: bash ../../scripts/interop/inspector-unauthenticated-smoke.sh
+
+      - name: Check authenticated Inspector harness shell syntax
+        run: bash -n ../../scripts/interop/inspector-authenticated-smoke.sh
+
+      - name: Run isolated signed JWT MCP Inspector CLI integration
+        run: bash ../../scripts/interop/inspector-authenticated-smoke.sh
