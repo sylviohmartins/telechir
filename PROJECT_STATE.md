@@ -41,6 +41,8 @@ A implementação possui Local Agent Core, control plane, identidade/pairing Ed2
 
 **Gate Chromium GUI e consentimento COMPROVADO na CI #37989967995 (3/3 jobs, dois marcadores PASS):** Chrome Stable headless real via Playwright, Keycloak com PKCE S256 e tela de consentimento obrigatório (aprovação/recusa), callback loopback real, trust NSS da CA efêmera sem bypass, código expirado/repetido ou verifier incorreto recusado, `state` verificado pelo cliente e JWT com audiência MCP. O Workerd usou discovery/JWKS HTTPS diretas e o D1 **reutilizou a identidade única de mesmo `sub`** entre o cliente HTTP e Chrome, mantendo isolamento, scope e disabled fail-closed. Detalhes: `docs/testing/acceptance/phase16-keycloak-browser-pkce-2026-10-09.md`. **Não equivale a pessoa real, MFA, cliente comercial autenticado por OAuth, Cloudflare implantada ou fluxo LLM.** Phase 16 continua `IN_PROGRESS` / issue #49 aberta; conferir 3/3 no último head documental.
 
+**Gate Inspector oficial — OAuth INTERATIVO REAL comprovado em CI #37992688505 (3/3 jobs PASS):** O cliente publicado `@modelcontextprotocol/inspector@2.5.0` inicia o próprio OAuth diante do challenge 401 do Telechir, controla PKCE S256, discovery, code exchange, callback loopback e retoma efetivamente `tools/call:list_devices`. Um Chrome real só conduz login/consentimento na UI Keycloak 26.8.0. Escopo mínimo `telechir:devices:read` configurado via arquivo privado; extensão opcional criada pela API Admin REST **sem alterar escopos OIDC padrão**; Workerd consulta metadata/JWKS diretamente por HTTPS e D1 usa o mesmo owner/device, sem Bearer previamente injetado. Marcadores `KEYCLOAK_REAL_INSPECTOR_INTERACTIVE_OAUTH_MCP_PASS` e `KEYCLOAK_INSPECTOR_EXTERNAL_OAUTH_CLIENT_PASS`. Documento: `docs/testing/acceptance/phase16-inspector-interactive-oauth-2026-10-09.md`. **Não comprova integração OAuth interativa em ChatGPT/Codex/Claude/Gemini/Copilot, deploy hospedado ou usuário real.** Issue #49 mantém-se OPEN e `PHASE_16_IN_PROGRESS`; novo head documental aguarda CI final.
+
 ## Decisões atuais
 
 - **Telechir é a marca oficial do produto.**
@@ -139,6 +141,7 @@ As avaliações relevantes estão em:
 - `docs/testing/acceptance/phase16-keycloak-workerd-direct-tls-2026-10-09.md`
 - `docs/testing/acceptance/phase16-keycloak-real-pkce-2026-10-09.md`
 - `docs/testing/acceptance/phase16-keycloak-browser-pkce-2026-10-09.md`
+- `docs/testing/acceptance/phase16-inspector-interactive-oauth-2026-10-09.md`
 - `docs/research/mcp/phase16-external-client-smoke-plan-2026-10-08.md`
 - `docs/security/threat-model/phase16-client-interoperability-2026-10-08.md`
 

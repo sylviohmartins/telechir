@@ -147,6 +147,8 @@ jobs:
           bash -n scripts/interop/keycloak-real-idp-contract.sh
           bash -n scripts/interop/keycloak-browser-pkce-mcp-smoke.sh
           node --check apps/control-plane/test/fixtures/keycloak-browser-pkce.mjs
+          bash -n scripts/interop/keycloak-inspector-interactive-oauth-smoke.sh
+          node --check apps/control-plane/test/fixtures/keycloak-inspector-interactive-oauth.mjs
 
       - name: Verify real disposable Keycloak HTTPS OIDC and JWT issuance
         run: bash scripts/interop/keycloak-real-idp-contract.sh
