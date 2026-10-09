@@ -139,6 +139,7 @@ As avaliações relevantes estão em:
 - `docs/testing/acceptance/phase16-keycloak-workerd-direct-tls-2026-10-09.md`
 - `docs/testing/acceptance/phase16-keycloak-real-pkce-2026-10-09.md`
 - `docs/testing/acceptance/phase16-keycloak-browser-pkce-2026-10-09.md`
+- `docs/testing/acceptance/phase16-inspector-interactive-oauth-2026-10-09.md`
 - `docs/research/mcp/phase16-external-client-smoke-plan-2026-10-08.md`
 - `docs/security/threat-model/phase16-client-interoperability-2026-10-08.md`
 
