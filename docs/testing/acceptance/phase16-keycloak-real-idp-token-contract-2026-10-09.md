@@ -1,7 +1,7 @@
 # Phase 16 — contrato de tokens com Keycloak real
 
-**Data:** 2026-10-09  
-**Issue:** #49  
+**Data:** 2026-10-09
+**Issue:** #49
 **Gate:** execução do servidor oficial Keycloak **26.8.0** em contêiner descartável, com importação de realm local e HTTPS no loopback.
 
 **Status inicial:** aguardando CI.
