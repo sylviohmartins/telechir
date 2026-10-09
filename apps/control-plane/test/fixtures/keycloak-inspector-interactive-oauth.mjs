@@ -205,17 +205,28 @@ function checkJson(raw) {
     read.structuredContent.devices.every((d) => d.device_id !== foreignDevice),
   );
 }
+// Cancel watchdog timers as soon as the client progresses. Uncancelled
+// Promise.race timers otherwise keep an already-successful CI process alive.
+async function bounded(promise, ms, description) {
+  let timeout;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timeout = setTimeout(() => reject(new Error(description)), ms);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 const inspector = startInspector();
 try {
-  const authUrl = await Promise.race([
+  const authUrl = await bounded(
     inspector.authPromise,
-    new Promise((_, reject) =>
-      setTimeout(
-        () => reject(new Error("Inspector never initiated OAuth")),
-        45000,
-      ),
-    ),
-  ]);
+    45000,
+    "Inspector never initiated OAuth",
+  );
   const url = new URL(authUrl);
   assert.equal(url.origin, new URL(issuer).origin);
   assert.equal(
@@ -283,16 +294,11 @@ try {
     "PASS: real Chrome drove official Keycloak login and consent to Inspector-owned callback",
   );
 
-  const outcome = await Promise.race([
+  const outcome = await bounded(
     inspector.completion,
-    new Promise((_, reject) =>
-      setTimeout(
-        () =>
-          reject(new Error("Inspector did not return MCP result after OAuth")),
-        35000,
-      ),
-    ),
-  ]);
+    35000,
+    "Inspector did not return MCP result after OAuth",
+  );
   if (outcome.code !== 0) {
     // Only a restricted error CLASS — never print stderr, which can include
     // OAuth URLs, codes, state or tokens.
