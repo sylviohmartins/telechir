@@ -17,6 +17,14 @@ O script `scripts/interop/keycloak-workerd-direct-tls-smoke.sh` executa duas ins
 
 Ambos servidores HTTPS usam leaf de `CA:FALSE`, chains verificáveis e `verify-local-tls.mjs` para comparar leaf apresentado e trust chain antes de enviar Bearer. Não há `NODE_TLS_REJECT_UNAUTHORIZED=0`, `curl -k`, trust system-wide, segredo de produção ou fallback para documento público simulado.
 
+## Defeito de interoperabilidade encontrado e corrigido
+
+O primeiro CI (job Keycloak do PR #68) rejeitou corretamente o JWT com CA desconhecida, porém também devolveu 401 com CA correta. Foi adicionado ao **Worker somente de CI** um diagnóstico `/__phase16_direct_idp_probe` que consulta os documentos OAuth/JWKS sem tocar no JWT. A segunda execução expôs a mensagem real do Workerd: `redirect: "error"` não é aceito por `fetch()` do runtime de borda.
+
+Correção em `apps/control-plane/src/oauth.ts`: `redirect: "manual"` e rejeição explícita de respostas HTTP não `ok` (incluindo 3xx) **ou já redirecionadas**. O destino redirecionado não é acessado; não há relaxamento de origem, alg, issuer, audience ou scopes. O teste `oauth.test.ts` adicionou regressão para HTTP 302 com `Location` não confiável exigindo `OAuthErrorCode.InvalidToken`.
+
+Depois da correção, o terceiro CI confirmou **HTTP 401** com CA errada e **sucesso no fetch direto de discovery e JWKS e na leitura autorizada** com CA correta (CI #37982415861), além dos 3/3 jobs de regressão.
+
 ## Validação e limites
 
 Exigir CI no head final com 3/3 jobs success e marcadores positivos/negativos do gate direto. Não presumir que `NODE_EXTRA_CA_CERTS` sempre funcione: diferenças de versões Wrangler/Miniflare/Workerd e interceptação TLS podem causar bloqueio; registrar a causa objetiva, sem atribuir PASS em falha. A variante anterior com documentos públicos replayed continua como regressão, independente deste teste.
