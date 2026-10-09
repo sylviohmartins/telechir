@@ -28,8 +28,14 @@ mkdirSync(dir, { recursive: true, mode: 0o700 });
 const metadata = JSON.parse(readFileSync(join(temp, "oidc.json"), "utf8"));
 const jwks = JSON.parse(readFileSync(join(temp, "jwks.json"), "utf8"));
 assert.equal(metadata.issuer, issuer);
-assert.equal(metadata.authorization_endpoint, issuer + "/protocol/openid-connect/auth");
-assert.equal(metadata.token_endpoint, issuer + "/protocol/openid-connect/token");
+assert.equal(
+  metadata.authorization_endpoint,
+  issuer + "/protocol/openid-connect/auth",
+);
+assert.equal(
+  metadata.token_endpoint,
+  issuer + "/protocol/openid-connect/token",
+);
 assert.ok(metadata.code_challenge_methods_supported.includes("S256"));
 const pinnedKey = createLocalJWKSet(jwks);
 
@@ -37,9 +43,27 @@ function trustStore(home, ca) {
   for (const relative of [".pki/nssdb", ".local/share/pki/nssdb"]) {
     const store = join(home, relative);
     mkdirSync(store, { recursive: true, mode: 0o700 });
-    execFileSync("certutil", ["-N", "--empty-password", "-d", "sql:" + store], { stdio: "pipe" });
-    execFileSync("certutil", ["-A", "-d", "sql:" + store, "-n", "telechir-ephemeral-ci-ca", "-t", "C,,", "-i", ca], { stdio: "pipe" });
-    const listed = execFileSync("certutil", ["-L", "-d", "sql:" + store], { encoding: "utf8" });
+    execFileSync("certutil", ["-N", "--empty-password", "-d", "sql:" + store], {
+      stdio: "pipe",
+    });
+    execFileSync(
+      "certutil",
+      [
+        "-A",
+        "-d",
+        "sql:" + store,
+        "-n",
+        "telechir-ephemeral-ci-ca",
+        "-t",
+        "C,,",
+        "-i",
+        ca,
+      ],
+      { stdio: "pipe" },
+    );
+    const listed = execFileSync("certutil", ["-L", "-d", "sql:" + store], {
+      encoding: "utf8",
+    });
     assert.match(listed, /telechir-ephemeral-ci-ca/u);
   }
 }
@@ -54,10 +78,18 @@ async function browser(home, ca) {
 }
 const wrongBrowser = await browser(join(dir, "untrusted-home"), otherCert);
 try {
-  const badContext = await wrongBrowser.newContext({ ignoreHTTPSErrors: false });
+  const badContext = await wrongBrowser.newContext({
+    ignoreHTTPSErrors: false,
+  });
   try {
     await assert.rejects(
-      badContext.newPage().then((page) => page.goto(issuer + "/.well-known/openid-configuration", { timeout: 12000 })),
+      badContext
+        .newPage()
+        .then((page) =>
+          page.goto(issuer + "/.well-known/openid-configuration", {
+            timeout: 12000,
+          }),
+        ),
       /ERR_CERT_AUTHORITY_INVALID|ERR_CERT_INVALID/u,
       "Chromium must reject Keycloak when the only trusted CA belongs to Worker",
     );
@@ -67,7 +99,9 @@ try {
 } finally {
   await wrongBrowser.close();
 }
-console.log("PASS: real Chromium rejects Keycloak issuer under unrelated CI CA");
+console.log(
+  "PASS: real Chromium rejects Keycloak issuer under unrelated CI CA",
+);
 
 const chrome = await browser(join(dir, "trusted-home"), cert);
 async function context() {
@@ -79,11 +113,20 @@ async function context() {
   });
   await ctx.route("**/*", (route) => {
     const url = new URL(route.request().url());
-    if (url.href.startsWith(callback + "?") && url.origin + url.pathname === callback) {
-      return route.fulfill({ status: 200, contentType: "text/html", body: "<html><body>CI-only OAuth callback received</body></html>" });
+    if (
+      url.href.startsWith(callback + "?") &&
+      url.origin + url.pathname === callback
+    ) {
+      return route.fulfill({
+        status: 200,
+        contentType: "text/html",
+        body: "<html><body>CI-only OAuth callback received</body></html>",
+      });
     }
-    if (url.origin === new URL(issuer).origin &&
-        url.pathname.startsWith(new URL(issuer).pathname + "/")) {
+    if (
+      url.origin === new URL(issuer).origin &&
+      url.pathname.startsWith(new URL(issuer).pathname + "/")
+    ) {
       return route.continue();
     }
     return route.abort("blockedbyclient");
@@ -94,7 +137,9 @@ function pair() {
   const verifier = randomBytes(32).toString("base64url");
   return {
     verifier,
-    challenge: createHash("sha256").update(verifier, "ascii").digest("base64url"),
+    challenge: createHash("sha256")
+      .update(verifier, "ascii")
+      .digest("base64url"),
   };
 }
 function authorizationUrl(pkce, state) {
@@ -109,13 +154,18 @@ function authorizationUrl(pkce, state) {
     prompt: "login",
     code_challenge: pkce.challenge,
     code_challenge_method: "S256",
-  })) url.searchParams.set(key, value);
+  }))
+    url.searchParams.set(key, value);
   return url.href;
 }
 function validatedCallback(raw, state) {
   const url = new URL(raw);
   assert.equal(url.origin + url.pathname, callback);
-  assert.equal(url.searchParams.get("state"), state, "OAuth callback state mismatch");
+  assert.equal(
+    url.searchParams.get("state"),
+    state,
+    "OAuth callback state mismatch",
+  );
   return url;
 }
 async function loginToConsent() {
@@ -128,7 +178,9 @@ async function loginToConsent() {
   await page.locator("#username").fill(username);
   await page.locator("#password").fill(password);
   await page.locator("#kc-login").click();
-  await page.locator('[name="accept"]').waitFor({ state: "visible", timeout: 12000 });
+  await page
+    .locator('[name="accept"]')
+    .waitFor({ state: "visible", timeout: 12000 });
   assert.equal(new URL(page.url()).origin, new URL(issuer).origin);
   assert.equal(await page.locator('[name="cancel"]').count(), 1);
   return { ctx, page, pkce, state };
@@ -137,9 +189,12 @@ async function consent(decision) {
   const flow = await loginToConsent();
   const { ctx, page, pkce, state } = flow;
   try {
-    const control = decision === "accept" ? '[name="accept"]' : '[name="cancel"]';
+    const control =
+      decision === "accept" ? '[name="accept"]' : '[name="cancel"]';
     await Promise.all([
-      page.waitForURL((url) => url.origin + url.pathname === callback, { timeout: 15000 }),
+      page.waitForURL((url) => url.origin + url.pathname === callback, {
+        timeout: 15000,
+      }),
       page.locator(control).click(),
     ]);
     const uri = validatedCallback(page.url(), state);
@@ -179,30 +234,50 @@ async function denied(response, why) {
 try {
   const declined = await consent("cancel");
   assert.equal(declined.uri.searchParams.has("code"), false);
-  console.log("PASS: real Chromium Keycloak consent cancel returns access_denied without code");
+  console.log(
+    "PASS: real Chromium Keycloak consent cancel returns access_denied without code",
+  );
 
   const accepted = await consent("accept");
   const fake = new URL(accepted.uri);
   fake.searchParams.set("state", randomBytes(24).toString("base64url"));
-  assert.throws(() => validatedCallback(fake.href, accepted.state), /state mismatch/u);
-  console.log("PASS: browser OAuth client refuses substituted state before token exchange");
+  assert.throws(
+    () => validatedCallback(fake.href, accepted.state),
+    /state mismatch/u,
+  );
+  console.log(
+    "PASS: browser OAuth client refuses substituted state before token exchange",
+  );
 
   const goodCode = accepted.uri.searchParams.get("code");
   const response = await redeem(goodCode, accepted.pkce.verifier);
-  assert.equal(response.status, 200, "real Chromium-issued authorization code exchange must succeed");
+  assert.equal(
+    response.status,
+    200,
+    "real Chromium-issued authorization code exchange must succeed",
+  );
   const issued = await response.json();
   assert.equal(typeof issued.access_token, "string");
   const signed = await jwtVerify(issued.access_token, pinnedKey, {
-    issuer, audience: resource, algorithms: ["RS256"],
+    issuer,
+    audience: resource,
+    algorithms: ["RS256"],
   });
   assert.equal(signed.payload.azp, client);
   assert.equal(signed.payload.preferred_username, username);
   assert.equal(signed.payload.telechir_scope_fixture, "telechir:devices:read");
-  assert.ok(typeof signed.payload.sub === "string" && signed.payload.sub.length > 0);
+  assert.ok(
+    typeof signed.payload.sub === "string" && signed.payload.sub.length > 0,
+  );
   const service = JSON.parse(readFileSync(join(temp, "token.json"), "utf8"));
   assert.notEqual(signed.payload.sub, decodeJwt(service.access_token).sub);
-  await denied(await redeem(goodCode, accepted.pkce.verifier), "used authorization code replay");
-  console.log("PASS: Chromium-approved Keycloak S256 code exchanges for audience-bound human JWT and forbids replay");
+  await denied(
+    await redeem(goodCode, accepted.pkce.verifier),
+    "used authorization code replay",
+  );
+  console.log(
+    "PASS: Chromium-approved Keycloak S256 code exchanges for audience-bound human JWT and forbids replay",
+  );
 
   // Already-consented sessions may bypass a repeat consent page. A new client
   // context still needs a real browser login. Test invalid verifier before
@@ -217,7 +292,9 @@ try {
       await page.locator("#username").fill(username);
       await page.locator("#password").fill(password);
       await Promise.all([
-        page.waitForURL((url) => url.origin + url.pathname === callback, { timeout: 15000 }),
+        page.waitForURL((url) => url.origin + url.pathname === callback, {
+          timeout: 15000,
+        }),
         page.locator("#kc-login").click(),
       ]);
       const uri = validatedCallback(page.url(), state);
@@ -228,37 +305,79 @@ try {
     }
   }
   const wrongVerifier = await anotherCode();
-  await denied(await redeem(wrongVerifier.code, pair().verifier), "wrong PKCE verifier");
+  await denied(
+    await redeem(wrongVerifier.code, pair().verifier),
+    "wrong PKCE verifier",
+  );
   console.log("PASS: Chromium login code rejects an unrelated S256 verifier");
 
   const expiring = await anotherCode();
   await new Promise((resolve) => setTimeout(resolve, 15000));
-  await denied(await redeem(expiring.code, expiring.pkce.verifier), "expired authorization code");
+  await denied(
+    await redeem(expiring.code, expiring.pkce.verifier),
+    "expired authorization code",
+  );
   console.log("PASS: Keycloak refuses expired browser authorization code");
 
   const linked = randomUUID();
   const device = randomUUID();
   const foreign = readFileSync(join(temp, "worker-device-id"), "utf8");
-  const hash = createHash("sha256").update(signed.payload.sub).digest("base64url");
+  const hash = createHash("sha256")
+    .update(signed.payload.sub)
+    .digest("base64url");
   const now = new Date().toISOString();
-  const seed = [
-    "INSERT INTO users (id, identity_provider, provider_subject_hash, display_name, created_at, disabled_at) VALUES ('" +
-      linked + "', '" + issuer + "', '" + hash + "', 'Chromium PKCE CI user', '" + now + "', NULL);",
-    "INSERT INTO devices (id, user_id, display_name, os, arch, agent_version, status_hint, last_seen_at, created_at, revoked_at) VALUES ('" +
-      device + "', '" + linked + "', 'Chromium PKCE CI Device', 'linux', 'x86_64', '0.1.0', 'offline', NULL, '" + now + "', NULL);",
-  ].join("\n") + "\n";
+  const seed =
+    [
+      "INSERT INTO users (id, identity_provider, provider_subject_hash, display_name, created_at, disabled_at) VALUES ('" +
+        linked +
+        "', '" +
+        issuer +
+        "', '" +
+        hash +
+        "', 'Chromium PKCE CI user', '" +
+        now +
+        "', NULL);",
+      "INSERT INTO devices (id, user_id, display_name, os, arch, agent_version, status_hint, last_seen_at, created_at, revoked_at) VALUES ('" +
+        device +
+        "', '" +
+        linked +
+        "', 'Chromium PKCE CI Device', 'linux', 'x86_64', '0.1.0', 'offline', NULL, '" +
+        now +
+        "', NULL);",
+    ].join("\n") + "\n";
   writeFileSync(join(dir, "seed.sql"), seed, { mode: 0o600 });
-  writeFileSync(join(dir, "disable.sql"), "UPDATE users SET disabled_at = CURRENT_TIMESTAMP WHERE id = '" + linked + "';\n", { mode: 0o600 });
-  writeFileSync(join(dir, "token.json"), JSON.stringify({ access_token: issued.access_token }), { mode: 0o600 });
+  writeFileSync(
+    join(dir, "disable.sql"),
+    "UPDATE users SET disabled_at = CURRENT_TIMESTAMP WHERE id = '" +
+      linked +
+      "';\n",
+    { mode: 0o600 },
+  );
+  writeFileSync(
+    join(dir, "token.json"),
+    JSON.stringify({ access_token: issued.access_token }),
+    { mode: 0o600 },
+  );
   writeFileSync(join(dir, "worker-device-id"), device, { mode: 0o600 });
-  writeFileSync(join(dir, "worker-foreign-device-id"), foreign, { mode: 0o600 });
+  writeFileSync(join(dir, "worker-foreign-device-id"), foreign, {
+    mode: 0o600,
+  });
   const chunks = issued.access_token.split(".");
   assert.equal(chunks.length, 3);
-  writeFileSync(join(dir, "worker-tampered.token"),
-    chunks[0] + "." + chunks[1] + "." + (chunks[2][0] === "A" ? "B" : "A") + chunks[2].slice(1),
-    { mode: 0o600 });
+  writeFileSync(
+    join(dir, "worker-tampered.token"),
+    chunks[0] +
+      "." +
+      chunks[1] +
+      "." +
+      (chunks[2][0] === "A" ? "B" : "A") +
+      chunks[2].slice(1),
+    { mode: 0o600 },
+  );
   console.log("RESULT: KEYCLOAK_CHROMIUM_BROWSER_PKCE_CONSENT_PASS");
-  console.log("NOTE: real headless Chromium, ephemeral per-process NSS TLS trust, genuine consent UI, no external user or production tenant");
+  console.log(
+    "NOTE: real headless Chromium, ephemeral per-process NSS TLS trust, genuine consent UI, no external user or production tenant",
+  );
 } finally {
   await chrome.close();
 }
