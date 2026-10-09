@@ -53,7 +53,7 @@ docker run -d --name "$container" --network host --memory=1200m \
   --mount "type=bind,src=$tmp/tls.crt,dst=/opt/keycloak/conf/phase16-tls.crt,readonly" \
   --mount "type=bind,src=$tmp/tls.key,dst=/opt/keycloak/conf/phase16-tls.key,readonly" \
   quay.io/keycloak/keycloak:26.8.0 \
-  start-dev --import-realm --hostname=https://127.0.0.1:9443 \
+  start-dev --verbose --import-realm --hostname=https://127.0.0.1:9443 \
   --https-port=9443 \
   --https-certificate-file=/opt/keycloak/conf/phase16-tls.crt \
   --https-certificate-key-file=/opt/keycloak/conf/phase16-tls.key \
