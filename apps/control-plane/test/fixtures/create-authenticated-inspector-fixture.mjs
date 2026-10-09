@@ -39,17 +39,18 @@ const sql = [
 ];
 writeFileSync(join(out, "seed.sql"), sql.join("\n"), { mode: 0o600 });
 writeFileSync(join(out, "device-id"), deviceId, { mode: 0o600 });
+writeFileSync(join(out, "user-id"), userId, { mode: 0o600 });
 
 const seconds = Math.floor(Date.now() / 1000);
-async function signed(audience, scope) {
+async function signed(audience, scope, expired = false) {
   return new SignJWT({ scope, client_id: "phase16-inspector" })
     .setProtectedHeader({ alg: "RS256", kid })
     .setIssuer(issuer)
     .setAudience(audience)
     .setSubject(subject)
     .setIssuedAt(seconds)
-    .setNotBefore(seconds - 2)
-    .setExpirationTime(seconds + 1200)
+    .setNotBefore(expired ? seconds - 600 : seconds - 2)
+    .setExpirationTime(expired ? seconds - 60 : seconds + 1200)
     .sign(privateKey);
 }
 writeFileSync(
@@ -62,7 +63,12 @@ writeFileSync(
   await signed("https://127.0.0.1:8988/not-mcp", "telechir:devices:read"),
   { mode: 0o600 },
 );
+writeFileSync(
+  join(out, "expired.token"),
+  await signed(resource, "telechir:devices:read", true),
+  { mode: 0o600 },
+);
 
 console.log(
-  "PASS: ephemeral public JWKS, read-only JWT, wrong-audience JWT and synthetic D1 records generated",
+  "PASS: ephemeral JWKS, valid/wrong-audience/expired signed JWT and synthetic D1 records generated",
 );

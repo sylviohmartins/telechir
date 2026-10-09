@@ -50,6 +50,7 @@ def main():
     scenario = sys.argv[5] if len(sys.argv) == 6 else "read"
     allowed_scenarios = {
         "read", "no-token", "wrong-audience", "malformed", "write-denied",
+        "expired", "disabled-user", "live-user-disable",
     }
     check(scenario in allowed_scenarios, "unsupported Codex test scenario")
     check(url == "https://127.0.0.1:8988/mcp", "unexpected non-isolated MCP URL")
@@ -58,7 +59,9 @@ def main():
     check(Path(device_file).resolve().is_relative_to(root), "invalid device file")
     expected_device = Path(device_file).read_text().strip()
     token_file = (
-        "wrong-audience.token" if scenario == "wrong-audience" else "valid.token"
+        "wrong-audience.token" if scenario == "wrong-audience"
+        else "expired.token" if scenario == "expired"
+        else "valid.token"
     )
     token = (root / token_file).read_text().strip()
     check(bool(re.fullmatch(r"eyJ[A-Za-z0-9._-]+", token)), "invalid ephemeral JWT fixture")
@@ -264,7 +267,9 @@ def main():
                     "arguments": arguments,
                 }, seconds=80)
             except CodexToolCallRejected as rejected:
-                if scenario == "read":
+                if scenario in ("read", "live-user-disable"):
+                    # The live scenario's FIRST read must succeed before the
+                    # suspension. Its SECOND read has a dedicated assertion.
                     raise
                 lowered = rejected.raw.lower()
                 if scenario == "write-denied":
@@ -297,7 +302,7 @@ def main():
                 print(f"RESULT: CODEX_AUTH_BOUNDARY_{scenario.upper().replace('-', '_')}_PASS")
                 return
 
-            if scenario != "read":
+            if scenario not in ("read", "live-user-disable"):
                 # Some MCP clients encapsulate HTTP permission denial as a
                 # tool-level isError result instead of JSON-RPC protocol error.
                 check(
@@ -336,6 +341,51 @@ def main():
                 and devices[0].get("device_id") == expected_device,
                 "Codex MCP read did not return exactly the seeded synthetic device",
             )
+            if scenario == "live-user-disable":
+                # This is a real REUSE of the same Codex process, MCP client
+                # connection and ephemeral thread; no new login or new JWT.
+                ready = root / "codex-live-before-disable.ready"
+                resume = root / "codex-live-after-disable.go"
+                ready.touch(mode=0o600)
+                deadline = time.monotonic() + 75
+                while not resume.exists() and time.monotonic() < deadline:
+                    if process.poll() is not None:
+                        raise AppServerError("Codex process died during account suspension")
+                    time.sleep(0.2)
+                check(resume.exists(), "account suspension control signal timed out")
+
+                def auth_rejection(value):
+                    lowered = value.lower()
+                    return any(mark in lowered for mark in (
+                        "auth required", "401", "unauthorized",
+                        "unauthenticated", "invalid_token", "access token",
+                    ))
+
+                try:
+                    after = request("mcpServer/tool/call", {
+                        "threadId": thread_id,
+                        "server": SERVER,
+                        "tool": "list_devices",
+                        "arguments": {"status": "all"},
+                    }, seconds=65)
+                except CodexToolCallRejected as rejected:
+                    check(
+                        auth_rejection(rejected.raw),
+                        "same-session denial lacks authentication evidence",
+                    )
+                else:
+                    check(
+                        after.get("isError") is True
+                        and auth_rejection(json.dumps(after).lower()),
+                        "same-session read succeeded or denial was unrelated to auth",
+                    )
+                print(
+                    "PASS: Codex existing session denied the same JWT "
+                    "after synthetic user was disabled"
+                )
+                print("RESULT: CODEX_IN_SESSION_USER_DISABLED_PASS")
+                return
+
             print("PASS: real Codex app-server called Telechir list_devices over authenticated HTTPS")
             print("RESULT: CODEX_APP_SERVER_AUTHENTICATED_READONLY_TOOL_PASS")
             print("NOTE: direct Codex app-server tool dispatch, no model inference, real IdP or PKCE login")
