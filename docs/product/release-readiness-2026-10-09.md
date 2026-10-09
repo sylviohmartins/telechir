@@ -1,8 +1,8 @@
 # Telechir — Auditoria de prontidão para beta, produção e lançamento
 
-**Data da auditoria:** 2026-10-09 (America/Sao_Paulo)  
-**Baseline revalidado:** `main` em `7362d348dea9bbcbb4431582e9c291514a2f3120` (PR #72 integrado após PR #73), checkout Windows limpo.  
-**Natureza:** plano de gates verificáveis, **não** autorização para implantar, contratar serviços, publicar plugin ou abrir uma Phase 17.  
+**Data da auditoria:** 2026-10-09 (America/Sao_Paulo)
+**Baseline revalidado:** `main` em `7362d348dea9bbcbb4431582e9c291514a2f3120` (PR #72 integrado após PR #73), checkout Windows limpo.
+**Natureza:** plano de gates verificáveis, **não** autorização para implantar, contratar serviços, publicar plugin ou abrir uma Phase 17.
 **Fontes duráveis:** [estado](../../PROJECT_STATE.md), [roadmap](roadmap.md), [regras](../../AGENTS.md), [matriz Phase 16](../testing/acceptance/phase16-certification-matrix-2026-10-08.md), [issue #49](https://github.com/sylviohmartins/telechir/issues/49), [#15](https://github.com/sylviohmartins/telechir/issues/15), [#14](https://github.com/sylviohmartins/telechir/issues/14).
 
 ## 1. Diagnóstico executivo: três conceitos diferentes
