@@ -42,7 +42,7 @@ openssl verify -CAfile "$tmp/root.crt" -purpose sslserver "$tmp/tls.crt" >/dev/n
 # Keycloak runs as uid 1000. Keep the key unreadable to other users
 # while making the disposable mounted key accessible to that unprivileged uid.
 sudo chown 1000:0 "$tmp/tls.key" "$tmp/tls.crt"
-chmod 0640 "$tmp/tls.key" "$tmp/tls.crt"
+sudo chmod 0640 "$tmp/tls.key" "$tmp/tls.crt"
 chmod 0644 "$tmp/import/realm.json"
 # Do not use --rm here: we need bounded logs if the container exits.
 # The EXIT trap is the only cleanup owner and removes it on success/failure.
