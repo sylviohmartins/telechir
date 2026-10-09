@@ -132,6 +132,7 @@ As avaliações relevantes estão em:
 - `docs/testing/acceptance/phase16-keycloak-real-idp-token-contract-2026-10-09.md`
 - `docs/testing/acceptance/phase16-keycloak-production-verifier-2026-10-09.md`
 - `docs/testing/acceptance/phase16-keycloak-worker-d1-mcp-2026-10-09.md`
+- `docs/testing/acceptance/phase16-keycloak-workerd-direct-tls-2026-10-09.md`
 - `docs/research/mcp/phase16-external-client-smoke-plan-2026-10-08.md`
 - `docs/security/threat-model/phase16-client-interoperability-2026-10-08.md`
 
