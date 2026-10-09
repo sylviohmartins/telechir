@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import { spawn, execFileSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { mkdirSync, readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { chromium } from "playwright";
 
@@ -31,6 +31,28 @@ const expectedDevice = readFileSync(
 );
 const foreignDevice = readFileSync(join(temp, "worker-device-id"), "utf8");
 mkdirSync(storage, { recursive: true, mode: 0o700 });
+const inspectorConfig = join(root, "inspector-ci-readonly.json");
+// Explicit least-privilege OAuth scope. The full protected-resource metadata
+// correctly lists all production tool scopes; a read-only external client
+// must request only what it needs rather than all advertised scopes.
+writeFileSync(
+  inspectorConfig,
+  JSON.stringify({
+    mcpServers: {
+      "telechir-ci": {
+        type: "http",
+        url: mcpUrl,
+        oauth: {
+          clientId,
+          scopes: "telechir:devices:read",
+          requestRefreshToken: false,
+        },
+      },
+    },
+  }),
+  { mode: 0o600 },
+);
+
 for (const relative of [".pki/nssdb", ".local/share/pki/nssdb"]) {
   const path = join(home, relative);
   mkdirSync(path, { recursive: true, mode: 0o700 });
@@ -94,11 +116,10 @@ const args = [
   "--yes",
   "@modelcontextprotocol/inspector@2.5.0",
   "--cli",
-  mcpUrl,
-  "--transport",
-  "http",
-  "--client-id",
-  clientId,
+  "--config",
+  inspectorConfig,
+  "--server",
+  "telechir-ci",
   "--callback-url",
   callback,
   "--connect-timeout",
@@ -210,13 +231,27 @@ try {
     /^[A-Za-z0-9_-]{43}$/u,
   );
   assert.ok((url.searchParams.get("state") ?? "").length >= 16);
+  assert.equal(
+    url.searchParams.get("scope"),
+    "telechir:devices:read",
+    "Inspector must ask Keycloak for read-only scope only",
+  );
   console.log(
     "PASS: independent official MCP Inspector initiated OAuth with own PKCE S256 and loopback callback",
   );
 
   const page = await ctx.newPage();
   await page.goto(authUrl, { timeout: 18000 });
-  assert.equal(new URL(page.url()).origin, new URL(issuer).origin);
+  const landing = new URL(page.url());
+  if (landing.origin + landing.pathname === callback) {
+    const code = landing.searchParams.get("error") ?? "unknown";
+    // Only report an OAuth error CLASS. Never print callback query,
+    // code/state/issuer detail or token. Error descriptions can be sensitive.
+    const known = ["invalid_scope", "invalid_client", "invalid_request", "access_denied", "unauthorized_client"];
+    throw new Error("Keycloak immediate OAuth refusal: " + (known.includes(code) ? code : "other"));
+  }
+  assert.equal(landing.origin, new URL(issuer).origin);
+
   await page.locator("#username").fill("phase16-user-ci");
   await page
     .locator("#password")
