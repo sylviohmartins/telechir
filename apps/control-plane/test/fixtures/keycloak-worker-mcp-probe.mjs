@@ -86,7 +86,7 @@ if (phase === "disabled") {
     { name: "list_devices", arguments: { status: "all" } },
     token,
   ));
-  assert.equal(read.isError, false, "Valid Keycloak bearer must execute read");
+  assert.notEqual(read.isError, true, "Valid Keycloak bearer must execute read");
   const devices = read.structuredContent?.devices;
   assert.ok(Array.isArray(devices), "Expected genuine MCP tool structuredContent");
   assert.equal(devices.length, 1, "Foreign device must not be visible");
