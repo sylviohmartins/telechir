@@ -323,12 +323,20 @@ try {
       .replace(/\x1b\[[0-9;]*[A-Za-z]/gu, "")
       .replace(/https?:\/\/[^\s"'<>]+/giu, "[URL_REDACTED]")
       .replace(/(?:[A-Za-z]:\\|\/)[A-Za-z0-9_./\\-]{8,}/gu, "[PATH_REDACTED]")
-      .replace(/eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/gu, "[JWT_REDACTED]")
+      .replace(
+        /eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/gu,
+        "[JWT_REDACTED]",
+      )
       .replace(/Bearer\s+[^\s"'<>]+/giu, "Bearer [REDACTED]")
       .replace(/[A-Za-z0-9_-]{40,}/gu, "[OPAQUE_REDACTED]")
-      .replaceAll("phase16-ci-browser-only-not-a-real-secret", "[TEST_CREDENTIAL_REDACTED]")
+      .replaceAll(
+        "phase16-ci-browser-only-not-a-real-secret",
+        "[TEST_CREDENTIAL_REDACTED]",
+      )
       .slice(0, 800);
-    console.error("DIAG: sanitized Codex pre-OAuth startup message=" + sanitized);
+    console.error(
+      "DIAG: sanitized Codex pre-OAuth startup message=" + sanitized,
+    );
   }
   throw new Error(
     "Codex OAuth gate rejected; check sanitized failure flags and step markers",
