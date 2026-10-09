@@ -131,9 +131,9 @@ export default {
       try {
         const response = await fetch(
           "https://127.0.0.1:9443/.well-known/oauth-authorization-server/realms/telechir-phase16",
-          { redirect: "error", signal: AbortSignal.timeout(5000) },
+          { redirect: "manual", signal: AbortSignal.timeout(5000) },
         );
-        if (!response.ok) {
+        if (!response.ok || response.redirected) {
           return Response.json(
             { kind: "REMOTE_HTTP_ERROR", status: response.status },
             { status: 502 },
@@ -152,7 +152,7 @@ export default {
           return Response.json({ kind: "METADATA_MISMATCH" }, { status: 502 });
         }
         const jwksResponse = await fetch(metadata.jwks_uri, {
-          redirect: "error",
+          redirect: "manual",
           signal: AbortSignal.timeout(5000),
         });
         const jwks: unknown = jwksResponse.ok
@@ -160,6 +160,7 @@ export default {
           : null;
         if (
           !jwksResponse.ok ||
+          jwksResponse.redirected ||
           !jwks ||
           typeof jwks !== "object" ||
           !("keys" in jwks) ||
