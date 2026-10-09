@@ -2,7 +2,7 @@
 
 **Data:** 2026-10-09  
 **Issue:** #49  
-**Estado do gate:** `PENDING_CI`, não reivindicar PASS até teste independente e aprovação dos 3 jobs no head final.
+**Estado do gate:** **PASS delimitado** — [CI #37992688505](https://github.com/sylviohmartins/telechir/actions/runs/37992688505), 3/3 jobs success no commit `b9b24b7`. Marcadores `KEYCLOAK_REAL_INSPECTOR_INTERACTIVE_OAUTH_MCP_PASS` e `KEYCLOAK_INSPECTOR_EXTERNAL_OAUTH_CLIENT_PASS`. Revalidar no último head após atualização documental.
 
 ## Objetivo e separação de evidências
 
@@ -20,6 +20,14 @@ O Inspector deve **realizar por conta própria** discovery OAuth via challenge `
 - Verificar que o navegador só abriu uma URL `authorization_endpoint` do emissor pinado com `client_id`, callback, `state` e `code_challenge_method=S256`, e concluiu login/consentimento na interface oficial.
 - Verificar **resultado emitido pelo processo real do Inspector**, `tools/call:list_devices` com `structuredContent.devices` contendo **exatamente o device do usuário** e não o device estrangeiro. Um resultado do harness direto ou token preinjetado **não satisfaz** esse gate.
 - Runtime CI descartável, limite de 150s, armazenamento OAuth específico do job em diretório privado, nenhuma alteração em perfis reais, logs filtrados sem código, token, senha, cookie ou URL de autorização.
+
+## Evidência realizada e regressões corrigidas
+
+O primeiro CI confirmou que o próprio Inspector CLI publicou uma URL de autorização PKCE S256 com `client_id`, `state`, `redirect_uri` correto e listener loopback, mas o Keycloak redirecionou diretamente ao callback sem login. O motivo era a solicitação automática de escopos mais ampla que o permitido ao cliente de leitura. A configuração privada do Inspector passou a solicitar somente `telechir:devices:read`.
+
+Uma primeira tentativa de registrar o escopo no JSON do realm alterou indevidamente os **escopos OIDC padrão**, removendo `preferred_username` dos tokens emitidos para o cliente PKCE preexistente. O CI bloqueou corretamente o incremento. Foi corrigido para usar **POST de `client-scopes` e PUT de `optional-client-scopes` na API Admin REST oficial do Keycloak 26.8.0 após bootstrap**, preservando `profile`/claims anteriores. Não há mudança no Worker de produção.
+
+**Prova no CI #37992688505:** todos os três jobs concluíram `success`; o gate Keycloak registrou a criação/atribuição do escopo de leitura pela API Admin REST, **os gates prévios de PKCE e navegador continuaram aprovados**, o Inspector iniciou seu fluxo OAuth por conta própria, o Chrome fez login e consentimento no IdP, o Inspector recebeu o callback e devolveu o resultado autêntico de `tools/call:list_devices` com somente o device associado ao mesmo usuário no D1. O JWT não foi injetado pelo driver. A fixture cancela temporizadores de proteção assim que cada etapa termina para evitar retenção desnecessária do processo no CI. Este é `PASS` **apenas do Inspector 2.5.0 e ambiente local CI**, não de hosts proprietários.
 
 ## Limites da certificação
 
