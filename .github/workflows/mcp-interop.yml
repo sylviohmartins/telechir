@@ -111,3 +111,37 @@ jobs:
 
       - name: Run real HTTPS Authorization Code + PKCE S256 protocol smoke
         run: bash ../../scripts/interop/oauth-pkce-https-smoke.sh
+
+  keycloak-real-idp:
+    name: Real Keycloak 26.8.0 OAuth issuer and production JWT verifier (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/control-plane
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: apps/control-plane/package-lock.json
+
+      - name: Install locked Node dependencies
+        run: npm ci --no-fund
+
+      - name: Validate real Keycloak fixture syntax
+        run: |
+          bash -n ../../scripts/interop/keycloak-real-idp-smoke.sh
+          node --check test/fixtures/create-keycloak-realm.mjs
+          node --check test/fixtures/keycloak-real-idp-verify.mjs
+
+      - name: Exercise real self-hosted Keycloak and production verifier
+        env:
+          CI: "true"
+        run: bash ../../scripts/interop/keycloak-real-idp-smoke.sh
