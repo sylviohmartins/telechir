@@ -13,7 +13,7 @@
 | MCP Inspector CLI externo | 2.5.0, HTTPS Streamable HTTP, runner Linux descartável | PASS — TLS validado, metadata, 401/WWW-Authenticate | PASS para challenge sem token e sessão autenticada JWT RS256 sintética (24 tools, `list_devices` e recusa de escrita); fluxo PKCE/IdP real NOT_TESTED | [GitHub Actions #37845791616](https://github.com/sylviohmartins/telechir/actions/runs/37845791616) |
 | ChatGPT plugin Telechir | Remote HTTPS, OAuth e package sujeito a review | BLOCKED — sem endpoint autorizado | BLOCKED — plugin não publicado | Issue #15 e gates externos |
 | Codex CLI/IDE | MCP HTTP, versão não aferida | NOT_TESTED | BLOCKED — CLI não instalada/sem MCP HTTPS de teste | `codex mcp list`, sessão consentida |
-| Claude Code | MCP HTTP, versão não aferida | NOT_TESTED | BLOCKED — CLI não instalada/sem MCP HTTPS de teste | `claude mcp list`, sessão consentida |
+| Claude Code | **2.1.295**, Streamable HTTPS, JWT RS256, Ubuntu CI | **PASS limitado — conexão MCP de CLI real** | `Connected` via `claude mcp list`; execução de ferramentas por LLM, PKCE via CLI e IdP real NOT_TESTED | [CI #37890233252](https://github.com/sylviohmartins/telechir/actions/runs/37890233252), `claude-code-authenticated-probe.sh` |
 | Gemini CLI | **0.63.0**, Streamable HTTPS, JWT RS256, runner Linux | **PASS limitado — conexão MCP de CLI real** com recurso protegido e Bearer sintético | **CONNECTED** em `gemini mcp list`; tool call via LLM, PKCE via CLI e IdP real NOT_TESTED | [PR #58](https://github.com/sylviohmartins/telechir/pull/58), `gemini-cli-authenticated-probe.sh` |
 | GitHub Copilot | IDE/Agent, versão e policy não aferidas | NOT_TESTED | BLOCKED — sem host/endpoint de homologação | IDE real com aprovação |
 | Cursor/Cline/Roo/OpenCode/Goose | A definir individualmente | NOT_TESTED | NOT_TESTED | Pesquisa oficial e smoke por versão |
@@ -29,6 +29,10 @@ Adicionado harness `scripts/interop/inspector-authenticated-smoke.sh`: Worker de
 ## PKCE S256 com servidor OAuth sintético em HTTPS (2026-10-09)
 
 GitHub Actions [#37887181576](https://github.com/sylviohmartins/telechir/actions/runs/37887181576) confirmou **PASS** no smoke `scripts/interop/oauth-pkce-https-smoke.sh`: issuer/JWKS via HTTPS de loopback com TLS pinning; authorization code + `state`; troca com `code_verifier` S256; bearer JWT RS256 vinculado a `resource`; negações de downgrade, audience/client/redirect/scope inadequados, verificador inválido e replay. **O emissor, o cliente e a identidade são sintéticos**. Este não é um login PKCE via MCP Inspector nem teste de IdP real. A matriz de clientes comerciais não muda. Detalhes em `docs/testing/acceptance/phase16-pkce-https-isolated-2026-10-09.md`.
+
+## Claude Code CLI real — conexão autenticada (2026-10-09)
+
+O `@anthropic-ai/claude-code@2.1.295` real executou `claude mcp list` num processo independente e reportou `telechir-fixture ... Connected` por HTTPS validado e JWT RS256 sintético aceito pela rota e pelo verificador de produção do Telechir. **PASS CI comprovado:** [GitHub Actions #37890233252](https://github.com/sylviohmartins/telechir/actions/runs/37890233252), dois jobs `success`. O comando ocorreu com `HOME` temporário, `.claude.json` privado, sem login nem credenciais comerciais; todo estado descartado. A primeira tentativa falhou apenas por diretório de configuração incorreto, corrigido sem alterações na aplicação. Não houve execução do modelo Claude, chamadas de ferramentas pela IA, OAuth PKCE no cliente, IdP externo ou deploy. Evidências: `docs/testing/acceptance/phase16-claude-code-cli-authenticated-2026-10-09.md`.
 
 ## Gemini CLI real — conexão com JWT assinado, sem inferência LLM
 

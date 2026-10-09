@@ -91,9 +91,13 @@ jobs:
       - name: Check real Gemini CLI probe syntax
         run: bash -n ../../scripts/interop/gemini-cli-authenticated-probe.sh
 
-      - name: Run signed JWT MCP Inspector and real Gemini CLI interoperability
+      - name: Check real Claude Code CLI probe syntax
+        run: bash -n ../../scripts/interop/claude-code-authenticated-probe.sh
+
+      - name: Run signed JWT MCP Inspector, Gemini CLI and Claude Code interoperability
         env:
           PHASE16_REAL_GEMINI_CLI: "1"
+          PHASE16_REAL_CLAUDE_CODE: "1"
         run: bash ../../scripts/interop/inspector-authenticated-smoke.sh
 
       - name: Check synthetic PKCE HTTPS harness shell syntax
