@@ -171,7 +171,7 @@ def main():
                         "unknown_server": ("unknown mcp server", "server not found", "no such server"),
                         "unknown_tool": ("unknown tool", "tool not found", "not available"),
                         "tls": ("certificate", "tls", "ssl", "unknown issuer"),
-                        "authorization": ("unauthorized", "authentication", "permission", "401", "403"),
+                        "authorization": ("unauthorized", "authentication", "auth required", "permission", "401", "403"),
                         "connection": ("connect", "dns", "transport", "network"),
                         "initialization": ("initialize", "handshake", "start up", "startup"),
                     }
@@ -272,12 +272,19 @@ def main():
                     # tool args, missing tool or transport failure.
                     auth_markers = ("403", "forbidden", "insufficient_scope",
                                     "insufficient scope", "telechir:files:write")
-                else:
+                elif scenario == "no-token":
+                    # Absence may fail in Codex itself before HTTP dispatch.
                     auth_markers = (
-                        "401", "unauthorized", "unauthenticated", "invalid_token",
-                        "token", "bearer", "credentials", "authentication",
-                        "missing environment variable", "environment variable",
-                        "auth required", "authorization required",
+                        "environment variable", "missing bearer", "auth required",
+                        "authorization required", "401", "unauthorized",
+                    )
+                else:
+                    # An invalid *provided* token must elicit explicit auth
+                    # rejection; generic config/token text is insufficient.
+                    auth_markers = (
+                        "401", "unauthorized", "unauthenticated",
+                        "invalid_token", "auth required",
+                        "authorization required",
                     )
                 check(
                     any(marker in lowered for marker in auth_markers),
@@ -299,10 +306,16 @@ def main():
                 )
                 encoded = json.dumps(result, ensure_ascii=False).lower()
                 markers = (
-                    ("403", "forbidden", "insufficient_scope", "telechir:files:write")
+                    ("403", "forbidden", "insufficient_scope",
+                     "insufficient scope", "telechir:files:write")
                     if scenario == "write-denied"
-                    else ("401", "unauthorized", "invalid_token",
-                          "token", "authentication", "auth required")
+                    else (
+                        ("environment variable", "401", "unauthorized",
+                         "auth required", "missing bearer")
+                        if scenario == "no-token"
+                        else ("401", "unauthorized", "invalid_token",
+                              "auth required", "unauthenticated")
+                    )
                 )
                 check(
                     any(marker in encoded for marker in markers),
