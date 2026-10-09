@@ -269,16 +269,25 @@ try {
   console.log("RESULT: KEYCLOAK_REAL_CODEX_CLI_INTERACTIVE_OAUTH_LOGIN_PASS");
 } catch (e) {
   // No child stdout/stderr printed: they may contain bearer values/codes.
+  // Classify both streams without printing raw CLI data (which may contain
+  // full authorization URLs, state, callback codes, tokens or private paths).
+  const combined = out + "\n" + err;
   const diagnostic = {
     codexExit: child.exitCode,
-    invalidScope: /invalid.scope/iu.test(err),
-    invalidClient: /invalid.client/iu.test(err),
-    invalidIssuer: /issuer|iss mismatch/iu.test(err),
-    missingAuthSupport: /no authorization support/iu.test(err),
-    tls: /certificate|tls|ssl|unknown issuer/iu.test(err),
-    noBrowserUnsupported:
-      /unexpected argument|unrecognized|unknown argument/iu.test(err),
-    callback: /callback/iu.test(err),
+    stdoutBytes: out.length,
+    stderrBytes: err.length,
+    unknownServer: /No MCP server named|No such MCP server/iu.test(combined),
+    missingConfig: /config(uration)?.*(missing|not found|invalid|load)|parse config/iu.test(combined),
+    noBrowserUnsupported: /unexpected argument|unrecognized|unknown argument|unknown option/iu.test(combined),
+    unknownSubcommand: /unrecognized subcommand|invalid subcommand/iu.test(combined),
+    noAuthSupport: /no authorization support|unsupported.*oauth/iu.test(combined),
+    terminalRequired: /terminal|tty|stdin|interactive/iu.test(combined),
+    registryIssue: /npm error|npm ERR|ENOENT|E404/iu.test(combined),
+    keycloakUrlPresent: combined.includes("https://127.0.0.1:9443"),
+    authPromptPresent: /paste.*callback|paste.*redirect|visit.*http/iu.test(combined),
+    oauthError: /invalid_scope|invalid_client|invalid_request/iu.test(combined),
+    tls: /certificate|tls|ssl|unknown issuer|certificate verify/iu.test(combined),
+    otherCliError: /error:/iu.test(combined),
   };
   console.error(
     "DIAG: official Codex login sanitized flags=" + JSON.stringify(diagnostic),
