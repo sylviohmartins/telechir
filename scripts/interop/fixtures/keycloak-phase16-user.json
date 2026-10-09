@@ -11,5 +11,6 @@
       "value": "phase16-ci-browser-only-not-a-real-secret",
       "temporary": false
     }
-  ]
+  ],
+  "email": "phase16-user-ci@telechir.test"
 }
