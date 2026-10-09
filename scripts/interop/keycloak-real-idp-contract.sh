@@ -132,12 +132,54 @@ pkce_user_code="$(curl --silent --show-error --cacert "$tmp/root.crt" \
   -H "Authorization: Bearer $admin_token" \
   -H "Content-Type: application/json" \
   --data-binary "@$repo_root/scripts/interop/fixtures/keycloak-phase16-user.json")"
-unset admin_token
 [[ "$pkce_user_code" == "201" ]] || {
+  unset admin_token
   echo "FAIL: Keycloak Admin REST PKCE test-user creation HTTP $pkce_user_code" >&2
   exit 1
 }
 echo "PASS: official Keycloak Admin REST created disposable human PKCE account"
+
+# Do not embed clientScopes in RealmRepresentation: doing so replaces Keycloak
+# built-in realm scopes (profile/email), removing preferred_username from
+# PREVIOUSLY CERTIFIED PKCE JWTs. Add the one optional test scope separately
+# via authenticated, CA-verified Admin REST after realm initialization.
+inspector_scope_code="$(curl --silent --show-error --cacert "$tmp/root.crt" \
+  --max-time 20 --output "$tmp/create-inspector-scope.json" \
+  --write-out "%{http_code}" \
+  -X POST "https://127.0.0.1:9443/admin/realms/telechir-phase16/client-scopes" \
+  -H "Authorization: Bearer $admin_token" \
+  -H "Content-Type: application/json" \
+  --data-binary "@$repo_root/scripts/interop/fixtures/keycloak-inspector-read-scope.json")"
+[[ "$inspector_scope_code" == "201" ]] || {
+  unset admin_token
+  echo "FAIL: cannot create optional Keycloak Inspector scope (HTTP $inspector_scope_code)" >&2
+  exit 1
+}
+curl --fail --silent --show-error --cacert "$tmp/root.crt" --max-time 12 \
+  -H "Authorization: Bearer $admin_token" \
+  "https://127.0.0.1:9443/admin/realms/telechir-phase16/client-scopes" \
+  -o "$tmp/inspector-scopes.json"
+inspector_scope_id="$(jq -er \
+  '[.[] | select(.name=="telechir:devices:read")] | if length==1 then .[0].id else error("Inspector scope not unique") end' \
+  "$tmp/inspector-scopes.json")"
+curl --fail --silent --show-error --cacert "$tmp/root.crt" --max-time 12 \
+  -H "Authorization: Bearer $admin_token" \
+  "https://127.0.0.1:9443/admin/realms/telechir-phase16/clients?clientId=telechir-phase16-inspector" \
+  -o "$tmp/inspector-client.json"
+inspector_client_uuid="$(jq -er \
+  '[.[] | select(.clientId=="telechir-phase16-inspector")] | if length==1 then .[0].id else error("Inspector client not unique") end' \
+  "$tmp/inspector-client.json")"
+inspector_scope_link_code="$(curl --silent --show-error --cacert "$tmp/root.crt" \
+  --max-time 20 --output "$tmp/link-inspector-scope.json" \
+  --write-out "%{http_code}" \
+  -X PUT "https://127.0.0.1:9443/admin/realms/telechir-phase16/clients/$inspector_client_uuid/optional-client-scopes/$inspector_scope_id" \
+  -H "Authorization: Bearer $admin_token")"
+unset admin_token
+[[ "$inspector_scope_link_code" == "204" ]] || {
+  echo "FAIL: unable to link optional read-only Inspector scope (HTTP $inspector_scope_link_code)" >&2
+  exit 1
+}
+echo "PASS: Keycloak Admin REST created and assigned Inspector devices:read without altering built-in realm defaults"
 curl --fail --silent --show-error --cacert "$tmp/root.crt" --max-time 10 \
   "$issuer/.well-known/openid-configuration" -o "$tmp/oidc.json"
 jq -e --arg iss "$issuer" '.issuer==$iss' "$tmp/oidc.json" >/dev/null
