@@ -2,7 +2,7 @@
 
 **Data:** 2026-10-09
 **Issue:** #49
-**Gate:** execução do servidor oficial Keycloak **26.8.0** em contêiner descartável, com importação de realm local e HTTPS no loopback.
+**Gate:** execução do servidor oficial Keycloak **26.8.0** em contêiner descartável, com criação do realm sintético pela **Admin REST API oficial autenticada** e HTTPS no loopback.
 
 **Status inicial:** aguardando CI.
 
