@@ -151,8 +151,10 @@ console.log("PASS: production verifier denies real Keycloak JWT with incorrect a
 
 const parts = token.split(".");
 assert.equal(parts.length, 3);
-const last = parts[2].slice(-1);
-const mutated = parts[2].slice(0, -1) + (last === "A" ? "B" : "A");
+// Mutate the FIRST full sextet; changing the final Base64URL char can
+// sometimes affect unused padding bits without changing signature bytes.
+const first = parts[2][0];
+const mutated = (first === "A" ? "B" : "A") + parts[2].slice(1);
 await expectInvalid(parts[0] + "." + parts[1] + "." + mutated, "modified Keycloak signature");
 console.log("PASS: production verifier denies JWT with changed signature");
 
