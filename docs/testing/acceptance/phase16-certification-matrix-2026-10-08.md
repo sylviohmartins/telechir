@@ -36,7 +36,7 @@ O serviço oficial **Keycloak 26.8.0**, iniciado como contêiner descartável no
 
 ## Keycloak real → verificador OAuth de produção (gate em validação)
 
-O ensaio incremental reutiliza o Keycloak real do PR #65 e passa seu JWT RS256 pelo `JwtAccessTokenVerifier` **sem modificar a produção**. Exercita JWKS/discovery HTTPS, vinculação `sub` por SHA-256, claim de leitura parametrizada, identidade não vinculada/desativada, assinatura alterada e audiência incorreta. Os casos negativos exigem `InvalidToken`, e dados temporários são descartados. **Status: PENDING_CI até os três jobs do head final terem `success`.** O banco é um adaptador **in-process**, portanto **não** demonstra o Worker/D1 ou a ferramenta MCP consumindo o JWT Keycloak. Detalhes: `phase16-keycloak-production-verifier-2026-10-09.md`.
+O ensaio incremental reutiliza o Keycloak real do PR #65 e passa seu JWT RS256 pelo `JwtAccessTokenVerifier` **sem modificar a produção**. Exercita JWKS/discovery HTTPS, vinculação `sub` por SHA-256, claim de leitura parametrizada, identidade não vinculada/desativada, assinatura alterada e audiência incorreta. Os casos negativos exigem `InvalidToken`, e dados temporários são descartados. **Status: PASS delimitado** na [CI #37979177621](https://github.com/sylviohmartins/telechir/actions/runs/37979177621), 3/3 jobs success e marcador `KEYCLOAK_TELECHIR_PRODUCTION_VERIFIER_PASS`; merge condicionado à CI verde do último commit. O banco é um adaptador **in-process**, portanto **não** demonstra o Worker/D1 ou a ferramenta MCP consumindo o JWT Keycloak. Detalhes: `phase16-keycloak-production-verifier-2026-10-09.md`.
 
 ## Codex App Server — desativação e reconexão fail-closed (2026-10-09)
 
