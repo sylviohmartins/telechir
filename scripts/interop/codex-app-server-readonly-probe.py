@@ -177,6 +177,26 @@ def main():
             check(isinstance(thread_id, str) and thread_id, "Codex ephemeral thread missing")
             print("PASS: Codex app-server ephemeral thread created")
 
+            # Runtime status (not CLI configuration listing) can expose
+            # server initialization failures before direct tool dispatch.
+            try:
+                inventory = request("mcpServerStatus/list", {
+                    "threadId": thread_id,
+                }, seconds=40)
+                records = inventory.get("data", [])
+                if isinstance(records, list):
+                    configured = any(
+                        isinstance(row, dict)
+                        and (row.get("name") == SERVER or row.get("serverName") == SERVER)
+                        for row in records
+                    )
+                    print(
+                        "DIAG: Codex runtime MCP status list count="
+                        f"{len(records)}, fixture_present={str(configured).lower()}"
+                    )
+            except AppServerError as exc:
+                print(f"DIAG: Codex runtime MCP status query failed: {exc}")
+
             result = request("mcpServer/tool/call", {
                 "threadId": thread_id,
                 "server": SERVER,
