@@ -177,13 +177,16 @@ echo "PASS: authenticated real Inspector reads only seeded synthetic device"
 # Validate refusal through the Inspector CLI itself in addition to raw HTTP.
 set +e
 inspector --method tools/call --tool-name write_file \
-  --tool-args-json '{}' >"$work_dir/write.json" 2>"$work_dir/write.err"
+  --tool-args-json '{"device_id":"00000000-0000-4000-8000-000000000001","path":"not-a-real-device.txt","content":"no write","encoding":"utf-8","expected_hash":null,"create_if_missing":true}' \
+  >"$work_dir/write.json" 2>"$work_dir/write.err"
 write_exit=$?
 set -e
-[[ "$write_exit" -eq 3 ]] || {
-  echo "FAIL: Inspector wrong-scope write exit was $write_exit (expected 3)" >&2
+if [[ "$write_exit" -ne 3 ]]; then
+  # Print only the classified error code, never bearer tokens or raw traces.
+  classified_error="$(tail -n 1 "$work_dir/write.err" | jq -r '.error.code // "unknown"' 2>/dev/null || echo "unclassified")"
+  echo "FAIL: Inspector wrong-scope write exit was $write_exit (expected 3), error_code=$classified_error" >&2
   exit 1
-}
+fi
 echo "PASS: Inspector surfaces OAuth 403 escalation as auth_required (exit 3)"
 echo "RESULT: INDEPENDENT_AUTHENTICATED_INSPECTOR_SMOKE_PASS"
 echo "NOTE: provider documents/JWKS synthetic, no browser OAuth PKCE or commercial client certified."
