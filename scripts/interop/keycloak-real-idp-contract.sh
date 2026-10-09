@@ -166,5 +166,7 @@ NODE_EXTRA_CA_CERTS="$tmp/root.crt" NO_PROXY="127.0.0.1,localhost" \
 source "$repo_root/scripts/interop/keycloak-worker-d1-smoke.sh"
 # Separate strict gate: native Workerd fetch + real Keycloak HTTPS trust.
 source "$repo_root/scripts/interop/keycloak-workerd-direct-tls-smoke.sh"
+# Separate OAuth Authorization Code + PKCE S256 with a real human test account.
+source "$repo_root/scripts/interop/keycloak-real-pkce-mcp-smoke.sh"
 echo "RESULT: KEYCLOAK_REAL_IDP_ISSUANCE_CONTRACT_PASS"
-echo "NOTE: local Worker/D1 verified with both replay and direct native IdP TLS fetch; no hosted Cloudflare deployment, browser PKCE or managed IdP tenant."
+echo "NOTE: real Keycloak client_credentials and scripted public-client PKCE user login verified via local Worker/D1; no graphical browser, consent UI, hosted Cloudflare deployment or managed IdP tenant."
