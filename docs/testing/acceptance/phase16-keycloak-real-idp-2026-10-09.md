@@ -3,7 +3,7 @@
 **Data:** 2026-10-09
 **Issue:** [#49](https://github.com/sylviohmartins/telechir/issues/49)
 **Versão fixada:** Keycloak `26.8.0` (imagem oficial `quay.io/keycloak/keycloak:26.8.0`).
-**Estado:** `NOT_VERIFIED` até execução CI final.
+**Estado:** `PASS` limitado para a validação do JWT com IdP real, confirmado no [CI #37971040190](https://github.com/sylviohmartins/telechir/actions/runs/37971040190), job Keycloak `success`. Reexecução final dos três jobs após a correção Prettier ainda pendente.
 
 ## Objetivo
 
@@ -34,3 +34,16 @@ O verificador usado para aceitar/rejeitar o token é o **`JwtAccessTokenVerifier
 - Job `keycloak-real-idp` em `.github/workflows/mcp-interop.yml`
 
 **Fronteiras:** não certifica operação em produção, login humano, browser consent, refresh, configuração dinâmica do IdP externo no Worker, seleção de tool por LLM, credenciais de terceiros, token individual revogado via `jti` ou autorização granular de dispositivos. Uma integração Keycloak direta com o MCP HTTPS/Worker permanece trabalho posterior, caso a política de transporte de TLS local do Wrangler permita fazê-la sem relaxamento de segurança.
+
+## Evidência observada no CI
+
+O GitHub Actions [#37971040190](https://github.com/sylviohmartins/telechir/actions/runs/37971040190) executou o **Keycloak 26.8.0 real** e registrou:
+
+- `PASS: Keycloak 26.8.0 HTTPS, pinned TLS leaf and CA chain`;
+- `PASS: actual Keycloak RFC8414 discovery, HTTPS endpoints and public JWKS`;
+- `PASS: actual Keycloak client_credentials grant issued signed resource-bound read JWT`;
+- `PASS: Telechir PRODUCTION JwtAccessTokenVerifier validates real Keycloak JWT and linked subject`;
+- rejeição de JWT Keycloak com audiência errada, assinatura modificada e identidade sintética marcada `disabled`;
+- `RESULT: REAL_KEYCLOAK_IDP_PRODUCTION_JWT_VERIFIER_PASS`.
+
+O job de interoperabilidade Inspector/Gemini/Claude/Codex também passou no primeiro CI. O job de regressões falhou **somente por formatação** nos dois arquivos JavaScript recém-criados; a correção foi aplicada usando o Prettier do projeto. A prova completa fica condicionada ao último commit com os três jobs `success`.
