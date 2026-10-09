@@ -2,7 +2,7 @@
 
 **Data:** 2026-10-09
 **Issue:** #49
-**Estado:** `PENDING_CI` até o head final completar 3/3 jobs e os três marcadores do Codex.
+**Estado:** **PASS delimitado** — [CI #38000131102](https://github.com/sylviohmartins/telechir/actions/runs/38000131102), **3/3 jobs success** no commit `0b59b5d`, incluindo os quatro marcadores de login e app-server listados abaixo. Reconfirmar no último head documental antes do merge.
 
 ## Objetivo e limites
 
@@ -17,6 +17,25 @@ Na primeira execução do PR #72, os gates anteriores passaram, mas `codex mcp l
 ## Diagnóstico do cliente Codex 0.162.0
 
 Após habilitar o PTY, a mensagem do CLI foi classificada em laboratório como recusa `Dynamic registration failed` / `HTTP 403` pela política **Trusted Hosts** do Keycloak. Não foi uma falha do Telechir nem motivo para autorizar DCR. A análise do **código-fonte da versão 0.162.0** revelou que o Codex só utiliza um OAuth client público pré-registrado quando a propriedade está no bloco TOML **`[mcp_servers.telechir_ci.oauth]`** com `client_id = "telechir-phase16-codex"`; a chave `oauth_client_id` na raiz do servidor era ignorada. O harness foi corrigido para seguir a configuração nativa do fornecedor. Não relaxar `Trusted Hosts` ou cadastrar clientes dinamicamente.
+
+## Causa-raiz de erro de autorização e correção
+
+A primeira execução com OAuth PKCE real gerado pelo Codex CLI 0.162.0 chegou ao Keycloak, mas retornou `invalid_request` ainda antes do login. O diagnóstico **somente com nomes de parâmetros**, sem expor a URL, identificou dois campos `resource`. A configuração experimental incluía `oauth_resource = "<URL MCP>"`, porém o `rmcp` usado pelo Codex já inseria o indicador RFC 8707 diretamente a partir da URL MCP. Essa duplicação era um defeito de interoperabilidade conhecido do Codex — [openai/codex#34467](https://github.com/openai/codex/issues/34467) e [openai/codex#28830](https://github.com/openai/codex/issues/28830).
+
+**Correção:** retirar exclusivamente `oauth_resource` redundante do TOML de CI. O endpoint MCP continua sendo a referência protegida correta; não há gateway reescrevendo URLs, mudança de audience, afrouxamento no Keycloak ou bypass TLS. A execução positiva confirmou a presença de **apenas um** parâmetro `resource`.
+
+O PR do Gemini (#73) havia sido incorporado à `main` enquanto a branch Codex estava aberta. Na reconciliação, foram mantidos os **três clientes públicos** (Inspector, Gemini e Codex) com escopo opcional somente leitura e ambos os smoke tests. Conflitos de CI, matriz, realm e provisionamento foram resolvidos com merge real, preservando todos os gates anteriores.
+
+## Evidência executada
+
+A rodada [#38000131102](https://github.com/sylviohmartins/telechir/actions/runs/38000131102) foi **3/3 jobs success**, no commit `0b59b5d`. O Keycloak real registrou:
+
+- `KEYCLOAK_CODEX_OFFICIAL_PKCE_LOGIN_PASS` — Codex CLI próprio gera estado e S256, navegador opera apenas a UI Keycloak, o Codex valida callback, troca code e armazena OAuth
+- `KEYCLOAK_CODEX_OAUTH_APP_SERVER_DEVICE_READ_PASS` — outro processo oficial Codex app-server reutiliza a sessão armazenada para `list_devices` na rota Workerd/D1
+- `KEYCLOAK_CODEX_OAUTH_APP_SERVER_DISABLED_USER_PASS` — o mesmo acesso é negado após marcar o owner como desativado no D1
+- `KEYCLOAK_CODEX_OFFICIAL_OAUTH_MCP_D1_PASS` — conclusão do gate composto de login+uso+revogação local
+
+O teste com conta/realm sintéticos **não** atesta inferência via modelo, ChatGPT Apps, OAuth em tenant hospedado, MFA, dispositivo físico ou credenciais reais. O aceite de Phase 16 permanece parcial.
 
 ## Configuração de homologação
 
