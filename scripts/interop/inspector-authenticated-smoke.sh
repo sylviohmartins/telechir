@@ -207,3 +207,9 @@ echo "NOTE: provider metadata/JWKS synthetic; no real IdP or OAuth browser flow.
 if [[ "${PHASE16_REAL_GEMINI_CLI:-0}" == "1" ]]; then
   source "$repo_root/scripts/interop/gemini-cli-authenticated-probe.sh"
 fi
+
+# Separate, independently published vendor CLI; shares only the disposable
+# authenticated HTTPS fixture, TLS preflight and secure cleanup lifecycle.
+if [[ "${PHASE16_REAL_CLAUDE_CODE:-0}" == "1" ]]; then
+  source "$repo_root/scripts/interop/claude-code-authenticated-probe.sh"
+fi
