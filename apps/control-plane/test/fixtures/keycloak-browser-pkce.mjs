@@ -267,7 +267,11 @@ try {
       typeof keycloakIssuerDiscovery === "boolean",
   );
   if (responseIss !== null) {
-    assert.equal(responseIss, issuer, "Keycloak OAuth callback issuer mismatch");
+    assert.equal(
+      responseIss,
+      issuer,
+      "Keycloak OAuth callback issuer mismatch",
+    );
   }
   if (keycloakIssuerDiscovery === true) {
     assert.equal(responseIss, issuer, "advertised RFC9207 issuer missing");
@@ -282,7 +286,9 @@ try {
     }),
     { mode: 0o600 },
   );
-  console.log("PASS: real Keycloak browser callback issuer recorded for Gemini RFC9207 compatibility check");
+  console.log(
+    "PASS: real Keycloak browser callback issuer recorded for Gemini RFC9207 compatibility check",
+  );
   const fake = new URL(accepted.uri);
   fake.searchParams.set("state", randomBytes(24).toString("base64url"));
   assert.throws(

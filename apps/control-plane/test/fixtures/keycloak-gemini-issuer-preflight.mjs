@@ -14,7 +14,10 @@ assert.equal(process.env.GITHUB_ACTIONS, "true");
 assert.equal(issuer, "https://127.0.0.1:9443/realms/telechir-phase16");
 assert.equal(resource, "https://127.0.0.1:8988/mcp");
 const evidence = JSON.parse(
-  readFileSync(join(dir, "browser-pkce", "gemini-issuer-preflight.json"), "utf8"),
+  readFileSync(
+    join(dir, "browser-pkce", "gemini-issuer-preflight.json"),
+    "utf8",
+  ),
 );
 const metadata = JSON.parse(readFileSync(join(dir, "oidc.json"), "utf8"));
 assert.equal(metadata.issuer, issuer);
@@ -90,16 +93,13 @@ writeFileSync(
   { mode: 0o600 },
 );
 assert.equal(config.mcpServers["telechir-gemini-phase16-ci"].trust, false);
-assert.deepEqual(
-  config.mcpServers["telechir-gemini-phase16-ci"].oauth.scopes,
-  ["telechir:devices:read"],
-);
+assert.deepEqual(config.mcpServers["telechir-gemini-phase16-ci"].oauth.scopes, [
+  "telechir:devices:read",
+]);
 console.log(
   "PASS: real Keycloak issuer response classified against Gemini CLI RFC9207 rules and exact read-only OAuth client",
 );
-console.log(
-  "RESULT: KEYCLOAK_GEMINI_CLI_RFC9207_OAUTH_PREFLIGHT_PASS",
-);
+console.log("RESULT: KEYCLOAK_GEMINI_CLI_RFC9207_OAUTH_PREFLIGHT_PASS");
 console.log(
   "NOTE: vendor OAuth compatibility preflight only; Gemini CLI /mcp auth, browser session, login callback and MCP tool call NOT certified here",
 );
