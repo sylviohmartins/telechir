@@ -2,7 +2,7 @@
 
 **Data:** 2026-10-09
 **Issue:** #49
-**Status:** **PENDING_CI** — nenhum PASS até o log do último head confirmar o marcador `KEYCLOAK_WORKER_DIRECT_TLS_OAUTH_JWKS_PASS`.
+**Status:** **PASS delimitado** — [CI #37982415861](https://github.com/sylviohmartins/telechir/actions/runs/37982415861), 3/3 jobs `success` e marcador `KEYCLOAK_WORKER_DIRECT_TLS_OAUTH_JWKS_PASS` no commit `0222d61`. A CI do último commit documental deve ser novamente validada antes do merge.
 
 ## Gate / hipótese
 
