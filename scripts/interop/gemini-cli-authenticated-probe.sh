@@ -64,6 +64,19 @@ console.error("DIAG: " + JSON.stringify({
   stderr_bytes: stderr.length,
 }));
 NODE
+  # Sanitize short test-runner error text for diagnosis. Never expose Bearer,
+  # token-like JWT strings or temporary paths in permanent CI logs.
+  node --input-type=module - "$work_dir" <<'NODE'
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+const [dir] = process.argv.slice(2);
+const raw = readFileSync(join(dir, "gemini-list.err"), "utf8");
+const safe = raw.replaceAll(dir, "[EPHEMERAL_DIRECTORY]")
+  .replace(/Bearer\\s+[^\\s"'<>]+/gi, "Bearer [REDACTED]")
+  .replace(/eyJ[A-Za-z0-9_-]+\\.eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+/g, "[JWT_REDACTED]")
+  .slice(0, 1200);
+console.error("SANITIZED_GEMINI_STDERR: " + safe);
+NODE
   # No raw output: may contain synthetic credentials in config diagnostics.
   exit 1
 fi
