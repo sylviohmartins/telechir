@@ -2,7 +2,7 @@
 
 **Data:** 2026-10-09
 **Issue:** #49
-**Status:** `PENDING_CI` — executar 3/3 jobs no head final e observar `KEYCLOAK_REAL_PKCE_MCP_D1_HUMAN_USER_PASS`.
+**Status:** **PASS delimitado** — [CI #37984488017](https://github.com/sylviohmartins/telechir/actions/runs/37984488017), 3/3 jobs `success` no commit `2efee83`. Marcadores `KEYCLOAK_REAL_AUTHORIZATION_CODE_PKCE_S256_PASS` e `KEYCLOAK_REAL_PKCE_MCP_D1_HUMAN_USER_PASS`. Validar novamente o último head documental antes do merge.
 
 ## Objetivo e novidade
 
@@ -21,6 +21,12 @@ O navegador **não** é controlado neste gate: a fixture Node acompanha redireci
 7. Repetição do código **após troca válida** → `invalid_grant`.
 8. Vincular `sub` humano por hash SHA-256 ao **D1 verdadeiro** migrado, isolar device de outro proprietário, executar `tools/list` e `tools/call:list_devices` pela rota MCP de produção/Workerd TLS direto, negar assinatura adulterada e sem Bearer (401), `write_file` sem escopo (403), depois negar mesmo JWT quando `disabled_at` é definido no D1 (401).
 
+## Aprendizados verificados no CI
+
+A execução inicial do gate detectou retorno ao formulário HTML após o POST. O primeiro ensaio com usuário embutido no JSON de `RealmRepresentation` não concluiu a autenticação; a criação do usuário foi substituída por **POST autenticado oficial** em `/admin/realms/telechir-phase16/users` (**HTTP 201**). A página continuou reaparecendo até que o usuário de fixture recebesse um e-mail sintético verificado e perfil completo — evitando uma etapa adicional de perfil durante o login. A fixture preserva um diagnóstico restrito a **indicadores estruturais** de HTML, sem gravar HTML, cookies, senha, token ou authorization code.
+
+**Evidência real**: o Keycloak recusou downgrade S256, verifier errado e redirect divergente, emitiu JWT de `sub` humano com audience `/mcp`, recusou replay do code e, no Workerd com HTTPS/JWKS verdadeiros e D1 local, respondeu ao `list_devices` isolado e negou escrita sem escopo e usuário desativado. O retorno com `state` adulterado foi recusado pelo cliente de teste antes da troca do código. A prova não é execução em navegador GUI e consentimento segue desabilitado exclusivamente no laboratório.
+
 ## Segurança / não objetivos
 
 - Tudo sob GitHub Actions Linux, Keycloak oficial e Worker/D1 locais descartáveis; trust `NODE_EXTRA_CA_CERTS` efêmero e cert fingerprint pin do IdP e do Worker, sem bypass global TLS, sem credenciais externas.
@@ -30,7 +36,8 @@ O navegador **não** é controlado neste gate: a fixture Node acompanha redireci
 
 ## Componentes
 
-- `scripts/interop/fixtures/keycloak-phase16-realm.json` — test realm com cliente público/S256 e identidade humana sintética.
+- `scripts/interop/fixtures/keycloak-phase16-realm.json` — test realm com cliente público PKCE S256.
+- `scripts/interop/fixtures/keycloak-phase16-user.json` — usuário humano descartável criado na API administrativa oficial, com e-mail sintético e perfil completo.
 - `apps/control-plane/test/fixtures/keycloak-real-pkce-login.mjs` — login real via HTTPS, PKCE, code/state, assinatura e SQL temporário.
 - `scripts/interop/keycloak-real-pkce-mcp-smoke.sh` — D1/Worker real, segregação e negativas.
 - `scripts/interop/keycloak-real-idp-contract.sh` — orquestrador Keycloak/PKCE sem processo extra persistente.
