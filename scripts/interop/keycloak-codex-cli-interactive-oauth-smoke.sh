@@ -4,7 +4,7 @@
 set -euo pipefail
 [[ "$GITHUB_ACTIONS" == "true" && "$(uname -s)" == "Linux" ]] || exit 1
 [[ "$issuer" == "https://127.0.0.1:9443/realms/telechir-phase16" ]] || exit 1
-for binary in node certutil npx python3; do
+for binary in node certutil npx python3 script stty; do
   command -v "$binary" >/dev/null || { echo "FAIL: missing $binary" >&2; exit 1; }
 done
 stop_direct_worker
