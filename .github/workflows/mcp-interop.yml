@@ -115,7 +115,7 @@ jobs:
   real-keycloak-idp:
     name: Real Keycloak HTTPS issuer and access-token contract (Linux)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -133,8 +133,20 @@ jobs:
         working-directory: apps/control-plane
         run: npm ci --no-fund
 
-      - name: Validate upstream Keycloak harness shell syntax
-        run: bash -n scripts/interop/keycloak-real-idp-contract.sh
+      - name: Install isolated Chromium runtime and NSS tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libnss3-tools
+          cd apps/control-plane
+          npm install --no-save --package-lock=false --ignore-scripts --no-fund playwright@1.58.2
+          command -v google-chrome
+          google-chrome --version
+
+      - name: Validate real-browser and upstream Keycloak harness syntax
+        run: |
+          bash -n scripts/interop/keycloak-real-idp-contract.sh
+          bash -n scripts/interop/keycloak-browser-pkce-mcp-smoke.sh
+          node --check apps/control-plane/test/fixtures/keycloak-browser-pkce.mjs
 
       - name: Verify real disposable Keycloak HTTPS OIDC and JWT issuance
         run: bash scripts/interop/keycloak-real-idp-contract.sh

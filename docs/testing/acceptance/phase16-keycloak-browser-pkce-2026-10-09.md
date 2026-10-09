@@ -1,0 +1,43 @@
+# Phase 16 — Chromium real, Keycloak PKCE S256 e consentimento
+
+**Data:** 2026-10-09
+**Issue:** #49
+**Gate:** **PASS delimitado** — [CI #37989967995](https://github.com/sylviohmartins/telechir/actions/runs/37989967995), 3/3 jobs success no commit `b8a7737`, com ambos os marcadores `KEYCLOAK_CHROMIUM_BROWSER_PKCE_CONSENT_PASS` e `KEYCLOAK_CHROMIUM_BROWSER_PKCE_MCP_D1_PASS`. Reconfirmar 3/3 no último head documental antes do merge.
+
+## Objetivo
+
+Avançar da autenticação HTTP dirigida sem browser (PR #69) para uma **instância real de Google Chrome Stable headless (Chromium) preinstalada no runner e automatizada por Playwright**, com formulário visual de login do Keycloak 26.8.0 e tela de consentimento oficial. O cliente OAuth adicional `telechir-phase16-browser` é **público**, exige `PKCE S256`, `standardFlowEnabled=true`, `consentRequired=true`, sem acesso implícito, password grant, service account ou callback externo. Os contratos existentes `telechir-phase16-ci` e `telechir-phase16-pkce` não mudam.
+
+## Controles e evidências exigidas
+
+- Certificado do Keycloak validado por `verify-local-tls.mjs` (leaf apresentado e CA efêmera) antes de entrar no login; **Chromium com NSS DB exclusivamente temporário**, contendo somente aquela CA, e controle negativo com a CA distinta do Worker; `ignoreHTTPSErrors=false`; sem flags globais de bypass.
+- Login com controles DOM verdadeiros `#username`, `#password` e `#kc-login` no Chromium headless em `127.0.0.1:9443`. Bloquear navegação/requisições cross-origin não esperadas; callback loopback é atendido por um servidor HTTP real temporário restrito a `127.0.0.1:8798`, sem enviar `code` ou `state` a serviço externo nem registrá-los em logs.
+- Primeira sessão: clicar **Cancel** na tela de consentimento e comprovar `access_denied`, mesmo `state` e ausência de `code`.
+- Nova sessão/contexto: clicar **Accept**, comprovar `state` e emissão de authorization code verdadeiro. Um callback adulterado em memória deve falhar na validação **client-side** de `state`.
+- Troca por token via HTTPS validado com `code_verifier` S256, `iss/aud/azp/sub` e escopo limitado assinados pela JWKS real; rejeitar repetição do code, troca com verifier errado e code expirado. Laboratório define TTL de authorization code reduzido somente para testar expiração; isso não é garantia de revogação de access token.
+- Vincular token de browser ao D1 Wrangler isolado por SHA-256(`sub`), ler somente device próprio no MCP Worker com JWKS direto do Keycloak; rejeitar assinatura alterada e Bearer ausente (401), escrita sem scope (403), e JWT válido de usuário localmente desativado (401).
+- Nenhuma senha, cookie, authorization code ou access token pode aparecer em logs, screenshots, traces, artefatos ou outputs; diretório privado `mktemp`, cleanup por trap; Playwright `1.58.2` fixado apenas para o job CI; utiliza o Google Chrome Stable da imagem do GitHub Actions, sem baixar um segundo navegador.
+
+## Continuidade da identidade do usuário
+
+O login HTTP do PR #69 e o login no Chrome utilizam **a mesma pessoa sintética no Keycloak**. O D1 possui restrição `UNIQUE(identity_provider, provider_subject_hash)`, impedindo corretamente um segundo registro para o mesmo `sub`. Após a desativação do usuário pelo gate anterior, o teste de browser compara os dois JWTs de clientes diferentes, exige `sub` idêntico, **reativa exclusivamente o registro existente por issuer + hash** e reutiliza seu único dispositivo de CI para validar a continuidade da conta. Depois, desativa novamente esse usuário e exige HTTP 401 com o JWT ainda vigente. Não são criados novos owners nem contornada a unicidade.
+
+## Execução, falhas corrigidas e evidência
+
+A primeira execução de Chromium comprovou TLS fail-closed com a CA errada, mas a navegação do browser falhou com `ERR_CONNECTION_REFUSED` ao retornar para um callback sem listener real. O fixture passou a abrir um servidor HTTP efêmero ligado somente a `127.0.0.1:8798`, sem registrar nem renderizar códigos ou tokens. O gate seguinte **passou integralmente na UI**, mas o teste de D1 tentou duplicar a identidade já vinculada pelo cliente PKCE do PR #69 e recebeu a recusa correta `SQLITE_CONSTRAINT_UNIQUE` para `identity_provider + provider_subject_hash`. O teste foi corrigido para exigir o **mesmo `sub`** entre os dois clientes OAuth e reativar temporariamente o mesmo usuário/dispositivo no D1 (sem novo `INSERT users`).
+
+A execução [#37989967995](https://github.com/sylviohmartins/telechir/actions/runs/37989967995) comprovou: Chrome Stable real e NSS separado, recusa de CA incorreta, consentimento cancelado (`access_denied`, sem code), consentimento aceito, troca do code PKCE, `state` substituído recusado pelo cliente, JWT real com audience MCP, replay/verifier incorreto/código expirado negados, identidade única entre os dois OAuth clients, dispositivo do proprietário na rota Workerd real e `401` após desativação no D1. Nenhuma credencial externa ou bypass TLS foi usado.
+
+## Não objetivos
+
+O navegador é **headless, de fato Chromium**, e a tela de consentimento é real, mas o usuário continua sendo um **principal fictício**. Não prova login ou consentimento de pessoa real, MFA, clientes MCP interativos de fornecedores, provedor IdP externo, domínio público, Cloudflare hospedada, IA em inferência ou hardware físico. Nenhum gate desses deve ser marcado como concluído por consequência.
+
+## Implementação
+
+- `apps/control-plane/test/fixtures/keycloak-browser-pkce.mjs` — navegador, callback, PKCE e provas de segurança.
+- `scripts/interop/keycloak-browser-pkce-mcp-smoke.sh` — migração D1, autenticação na rota MCP e desativação.
+- `scripts/interop/fixtures/keycloak-phase16-realm.json` — cliente com consentimento obrigatório/TTL de code apenas do laboratório.
+- `scripts/interop/keycloak-real-idp-contract.sh` e `.github/workflows/mcp-interop.yml` — orquestração segura e instalação efêmera do navegador.
+- Referências de plataforma: [Playwright — Browsers](https://playwright.dev/docs/browsers), [Chromium Linux Certificate Management](https://chromium.googlesource.com/chromium/src/+/main/docs/linux/cert_management.md), [Keycloak Server Administration Guide](https://www.keycloak.org/docs/latest/server_admin/).
+
+**Estado:** `PHASE_16_IN_PROGRESS`; manter issue #49 aberta após o gate.

@@ -39,6 +39,8 @@ A implementação possui Local Agent Core, control plane, identidade/pairing Ed2
 
 **Gate PKCE real comprovado na CI #37984488017 (3/3 jobs, marcadores OAuth e MCP/D1 PASS):** Authorization Code + PKCE S256 com **cliente público e login HTML real** contra Keycloak 26.8.0, usuário sintético separado de service-account e acesso MCP/D1 real (CI-only). Sem reivindicar browser GUI, consentimento ou fluxo LLM. Documento: `docs/testing/acceptance/phase16-keycloak-real-pkce-2026-10-09.md`. Head documental subsequente sujeito a nova validação 3/3 no PR antes do merge.
 
+**Gate Chromium GUI e consentimento COMPROVADO na CI #37989967995 (3/3 jobs, dois marcadores PASS):** Chrome Stable headless real via Playwright, Keycloak com PKCE S256 e tela de consentimento obrigatório (aprovação/recusa), callback loopback real, trust NSS da CA efêmera sem bypass, código expirado/repetido ou verifier incorreto recusado, `state` verificado pelo cliente e JWT com audiência MCP. O Workerd usou discovery/JWKS HTTPS diretas e o D1 **reutilizou a identidade única de mesmo `sub`** entre o cliente HTTP e Chrome, mantendo isolamento, scope e disabled fail-closed. Detalhes: `docs/testing/acceptance/phase16-keycloak-browser-pkce-2026-10-09.md`. **Não equivale a pessoa real, MFA, cliente comercial autenticado por OAuth, Cloudflare implantada ou fluxo LLM.** Phase 16 continua `IN_PROGRESS` / issue #49 aberta; conferir 3/3 no último head documental.
+
 ## Decisões atuais
 
 - **Telechir é a marca oficial do produto.**
@@ -136,6 +138,7 @@ As avaliações relevantes estão em:
 - `docs/testing/acceptance/phase16-keycloak-worker-d1-mcp-2026-10-09.md`
 - `docs/testing/acceptance/phase16-keycloak-workerd-direct-tls-2026-10-09.md`
 - `docs/testing/acceptance/phase16-keycloak-real-pkce-2026-10-09.md`
+- `docs/testing/acceptance/phase16-keycloak-browser-pkce-2026-10-09.md`
 - `docs/research/mcp/phase16-external-client-smoke-plan-2026-10-08.md`
 - `docs/security/threat-model/phase16-client-interoperability-2026-10-08.md`
 
