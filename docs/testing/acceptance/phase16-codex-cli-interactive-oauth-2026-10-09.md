@@ -14,6 +14,10 @@ Depois, o **app-server oficial do Codex**, processo diferente, deve ler as crede
 
 Na primeira execução do PR #72, os gates anteriores passaram, mas `codex mcp login --no-browser` encerrou com código 1 **antes de publicar URL de autorização**, quando iniciado com pipes de `stdio`. A classificação segura apontou requisito de terminal/TTY da interface do Codex, mesmo no modo `--no-browser`. A chamada passou a usar o utilitário **util-linux `script` para criar um PTY descartável**, executando `stty -echo` antes do CLI (não ecoar o callback). Os streams continuam capturados exclusivamente em memória, sem gravar transcript ou liberar a URL no log. O modo de login não é substituído por fixture; o próprio Codex recebe o callback e realiza a troca PKCE.
 
+## Diagnóstico do cliente Codex 0.162.0
+
+Após habilitar o PTY, a mensagem do CLI foi classificada em laboratório como recusa `Dynamic registration failed` / `HTTP 403` pela política **Trusted Hosts** do Keycloak. Não foi uma falha do Telechir nem motivo para autorizar DCR. A análise do **código-fonte da versão 0.162.0** revelou que o Codex só utiliza um OAuth client público pré-registrado quando a propriedade está no bloco TOML **`[mcp_servers.telechir_ci.oauth]`** com `client_id = "telechir-phase16-codex"`; a chave `oauth_client_id` na raiz do servidor era ignorada. O harness foi corrigido para seguir a configuração nativa do fornecedor. Não relaxar `Trusted Hosts` ou cadastrar clientes dinamicamente.
+
 ## Configuração de homologação
 
 - IdP real Keycloak 26.8.0 em contêiner GitHub Actions descartável, realm e conta humana sintéticos; cliente público `telechir-phase16-codex`, padrão, PKCE obrigatório `S256`, consentimento obrigatório, sem implicit/password grants.
