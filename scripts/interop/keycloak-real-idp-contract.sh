@@ -164,5 +164,7 @@ NODE_EXTRA_CA_CERTS="$tmp/root.crt" NO_PROXY="127.0.0.1,localhost" \
   "$tmp/oidc.json" "$tmp/token.json" "$issuer" "$bundle"
 # Additional independent HTTP/D1 proof (no extra IdP or credential fixtures).
 source "$repo_root/scripts/interop/keycloak-worker-d1-smoke.sh"
+# Separate strict gate: native Workerd fetch + real Keycloak HTTPS trust.
+source "$repo_root/scripts/interop/keycloak-workerd-direct-tls-smoke.sh"
 echo "RESULT: KEYCLOAK_REAL_IDP_ISSUANCE_CONTRACT_PASS"
-echo "NOTE: self-hosted Keycloak client_credentials + local Worker/D1 MCP verified; public IdP docs replayed in fixture; no workerd outbound IdP TLS, browser PKCE or managed tenant."
+echo "NOTE: local Worker/D1 verified with both replay and direct native IdP TLS fetch; no hosted Cloudflare deployment, browser PKCE or managed IdP tenant."
