@@ -11,7 +11,7 @@ for cmd in docker openssl curl node jq; do
   command -v "$cmd" >/dev/null || { echo "FAIL: missing $cmd" >&2; exit 1; }
 done
 tmp="$(mktemp -d)"
-container="telechir-phase16-keycloak-$"
+container="telechir-phase16-keycloak-${GITHUB_RUN_ID:?}"
 bundle="$repo_root/apps/control-plane/node_modules/.cache/phase16-keycloak-verifier-${GITHUB_RUN_ID:?}.mjs"
 cleanup() {
   docker rm -f "$container" >/dev/null 2>&1 || true
