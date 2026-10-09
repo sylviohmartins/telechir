@@ -27,7 +27,9 @@ const config = [
   "mcp_oauth_callback_port = 1455",
   "[mcp_servers." + alias + "]",
   'url = "' + mcp + '"',
-  'oauth_resource = "' + mcp + '"',
+  // In Codex 0.162, rmcp derives the RFC8707 resource from the MCP URL.
+  // Setting oauth_resource here adds a SECOND resource parameter and makes
+  // strict Keycloak authorization fail invalid_request before login.
   "startup_timeout_sec = 20",
   "tool_timeout_sec = 20",
   // Codex 0.162.0 expects the pre-registered client in the *nested* oauth
