@@ -2,7 +2,7 @@
 
 Repositório de pesquisa, discovery de produto e arquitetura para uma futura plataforma que permita que clientes de IA autorizados operem computadores e ambientes executáveis por meio de uma camada de controle segura e auditável.
 
-> **Estado do projeto:** discovery e **Phases 0–15 concluídas**, incluindo Local Agent Core, control plane, Pairing/Device Identity, Device Realtime Channel, Remote MCP/OAuth, Filesystem Tools, Shell/Process Lifecycle, Basic Git read-only, Policy/Approvals/Audit, Dashboard MVP, readiness técnica do plugin público OpenAI, Sandbox mode Docker opt-in, Computer use Windows tipado/bounded e Browser automation Playwright isolada. Não existe deploy de produção nem plugin submetido/aprovado; **Phase 15 — Multi-device/workspace concurrency** está concluída; **Phase 16 — Multi-AI compatibility certification** está em andamento via issue #49, com protocolo moderno/legado testado e clientes reais ainda não certificados. Os gates externos de publicação OpenAI e o `COMMERCIAL_CLEARANCE_PENDING` da marca permanecem abertos.
+> **Estado do projeto:** discovery e **Phases 0–15 concluídas**, incluindo Local Agent Core, control plane, Pairing/Device Identity, Device Realtime Channel, Remote MCP/OAuth, Filesystem Tools, Shell/Process Lifecycle, Basic Git read-only, Policy/Approvals/Audit, Dashboard MVP, readiness técnica do plugin público OpenAI, Sandbox mode Docker opt-in, Computer use Windows tipado/bounded e Browser automation Playwright isolada. Não existe deploy de produção nem plugin submetido/aprovado; **Phase 15 — Multi-device/workspace concurrency** está concluída; **Phase 16 — Multi-AI compatibility certification** está em andamento via issue #49, com protocolo moderno/legado testado e **certificações reais parciais** (Inspector MCP e Codex CLI iniciando OAuth em laboratório), enquanto outros clientes e a homologação com dispositivo real permanecem pendentes. Os gates externos de publicação OpenAI e o `COMMERCIAL_CLEARANCE_PENDING` da marca permanecem abertos.
 
 ## Por que este repositório existe
 
@@ -74,6 +74,9 @@ O repositório físico já foi renomeado para **`telechir`**, alinhando o namesp
 A estratégia de licenciamento do core foi definida em `docs/architecture/adr/0005-open-source-licensing-strategy.md`: **Apache License 2.0** para o core público, com marca Telechir tratada separadamente. O arquivo `LICENSE` já está na raiz; snapshots históricos em `artifacts/` continuam sujeitos às observações de proveniência e não devem ser tratados automaticamente como core distribuível.
 
 ## Contribuição
+
+Consulte também a [auditoria de prontidão para beta, produção e publicação](docs/product/release-readiness-2026-10-09.md), que separa implementação, certificação, operações e gates externos sem autorizar deploy.
+
 
 O projeto concluiu discovery e as Phases 0–15; a Phase 16 está em andamento sem autorização para publicação ou produção. Consulte `CONTRIBUTING.md`, `PROJECT_STATE.md` e a matriz de certificação da Phase 16 antes de propor implementação ou avançar para outra fase.
 
