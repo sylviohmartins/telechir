@@ -225,6 +225,8 @@ try {
   console.log(
     "PASS: official Codex CLI generated OAuth URL, S256 challenge, state and read-only scope; no injected token",
   );
+  console.log("DIAG: Codex OAuth authorization parameter names="+
+    [...authorize.searchParams.keys()].sort().join(","));
 
   const page = await ctx.newPage();
   await page.goto(raw, { timeout: 19000 });
