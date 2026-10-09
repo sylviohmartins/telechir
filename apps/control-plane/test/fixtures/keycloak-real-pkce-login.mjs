@@ -181,7 +181,7 @@ async function authorize(options = {}) {
           : html.includes('kc-terms-text')
             ? "TERMS"
             : "OTHER_HTML";
-      const formCount = [...html.matchAll(/<form\\b/giu)].length;
+      const formCount = html.split("<form").length - 1;
       // Report only structural flags/counts; no HTML, cookie values or codes.
       throw new Error(
         "Keycloak login did not advance; formKind=" +
