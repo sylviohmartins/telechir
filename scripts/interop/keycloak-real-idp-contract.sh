@@ -240,5 +240,8 @@ source "$repo_root/scripts/interop/keycloak-inspector-interactive-oauth-smoke.sh
 source "$repo_root/scripts/interop/keycloak-codex-cli-interactive-oauth-smoke.sh"
 # Probe the actual Gemini CLI OAuth flow; do not equate bearer fixture or issuer preflight with OAuth.
 source "$repo_root/scripts/interop/keycloak-gemini-cli-native-oauth-smoke.sh"
+# Investigate whether /mcp auth can be triggered from the official REPL without
+# a model-provider account. Absence of authorization is NOT a compatibility PASS.
+source "$repo_root/scripts/interop/keycloak-gemini-cli-repl-oauth-smoke.sh"
 echo "RESULT: KEYCLOAK_REAL_IDP_ISSUANCE_CONTRACT_PASS"
 echo "NOTE: Keycloak credentials, scripted PKCE, headless Chromium login and consent tested against local Worker/D1; no production hosted tenant/Worker, model-initiated UI or real-world user."
