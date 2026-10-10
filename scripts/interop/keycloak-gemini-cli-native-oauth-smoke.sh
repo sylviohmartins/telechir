@@ -30,4 +30,6 @@ NODE_EXTRA_CA_CERTS="$work_dir/gemini-native-dual-ca.crt" \
   timeout 130s node \
   "$repo_root/apps/control-plane/test/fixtures/keycloak-gemini-cli-native-oauth.mjs" \
   "$work_dir" "$issuer" "$worker_url"
-echo "RESULT: KEYCLOAK_GEMINI_VENDOR_OWNED_OAUTH_MCP_DISCOVERY_PASS"
+# This probe may legitimately report NOT_TESTED if 'gemini mcp list' does not
+# start OAuth. Only the Node harness may emit a bounded vendor-OAuth PASS.
+echo "RESULT: GEMINI_CLI_MANAGEMENT_AUTH_PROBE_COMPLETED_NOT_A_CERTIFICATION"
