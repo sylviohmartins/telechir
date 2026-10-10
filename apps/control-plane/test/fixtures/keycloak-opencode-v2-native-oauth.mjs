@@ -42,19 +42,30 @@ const config = {
 for (const dir of [root, configHome, dataHome, browserHome]) {
   mkdirSync(dir, { recursive: true, mode: 0o700 });
 }
-writeFileSync(join(root, "opencode.json"), JSON.stringify(config), { mode: 0o600 });
+writeFileSync(join(root, "opencode.json"), JSON.stringify(config), {
+  mode: 0o600,
+});
 for (const relative of [".pki/nssdb", ".local/share/pki/nssdb"]) {
   const store = join(browserHome, relative);
   mkdirSync(store, { recursive: true, mode: 0o700 });
   execFileSync("certutil", ["-N", "--empty-password", "-d", "sql:" + store], {
     stdio: "pipe",
   });
-  execFileSync("certutil", [
-    "-A", "-d", "sql:" + store,
-    "-n", "telechir-opencode-v2-keycloak-ca",
-    "-t", "C,,",
-    "-i", join(work, "root.crt"),
-  ], { stdio: "pipe" });
+  execFileSync(
+    "certutil",
+    [
+      "-A",
+      "-d",
+      "sql:" + store,
+      "-n",
+      "telechir-opencode-v2-keycloak-ca",
+      "-t",
+      "C,,",
+      "-i",
+      join(work, "root.crt"),
+    ],
+    { stdio: "pipe" },
+  );
 }
 const chrome = await chromium.launch({
   channel: "chrome",
@@ -70,12 +81,18 @@ const ctx = await chrome.newContext({
 });
 const issuerBase = new URL(issuer);
 const callbackBase = new URL(callback);
-await ctx.route("**/*", route => {
+await ctx.route("**/*", (route) => {
   const u = new URL(route.request().url());
-  if (u.origin === callbackBase.origin && u.pathname === callbackBase.pathname) {
+  if (
+    u.origin === callbackBase.origin &&
+    u.pathname === callbackBase.pathname
+  ) {
     return route.continue();
   }
-  if (u.origin === issuerBase.origin && u.pathname.startsWith(issuerBase.pathname + "/")) {
+  if (
+    u.origin === issuerBase.origin &&
+    u.pathname.startsWith(issuerBase.pathname + "/")
+  ) {
     return route.continue();
   }
   return route.abort("blockedbyclient");
@@ -92,11 +109,20 @@ const env = {
   no_proxy: "127.0.0.1,localhost",
 };
 for (const key of [
-  "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY",
-  "GEMINI_API_KEY", "CODEX_API_KEY", "OPENCODE_API_KEY",
-  "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY",
-  "http_proxy", "https_proxy", "all_proxy",
-]) delete env[key];
+  "OPENAI_API_KEY",
+  "ANTHROPIC_API_KEY",
+  "GOOGLE_API_KEY",
+  "GEMINI_API_KEY",
+  "CODEX_API_KEY",
+  "OPENCODE_API_KEY",
+  "HTTP_PROXY",
+  "HTTPS_PROXY",
+  "ALL_PROXY",
+  "http_proxy",
+  "https_proxy",
+  "all_proxy",
+])
+  delete env[key];
 const cli = ["--yes", "--package=@opencode/cli@2.0.24", "opencode"];
 let output = "";
 let errorOutput = "";
@@ -109,11 +135,14 @@ const authUrl = new Promise((resolve, reject) => {
 });
 const urlPattern =
   /https:\/\/127\.0\.0\.1:9443\/realms\/telechir-phase16\/protocol\/openid-connect\/auth\?[^\s\x1b<>"']+/u;
-const stripAnsi = raw => raw
-  .replace(/\x1b\]8;;[^\x07\x1b]*(?:\x07|\x1b\\)/gu, "")
-  .replace(/\x1b\[[0-9;]*[A-Za-z]/gu, "");
+const stripAnsi = (raw) =>
+  raw
+    .replace(/\x1b\]8;;[^\x07\x1b]*(?:\x07|\x1b\\)/gu, "")
+    .replace(/\x1b\[[0-9;]*[A-Za-z]/gu, "");
 const p = spawn("npx", [...cli, "mcp", "auth", alias], {
-  cwd: root, env, stdio: ["ignore", "pipe", "pipe"],
+  cwd: root,
+  env,
+  stdio: ["ignore", "pipe", "pipe"],
 });
 function consume(x, isErr) {
   if (isErr) errorOutput += String(x);
@@ -127,10 +156,10 @@ function consume(x, isErr) {
     }
   }
 }
-p.stdout.on("data", x => consume(x, false));
-p.stderr.on("data", x => consume(x, true));
+p.stdout.on("data", (x) => consume(x, false));
+p.stderr.on("data", (x) => consume(x, true));
 const completion = new Promise((resolve, reject) => {
-  p.once("error", e => {
+  p.once("error", (e) => {
     if (!gotAuth) rejectAuth(new Error("OpenCode CLI did not start"));
     reject(e);
   });
@@ -145,9 +174,13 @@ async function bounded(promise, ms, description) {
   try {
     return await Promise.race([
       promise,
-      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(description)), ms); }),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(description)), ms);
+      }),
     ]);
-  } finally { clearTimeout(timer); }
+  } finally {
+    clearTimeout(timer);
+  }
 }
 function flags() {
   const raw = output + "\n" + errorOutput;
@@ -156,7 +189,8 @@ function flags() {
     outputBytes: output.length,
     errorBytes: errorOutput.length,
     vendorAuthUrl: gotAuth,
-    cliUnknownCommand: /unknown command|unknown subcommand|unknown option/iu.test(raw),
+    cliUnknownCommand:
+      /unknown command|unknown subcommand|unknown option/iu.test(raw),
     missingConfig: /unknown server|not found|no mcp server/iu.test(raw),
     tlsError: /certificate|ssl|tls|unable to verify/iu.test(raw),
     invalidClient: /invalid_client|invalid_request|invalid_scope/iu.test(raw),
@@ -164,56 +198,113 @@ function flags() {
   };
 }
 try {
-  const rawUrl = await bounded(authUrl, 65000, "OpenCode official CLI did not generate OAuth URL");
+  const rawUrl = await bounded(
+    authUrl,
+    65000,
+    "OpenCode official CLI did not generate OAuth URL",
+  );
   const auth = new URL(rawUrl);
   assert.equal(auth.origin, issuerBase.origin);
-  assert.equal(auth.pathname, issuerBase.pathname + "/protocol/openid-connect/auth");
+  assert.equal(
+    auth.pathname,
+    issuerBase.pathname + "/protocol/openid-connect/auth",
+  );
   assert.equal(auth.searchParams.get("response_type"), "code");
   assert.equal(auth.searchParams.get("client_id"), clientId);
   assert.equal(auth.searchParams.get("redirect_uri"), callback);
   assert.equal(auth.searchParams.get("code_challenge_method"), "S256");
-  assert.match(auth.searchParams.get("code_challenge") ?? "", /^[A-Za-z0-9_-]{43}$/u);
+  assert.match(
+    auth.searchParams.get("code_challenge") ?? "",
+    /^[A-Za-z0-9_-]{43}$/u,
+  );
   assert.ok((auth.searchParams.get("state") ?? "").length >= 16);
-  assert.ok((auth.searchParams.get("scope") ?? "").split(" ").includes("telechir:devices:read"));
+  assert.ok(
+    (auth.searchParams.get("scope") ?? "")
+      .split(" ")
+      .includes("telechir:devices:read"),
+  );
   assert.deepEqual(auth.searchParams.getAll("resource"), [mcpUrl]);
-  console.log("PASS: official OpenCode V2 initiates native Keycloak OAuth PKCE S256 and scoped loopback callback");
+  console.log(
+    "PASS: official OpenCode V2 initiates native Keycloak OAuth PKCE S256 and scoped loopback callback",
+  );
   const page = await ctx.newPage();
   await page.goto(rawUrl, { timeout: 22000 });
   assert.equal(new URL(page.url()).origin, issuerBase.origin);
   await page.locator("#username").fill("phase16-user-ci");
-  await page.locator("#password").fill("phase16-ci-browser-only-not-a-real-secret");
+  await page
+    .locator("#password")
+    .fill("phase16-ci-browser-only-not-a-real-secret");
   await page.locator("#kc-login").click();
-  await page.locator('[name="accept"]').waitFor({ state: "visible", timeout: 18000 });
+  await page
+    .locator('[name="accept"]')
+    .waitFor({ state: "visible", timeout: 18000 });
   await Promise.all([
-    page.waitForURL(u => u.origin === callbackBase.origin && u.pathname === callbackBase.pathname, { timeout: 22000 }),
+    page.waitForURL(
+      (u) =>
+        u.origin === callbackBase.origin &&
+        u.pathname === callbackBase.pathname,
+      { timeout: 22000 },
+    ),
     page.locator('[name="accept"]').click(),
   ]);
-  assert.equal(new URL(page.url()).searchParams.get("state"), auth.searchParams.get("state"));
+  assert.equal(
+    new URL(page.url()).searchParams.get("state"),
+    auth.searchParams.get("state"),
+  );
   assert.ok(new URL(page.url()).searchParams.get("code"));
-  const finished = await bounded(completion, 33000, "OpenCode CLI failed to complete its own OAuth code exchange");
-  assert.equal(finished.code, 0, "Official OpenCode CLI did not complete OAuth login");
-  console.log("PASS: Chrome Keycloak consent and native OpenCode code exchange completed");
+  const finished = await bounded(
+    completion,
+    33000,
+    "OpenCode CLI failed to complete its own OAuth code exchange",
+  );
+  assert.equal(
+    finished.code,
+    0,
+    "Official OpenCode CLI did not complete OAuth login",
+  );
+  console.log(
+    "PASS: Chrome Keycloak consent and native OpenCode code exchange completed",
+  );
   const list = spawn("npx", [...cli, "mcp", "list"], {
-    cwd: root, env, stdio: ["ignore", "pipe", "pipe"],
+    cwd: root,
+    env,
+    stdio: ["ignore", "pipe", "pipe"],
   });
-  let listOut = "", listErr = "";
-  for (const [stream, isError] of [[list.stdout, false], [list.stderr, true]]) {
-    stream.on("data", x => {
-      if (isError) listErr += String(x); else listOut += String(x);
+  let listOut = "",
+    listErr = "";
+  for (const [stream, isError] of [
+    [list.stdout, false],
+    [list.stderr, true],
+  ]) {
+    stream.on("data", (x) => {
+      if (isError) listErr += String(x);
+      else listOut += String(x);
       if (listOut.length + listErr.length > 64 * 1024) list.kill("SIGTERM");
     });
   }
-  const listEnd = await bounded(new Promise((resolve, reject) => {
-    list.once("error", reject);
-    list.once("close", (code, signal) => resolve({ code, signal }));
-  }), 55000, "OpenCode official CLI did not report post-OAuth MCP status");
+  const listEnd = await bounded(
+    new Promise((resolve, reject) => {
+      list.once("error", reject);
+      list.once("close", (code, signal) => resolve({ code, signal }));
+    }),
+    55000,
+    "OpenCode official CLI did not report post-OAuth MCP status",
+  );
   assert.equal(listEnd.code, 0);
-  assert.match(listOut + "\n" + listErr, /telechir-opencode-v2-ci[^\r\n]*(?:connected|✓)/iu, "OpenCode did not connect with own stored OAuth");
+  assert.match(
+    listOut + "\n" + listErr,
+    /telechir-opencode-v2-ci[^\r\n]*(?:connected|✓)/iu,
+    "OpenCode did not connect with own stored OAuth",
+  );
   console.log("RESULT: KEYCLOAK_OPENCODE_V2_OFFICIAL_OAUTH_MCP_CONNECTED_PASS");
-  console.log("NOTE: Native vendor OAuth and MCP connection only; not tool call, LLM, account, or physical device.");
+  console.log(
+    "NOTE: Native vendor OAuth and MCP connection only; not tool call, LLM, account, or physical device.",
+  );
 } catch {
   console.error("DIAG: OPENCODE_NATIVE_OAUTH_FLAGS=" + JSON.stringify(flags()));
-  throw new Error("Official OpenCode V2 OAuth connection gate failed; no credential material printed");
+  throw new Error(
+    "Official OpenCode V2 OAuth connection gate failed; no credential material printed",
+  );
 } finally {
   if (!closed) p.kill("SIGTERM");
   await ctx.close();
