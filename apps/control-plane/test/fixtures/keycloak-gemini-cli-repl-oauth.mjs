@@ -195,14 +195,13 @@ function oauthUrl() {
   return m?.[0] ?? null;
 }
 function sanitizedPreAuthStartup() {
-  // This diagnostic runs only with a synthetic CI-only identity and no
-  // observed OAuth redirect. Never print raw vendor CLI streams to CI.
-  return (out + "\\n" + err)
-    .replace(/\\x1b\\[[0-9;]*[A-Za-z]/gu, "")
-    .replace(/https?:\\/\\/[^\\s"'<>]+/giu, "[URL]")
-    .replace(/eyJ[A-Za-z0-9_-]+\\.eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+/gu, "[JWT]")
-    .replace(/Bearer\\s+[^\\s"'<>]+/giu, "Bearer [REDACTED]")
-    .replace(/(?:[A-Za-z]:\\\\|\\/)[A-Za-z0-9_.\\/\\\\-]{8,}/gu, "[PATH]")
+  // Synthetic CI account only; never publish raw CLI output.
+  return (out + "\n" + err)
+    .replace(/\x1b\[[0-9;]*[A-Za-z]/gu, "")
+    .replace(/https?:\/\/[^\s"'<>]+/giu, "[URL]")
+    .replace(/eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/gu, "[JWT]")
+    .replace(/Bearer\s+[^\s"'<>]+/giu, "Bearer [REDACTED]")
+    .replace(/(?:[A-Za-z]:\\|\/)[A-Za-z0-9_.\/\\-]{8,}/gu, "[PATH]")
     .replace(/[A-Za-z0-9_-]{48,}/gu, "[OPAQUE]")
     .replaceAll("telechir-phase16-ci-dummy-key-not-valid-with-google", "[SYNTHETIC_KEY]")
     .slice(0, 600);
