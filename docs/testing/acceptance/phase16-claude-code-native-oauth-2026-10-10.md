@@ -1,8 +1,8 @@
 # Phase 16 — Claude Code: OAuth nativo contra Keycloak real
 
-**Data:** 2026-10-10 (America/Sao_Paulo)  
-**Issue:** [#49](https://github.com/sylviohmartins/telechir/issues/49)  
-**Cliente:** `@anthropic-ai/claude-code@2.1.295` oficial, Ubuntu GitHub Actions efêmero.  
+**Data:** 2026-10-10 (America/Sao_Paulo)
+**Issue:** [#49](https://github.com/sylviohmartins/telechir/issues/49)
+**Cliente:** `@anthropic-ai/claude-code@2.1.295` oficial, Ubuntu GitHub Actions efêmero.
 **Transporte:** Streamable HTTP sobre HTTPS loopback / Workerd/D1 reais, identidade sintética.
 
 ## Resultado e evidência
