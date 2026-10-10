@@ -32,5 +32,49 @@ NODE_EXTRA_CA_CERTS="$work_dir/opencode-v2-dual-ca.crt" \
   timeout 210s node \
   "$repo_root/apps/control-plane/test/fixtures/keycloak-opencode-v2-native-oauth.mjs" \
   "$work_dir" "$issuer" "$worker_url"
+# The SAME OpenCode-stored OAuth session must be refused when D1 disables its
+# linked subject. Never replace the vendor token, perform a second OAuth
+# login, or downgrade/disable TLS in this adversarial test.
+(
+  cd "$repo_root/apps/control-plane"
+  ./node_modules/.bin/wrangler d1 execute DB --local \
+    --persist-to "$worker_state" --file "$work_dir/browser-pkce/disable.sql" \
+    >"$work_dir/opencode-disabled.log" 2>&1 || {
+      echo "FAIL: unable to disable OpenCode synthetic user in real D1" >&2
+      exit 1
+    }
+)
+# Fail closed if a general Worker outage could explain the denied connection.
+curl --fail --silent --show-error --cacert "$worker_ca" --max-time 8 \
+  "$worker_base/health" |
+  jq -e '.status=="ok" and .fixture=="phase16"' >/dev/null || {
+    echo "FAIL: Worker unavailable during OpenCode disabled-user gate" >&2
+    exit 1
+  }
+NODE_EXTRA_CA_CERTS="$work_dir/opencode-v2-dual-ca.crt" \
+  SSL_CERT_FILE="$work_dir/opencode-v2-dual-ca.crt" \
+  NO_PROXY="127.0.0.1,localhost" no_proxy="127.0.0.1,localhost" \
+  timeout 80s node \
+  "$repo_root/apps/control-plane/test/fixtures/keycloak-opencode-v2-oauth-revocation.mjs" \
+  "$work_dir" "$worker_url" disabled
+
+# Recovery with the SAME OAuth credential rules out a broken CLI profile,
+# TLS regression or a permanently inaccessible fixture as the failure cause.
+(
+  cd "$repo_root/apps/control-plane"
+  ./node_modules/.bin/wrangler d1 execute DB --local \
+    --persist-to "$worker_state" --file "$work_dir/browser-pkce/seed.sql" \
+    >"$work_dir/opencode-reenabled-after-disable.log" 2>&1 || {
+      echo "FAIL: unable to restore OpenCode synthetic user in real D1" >&2
+      exit 1
+    }
+)
+NODE_EXTRA_CA_CERTS="$work_dir/opencode-v2-dual-ca.crt" \
+  SSL_CERT_FILE="$work_dir/opencode-v2-dual-ca.crt" \
+  NO_PROXY="127.0.0.1,localhost" no_proxy="127.0.0.1,localhost" \
+  timeout 80s node \
+  "$repo_root/apps/control-plane/test/fixtures/keycloak-opencode-v2-oauth-revocation.mjs" \
+  "$work_dir" "$worker_url" reenabled
+echo "RESULT: KEYCLOAK_OPENCODE_V2_OFFICIAL_OAUTH_REVOCATION_GATE_PASS"
 echo "RESULT: KEYCLOAK_OPENCODE_V2_VENDOR_OAUTH_GATE_PASS"
 echo "NOTE: vendor-owned login and reconnect only; no LLM inference or tool execution."
