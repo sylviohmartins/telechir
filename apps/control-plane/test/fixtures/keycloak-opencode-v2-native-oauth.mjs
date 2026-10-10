@@ -103,6 +103,8 @@ const env = {
   XDG_CONFIG_HOME: configHome,
   XDG_DATA_HOME: dataHome,
   OPENCODE_DISABLE_AUTOUPDATE: "true",
+  // V2 credentials live in SQLite; pin a CI-only DB outside vendor defaults.
+  OPENCODE_DB: join(root, "opencode-v2-ci.db"),
   OPENCODE_DISABLE_TELEMETRY: "true",
   BROWSER: "/bin/true",
   NO_PROXY: "127.0.0.1,localhost",
