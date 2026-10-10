@@ -1,6 +1,6 @@
 # Estado do Projeto
 
-**Atualizado em:** 2026-10-09
+**Atualizado em:** 2026-10-10
 
 ## Fase atual
 
@@ -9,6 +9,9 @@
 A implementação possui Local Agent Core, control plane, identidade/pairing Ed25519, canal realtime outbound, Remote MCP/OAuth, seis typed filesystem tools, shell/process lifecycle, Basic Git read-only, governança de policy/approvals/audit, Dashboard MVP, tooling fail-closed para package/review do plugin público OpenAI, sandbox Docker local opt-in, Computer use tipado/bounded no Windows e Browser automation Playwright isolada com egress anti-SSRF. A superfície MCP pública possui 24 tools. O projeto **não possui deploy de produção**, plugin submetido, aprovado ou publicado.
 
 ## Gates atuais
+
+**Claude Code — OAuth nativo Keycloak 2026-10-10:** a CLI oficial 2.1.295 executou `mcp login --no-browser` com PKCE S256/`state` de sua autoria, cliente público pré-registrado e consentimento Chrome/Keycloak real. Um segundo `claude mcp list` reutilizou a credencial armazenada pelo próprio Claude e reportou `Connected` ao MCP Workerd/D1 sem Bearer pré-injetado. [CI #38023908095](https://github.com/sylviohmartins/telechir/actions/runs/38023908095) 3/3 PASS. **Não** certifica `tools/call` iniciado pelo Claude, negativos pós-desabilitação, inferência LLM, conta real ou dispositivo físico. Registro: `docs/testing/acceptance/phase16-claude-code-native-oauth-2026-10-10.md`; issue #49 permanece `IN_PROGRESS`.
+
 
 **Gemini CLI — preflight REPL/PTTY em 2026-10-09:** em GitHub Actions descartável, o CLI oficial 0.63.0 foi inicializado em pseudo-terminal validado, sem conta real de modelo e sem token MCP injetado. A [CI #38018350979](https://github.com/sylviohmartins/telechir/actions/runs/38018350979) concluiu **3/3 jobs success**; o processo Gemini permaneceu ativo e não reproduziu o erro anterior de modo headless (exit 42 / `No input provided via stdin`). **Não** foram observados URL de autorização, callback, token armazenado ou tool call pelo Gemini, nem prova de que o comando `/mcp auth` foi efetivamente processado pela UI. **`NOT_TESTED` para OAuth Gemini interativo** e issue #49 permanece aberta. Evidência: `docs/testing/acceptance/phase16-gemini-repl-oauth-preflight-2026-10-09.md`.
 
