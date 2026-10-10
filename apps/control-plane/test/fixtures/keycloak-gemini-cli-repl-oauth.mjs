@@ -203,7 +203,10 @@ function sanitizedPreAuthStartup() {
     .replace(/Bearer\s+[^\s"'<>]+/giu, "Bearer [REDACTED]")
     .replace(/(?:[A-Za-z]:\\|\/)[A-Za-z0-9_.\/\\-]{8,}/gu, "[PATH]")
     .replace(/[A-Za-z0-9_-]{48,}/gu, "[OPAQUE]")
-    .replaceAll("telechir-phase16-ci-dummy-key-not-valid-with-google", "[SYNTHETIC_KEY]")
+    .replaceAll(
+      "telechir-phase16-ci-dummy-key-not-valid-with-google",
+      "[SYNTHETIC_KEY]",
+    )
     .slice(0, 600);
 }
 function flags() {
