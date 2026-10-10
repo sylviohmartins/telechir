@@ -108,7 +108,7 @@ for (const k of [
 ]) delete env[k];
 const child = spawn("script", [
   "--quiet", "--return", "--command",
-  "stty -echo && exec npx --yes @google/gemini-cli@0.63.0 --screen-reader",
+  "stty -echo && exec npx --yes --offline @google/gemini-cli@0.63.0 --screen-reader",
   "/dev/null",
 ], { cwd: home, env, stdio: ["pipe", "pipe", "pipe"] });
 let out = "", err = "", closed = false, result = null;
