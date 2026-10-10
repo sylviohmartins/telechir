@@ -10,6 +10,9 @@ A implementação possui Local Agent Core, control plane, identidade/pairing Ed2
 
 ## Gates atuais
 
+**Gemini CLI — preflight REPL/PTTY em 2026-10-09:** em GitHub Actions descartável, o CLI oficial 0.63.0 foi inicializado em pseudo-terminal validado, sem conta real de modelo e sem token MCP injetado. A [CI #38018350979](https://github.com/sylviohmartins/telechir/actions/runs/38018350979) concluiu **3/3 jobs success**; o processo Gemini permaneceu ativo e não reproduziu o erro anterior de modo headless (exit 42 / `No input provided via stdin`). **Não** foram observados URL de autorização, callback, token armazenado ou tool call pelo Gemini, nem prova de que o comando `/mcp auth` foi efetivamente processado pela UI. **`NOT_TESTED` para OAuth Gemini interativo** e issue #49 permanece aberta. Evidência: `docs/testing/acceptance/phase16-gemini-repl-oauth-preflight-2026-10-09.md`.
+
+
 **Gemini CLI — comportamento do comando administrativo verificado em 2026-10-09:** com `@google/gemini-cli@0.63.0` e perfil privado sem Bearer, `gemini mcp list` terminou com sucesso de processo, mas reportou o servidor como desconectado e **não iniciou OAuth**; não houve authorization URL, callback nem token. Isso **não certifica nem reprova** o caminho interativo `/mcp auth`, que segue `NOT_TESTED`. Evidência e limites em `docs/testing/acceptance/phase16-gemini-cli-management-oauth-2026-10-09.md` e issue #49. CI verde do diagnóstico não é PASS de OAuth Gemini.
 
 
