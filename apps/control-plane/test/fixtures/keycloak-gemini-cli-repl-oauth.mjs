@@ -146,6 +146,14 @@ for (const k of [
   "OPENAI_API_KEY",
   "ANTHROPIC_API_KEY",
   "CODEX_API_KEY",
+  // This sub-process is explicitly exercising an interactive PTY on a CI
+  // runner. Keep the parent/test assertions on GITHUB_ACTIONS but prevent
+  // the vendor CLI from forcing non-interactive behavior solely due to CI.
+  "CI",
+  "GITHUB_ACTIONS",
+  "CONTINUOUS_INTEGRATION",
+  "GITLAB_CI",
+  "TF_BUILD",
 ])
   delete env[k];
 const child = spawn(
@@ -154,7 +162,7 @@ const child = spawn(
     "--quiet",
     "--return",
     "--command",
-    'stty -echo && exec "$TELECHIR_GEMINI_BIN" --screen-reader',
+    'stty -echo && node -e \'if(!process.stdin.isTTY || !process.stdout.isTTY)process.exit(86)\' && exec "$TELECHIR_GEMINI_BIN" --screen-reader',
     "/dev/null",
   ],
   { cwd: home, env, stdio: ["pipe", "pipe", "pipe"] },
