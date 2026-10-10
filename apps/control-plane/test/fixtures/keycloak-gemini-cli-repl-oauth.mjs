@@ -113,6 +113,13 @@ await context.route("**/*", (route) => {
   return route.abort("blockedbyclient");
 });
 
+const cliBin = process.env.TELECHIR_GEMINI_BIN;
+assert.ok(
+  typeof cliBin === "string" &&
+    cliBin.startsWith(join(home, "npm-cache", "_npx") + "/") &&
+    existsSync(cliBin),
+  "Gemini CLI binary must be preloaded inside disposable npm cache",
+);
 const env = {
   ...process.env,
   HOME: home,
@@ -120,7 +127,6 @@ const env = {
   GEMINI_CLI_TRUST_WORKSPACE: "true",
   GEMINI_TELEMETRY_ENABLED: "false",
   GEMINI_API_KEY: "telechir-phase16-ci-dummy-key-not-valid-with-google",
-  NPM_CONFIG_CACHE: join(work, "gemini-native-oauth", ".npm"),
   // Fail closed for vendor model endpoints: only Keycloak/Worker loopback
   // should be contacted while testing the interactive slash command.
   HTTPS_PROXY: "http://127.0.0.1:9",
@@ -148,7 +154,7 @@ const child = spawn(
     "--quiet",
     "--return",
     "--command",
-    "stty -echo && exec npx --yes --offline @google/gemini-cli@0.63.0 --screen-reader",
+    "stty -echo && exec \"$TELECHIR_GEMINI_BIN\" --screen-reader",
     "/dev/null",
   ],
   { cwd: home, env, stdio: ["pipe", "pipe", "pipe"] },
