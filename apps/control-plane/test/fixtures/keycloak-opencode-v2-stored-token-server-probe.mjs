@@ -16,7 +16,13 @@ assert.equal(mcpUrl, "https://127.0.0.1:8988/mcp");
 assert.ok(["baseline", "disabled", "reenabled"].includes(stage));
 
 const alias = "telechir-opencode-v2-ci";
-const path = join(work, "opencode-v2-native-oauth", "data", "opencode", "mcp-auth.json");
+const path = join(
+  work,
+  "opencode-v2-native-oauth",
+  "data",
+  "opencode",
+  "mcp-auth.json",
+);
 assert.ok(existsSync(path), "Official OpenCode OAuth credential store missing");
 const saved = JSON.parse(readFileSync(path, "utf8"));
 assert.ok(saved && typeof saved === "object");
@@ -29,12 +35,21 @@ const parts = token.split(".");
 assert.equal(parts.length, 3, "Expected real Keycloak signed JWT");
 const claims = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
 assert.equal(claims.iss, "https://127.0.0.1:9443/realms/telechir-phase16");
-assert.ok(Array.isArray(claims.aud) ? claims.aud.includes(mcpUrl) : claims.aud === mcpUrl);
 assert.ok(
-  String(claims.telechir_scope_fixture ?? "").split(" ").includes("telechir:devices:read"),
+  Array.isArray(claims.aud)
+    ? claims.aud.includes(mcpUrl)
+    : claims.aud === mcpUrl,
+);
+assert.ok(
+  String(claims.telechir_scope_fixture ?? "")
+    .split(" ")
+    .includes("telechir:devices:read"),
   "Token does not include read-only fixture scope",
 );
-assert.ok(claims.exp > Math.floor(Date.now() / 1000) + 20, "Token expiration would confound disabled-user check");
+assert.ok(
+  claims.exp > Math.floor(Date.now() / 1000) + 20,
+  "Token expiration would confound disabled-user check",
+);
 
 const response = await fetch(mcpUrl, {
   method: "POST",
@@ -55,19 +70,37 @@ const response = await fetch(mcpUrl, {
 try {
   assert.equal(response.redirected, false);
   if (stage === "disabled") {
-    assert.equal(response.status, 401, "Disabled user was not denied by production MCP route");
-    console.log("RESULT: OPENCODE_V2_STORED_OAUTH_SERVER_DISABLED_USER_DENIED_PASS");
+    assert.equal(
+      response.status,
+      401,
+      "Disabled user was not denied by production MCP route",
+    );
+    console.log(
+      "RESULT: OPENCODE_V2_STORED_OAUTH_SERVER_DISABLED_USER_DENIED_PASS",
+    );
   } else {
-    assert.equal(response.status, 200, "Valid OAuth read token was not admitted");
+    assert.equal(
+      response.status,
+      200,
+      "Valid OAuth read token was not admitted",
+    );
     const data = await response.text();
-    assert.ok(data.length < 256 * 1024, "MCP tools/list returned oversized payload");
-    const payloads = response.headers.get("content-type")?.includes("text/event-stream")
-      ? data.split(/\r?\n/u).filter(line => line.startsWith("data:")).map(line => JSON.parse(line.slice(5).trim()))
+    assert.ok(
+      data.length < 256 * 1024,
+      "MCP tools/list returned oversized payload",
+    );
+    const payloads = response.headers
+      .get("content-type")
+      ?.includes("text/event-stream")
+      ? data
+          .split(/\r?\n/u)
+          .filter((line) => line.startsWith("data:"))
+          .map((line) => JSON.parse(line.slice(5).trim()))
       : [JSON.parse(data)];
-    const listed = payloads.find(x => x?.result?.tools)?.result?.tools;
+    const listed = payloads.find((x) => x?.result?.tools)?.result?.tools;
     assert.ok(Array.isArray(listed), "No real MCP tools/list result");
     assert.equal(listed.length, 24, "Unexpected MCP tool registry size");
-    assert.ok(listed.some(tool => tool.name === "list_devices"));
+    assert.ok(listed.some((tool) => tool.name === "list_devices"));
     console.log(
       stage === "baseline"
         ? "RESULT: OPENCODE_V2_STORED_OAUTH_SERVER_BASELINE_READ_PASS"
@@ -76,9 +109,18 @@ try {
   }
 } catch {
   // Deliberately avoid headers/body/JWT/authorization URLs in diagnostics.
-  console.error("DIAG: OPENCODE_V2_SERVER_PROBE=" + JSON.stringify({
-    stage, status: response.status, responseType: response.headers.get("content-type")?.split(";")[0],
-  }));
-  throw new Error("Production MCP authorization does not match D1 principal state");
+  console.error(
+    "DIAG: OPENCODE_V2_SERVER_PROBE=" +
+      JSON.stringify({
+        stage,
+        status: response.status,
+        responseType: response.headers.get("content-type")?.split(";")[0],
+      }),
+  );
+  throw new Error(
+    "Production MCP authorization does not match D1 principal state",
+  );
 }
-console.log("NOTE: independent server RPC with same vendor-stored ephemeral token; NOT an OpenCode tools/call.");
+console.log(
+  "NOTE: independent server RPC with same vendor-stored ephemeral token; NOT an OpenCode tools/call.",
+);

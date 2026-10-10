@@ -116,7 +116,11 @@ try {
         "OBSERVED: OPENCODE_V2_MCP_LIST_CONNECTED_AFTER_DISABLED_USER_NOT_CERTIFIED",
       );
     } else {
-      assert.equal(flags.explicitRefusal, true, "No explicit vendor MCP refusal");
+      assert.equal(
+        flags.explicitRefusal,
+        true,
+        "No explicit vendor MCP refusal",
+      );
       console.log(
         "RESULT: OPENCODE_V2_OFFICIAL_OAUTH_DISABLED_USER_MCP_REFUSED_PASS",
       );
