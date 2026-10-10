@@ -1,6 +1,6 @@
 # Estado do Projeto
 
-**Atualizado em:** 2026-10-08
+**Atualizado em:** 2026-10-09
 
 ## Fase atual
 
@@ -9,6 +9,9 @@
 A implementação possui Local Agent Core, control plane, identidade/pairing Ed25519, canal realtime outbound, Remote MCP/OAuth, seis typed filesystem tools, shell/process lifecycle, Basic Git read-only, governança de policy/approvals/audit, Dashboard MVP, tooling fail-closed para package/review do plugin público OpenAI, sandbox Docker local opt-in, Computer use tipado/bounded no Windows e Browser automation Playwright isolada com egress anti-SSRF. A superfície MCP pública possui 24 tools. O projeto **não possui deploy de produção**, plugin submetido, aprovado ou publicado.
 
 ## Gates atuais
+
+**Gemini CLI — comportamento do comando administrativo verificado em 2026-10-09:** com `@google/gemini-cli@0.63.0` e perfil privado sem Bearer, `gemini mcp list` terminou com sucesso de processo, mas reportou o servidor como desconectado e **não iniciou OAuth**; não houve authorization URL, callback nem token. Isso **não certifica nem reprova** o caminho interativo `/mcp auth`, que segue `NOT_TESTED`. Evidência e limites em `docs/testing/acceptance/phase16-gemini-cli-management-oauth-2026-10-09.md` e issue #49. CI verde do diagnóstico não é PASS de OAuth Gemini.
+
 
 - [x] Naming discovery: **`NAME_READY` — produto oficialmente chamado Telechir**.
 - [~] Clearance jurídico/comercial da marca: **`COMMERCIAL_CLEARANCE_PENDING`** — domínio, packages, handles e trademark precisam de consulta/reserva autoritativa antes de lançamento.
