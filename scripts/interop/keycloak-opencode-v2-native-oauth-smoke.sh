@@ -32,6 +32,15 @@ NODE_EXTRA_CA_CERTS="$work_dir/opencode-v2-dual-ca.crt" \
   timeout 210s node \
   "$repo_root/apps/control-plane/test/fixtures/keycloak-opencode-v2-native-oauth.mjs" \
   "$work_dir" "$issuer" "$worker_url"
+# Independent reference: read the official OpenCode CI credential store only in
+# this disposable process and call the production MCP route directly. This is
+# NOT a vendor tools/call; the CLI itself is never given an injected bearer.
+NODE_EXTRA_CA_CERTS="$work_dir/opencode-v2-dual-ca.crt" \
+  SSL_CERT_FILE="$work_dir/opencode-v2-dual-ca.crt" \
+  NO_PROXY="127.0.0.1,localhost" no_proxy="127.0.0.1,localhost" \
+  timeout 30s node \
+  "$repo_root/apps/control-plane/test/fixtures/keycloak-opencode-v2-stored-token-server-probe.mjs" \
+  "$work_dir" "$worker_url" baseline
 # The SAME OpenCode-stored OAuth session must be refused when D1 disables its
 # linked subject. Never replace the vendor token, perform a second OAuth
 # login, or downgrade/disable TLS in this adversarial test.
@@ -57,6 +66,14 @@ NODE_EXTRA_CA_CERTS="$work_dir/opencode-v2-dual-ca.crt" \
   timeout 80s node \
   "$repo_root/apps/control-plane/test/fixtures/keycloak-opencode-v2-oauth-revocation.mjs" \
   "$work_dir" "$worker_url" disabled
+# Server authorization, unlike the OpenCode connection label, must reject
+# the same OAuth token at the production tools/list boundary while disabled.
+NODE_EXTRA_CA_CERTS="$work_dir/opencode-v2-dual-ca.crt" \
+  SSL_CERT_FILE="$work_dir/opencode-v2-dual-ca.crt" \
+  NO_PROXY="127.0.0.1,localhost" no_proxy="127.0.0.1,localhost" \
+  timeout 30s node \
+  "$repo_root/apps/control-plane/test/fixtures/keycloak-opencode-v2-stored-token-server-probe.mjs" \
+  "$work_dir" "$worker_url" disabled
 
 # Recovery with the SAME OAuth credential rules out a broken CLI profile,
 # TLS regression or a permanently inaccessible fixture as the failure cause.
@@ -75,6 +92,12 @@ NODE_EXTRA_CA_CERTS="$work_dir/opencode-v2-dual-ca.crt" \
   timeout 80s node \
   "$repo_root/apps/control-plane/test/fixtures/keycloak-opencode-v2-oauth-revocation.mjs" \
   "$work_dir" "$worker_url" reenabled
-echo "RESULT: KEYCLOAK_OPENCODE_V2_OFFICIAL_OAUTH_REVOCATION_GATE_PASS"
+NODE_EXTRA_CA_CERTS="$work_dir/opencode-v2-dual-ca.crt" \
+  SSL_CERT_FILE="$work_dir/opencode-v2-dual-ca.crt" \
+  NO_PROXY="127.0.0.1,localhost" no_proxy="127.0.0.1,localhost" \
+  timeout 30s node \
+  "$repo_root/apps/control-plane/test/fixtures/keycloak-opencode-v2-stored-token-server-probe.mjs" \
+  "$work_dir" "$worker_url" reenabled
+echo "RESULT: KEYCLOAK_OPENCODE_V2_SERVER_SCOPE_REVOCATION_REFERENCE_PASS"\necho "NOT_CERTIFIED: official OpenCode mcp list may remain connected during D1 disable; no vendor tool invocation proven"
 echo "RESULT: KEYCLOAK_OPENCODE_V2_VENDOR_OAUTH_GATE_PASS"
 echo "NOTE: vendor-owned login and reconnect only; no LLM inference or tool execution."
