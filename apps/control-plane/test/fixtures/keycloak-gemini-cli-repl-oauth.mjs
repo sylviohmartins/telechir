@@ -90,6 +90,7 @@ const env = {
   GEMINI_CLI_TRUST_WORKSPACE: "true",
   GEMINI_TELEMETRY_ENABLED: "false",
   GEMINI_API_KEY: "telechir-phase16-ci-dummy-key-not-valid-with-google",
+  NPM_CONFIG_CACHE: join(work, "gemini-native-oauth", ".npm"),
   // Fail closed for vendor model endpoints: only Keycloak/Worker loopback
   // should be contacted while testing the interactive slash command.
   HTTPS_PROXY: "http://127.0.0.1:9",
