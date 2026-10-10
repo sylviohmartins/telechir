@@ -6,7 +6,8 @@
  * is never printed, reused for other identities, or injected into OpenCode.
  */
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
+import { DatabaseSync } from "node:sqlite";
 import { join } from "node:path";
 
 const [work, mcpUrl, stage] = process.argv.slice(2);
@@ -15,26 +16,30 @@ assert.equal(process.env.GITHUB_ACTIONS, "true", "GitHub CI only");
 assert.equal(mcpUrl, "https://127.0.0.1:8988/mcp");
 assert.ok(["baseline", "disabled", "reenabled"].includes(stage));
 
-const alias = "telechir-opencode-v2-ci";
-const path = join(
-  work,
-  "opencode-v2-native-oauth",
-  "data",
-  "opencode",
-  "mcp-auth.json",
-);
-assert.ok(existsSync(path), "Official OpenCode OAuth credential store missing");
-const saved = JSON.parse(readFileSync(path, "utf8"));
-assert.ok(saved && typeof saved === "object");
-const identity = saved[alias];
-assert.equal(identity?.serverUrl, mcpUrl);
-assert.equal(identity?.clientInfo?.clientId, "telechir-phase16-opencode-v2");
-const token = identity?.tokens?.accessToken;
+// V2 stores globally scoped OAuth credentials in the SQLite 'credential'
+// table, NOT V1's mcp-auth.json. Pinning OPENCODE_DB in the CLI environment
+// avoids accidental reading of any developer profile or global OAuth store.
+const path = join(work, "opencode-v2-native-oauth", "opencode-v2-ci.db");
+assert.ok(existsSync(path), "CI-only OpenCode V2 SQLite store missing");
+const db = new DatabaseSync(path, { readOnly: true });
+let credential;
+try {
+  const found = db.prepare("SELECT value FROM credential").all();
+  const oauth = found
+    .map(row => JSON.parse(row.value))
+    .filter(x => x?.type === "oauth");
+  assert.equal(oauth.length, 1, "Expected exactly one synthetic OpenCode OAuth account");
+  credential = oauth[0];
+} finally {
+  db.close();
+}
+const token = credential.access;
 assert.ok(typeof token === "string" && token.length > 80);
 const parts = token.split(".");
 assert.equal(parts.length, 3, "Expected real Keycloak signed JWT");
 const claims = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
 assert.equal(claims.iss, "https://127.0.0.1:9443/realms/telechir-phase16");
+assert.equal(claims.azp, "telechir-phase16-opencode-v2");
 assert.ok(
   Array.isArray(claims.aud)
     ? claims.aud.includes(mcpUrl)
