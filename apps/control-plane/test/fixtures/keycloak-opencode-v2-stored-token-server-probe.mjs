@@ -26,9 +26,13 @@ let credential;
 try {
   const found = db.prepare("SELECT value FROM credential").all();
   const oauth = found
-    .map(row => JSON.parse(row.value))
-    .filter(x => x?.type === "oauth");
-  assert.equal(oauth.length, 1, "Expected exactly one synthetic OpenCode OAuth account");
+    .map((row) => JSON.parse(row.value))
+    .filter((x) => x?.type === "oauth");
+  assert.equal(
+    oauth.length,
+    1,
+    "Expected exactly one synthetic OpenCode OAuth account",
+  );
   credential = oauth[0];
 } finally {
   db.close();
