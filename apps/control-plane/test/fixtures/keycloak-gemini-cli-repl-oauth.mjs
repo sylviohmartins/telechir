@@ -211,6 +211,7 @@ function flags() {
       ),
     mcpAuthPrompt: /oauth|mcp auth|authorization/iu.test(text),
     tlsError: /certificate.*error|tls.*error/iu.test(text),
+    startupOrPackageError: /npm error|module_not_found|unknown option|unknown argument|no such file|cannot find package/iu.test(text),
     storedMcpToken: existsSync(tokenPath),
   };
 }
@@ -225,6 +226,14 @@ try {
     await sleep(500);
   }
   if (!url) {
+    const diag = flags();
+    if (
+      diag.startupOrPackageError ||
+      (closed && result?.exit !== 0 && !diag.authRejected)
+    ) {
+      console.error("DIAG: GEMINI_REPL_UNEXPECTED_STARTUP_FAILURE=" + JSON.stringify(diag));
+      throw new Error("Official Gemini CLI REPL failed before a meaningful OAuth precondition check");
+    }
     assert.equal(
       existsSync(tokenPath),
       false,
