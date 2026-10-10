@@ -1,8 +1,8 @@
 # Phase 16 — Gemini CLI: teste de OAuth por comando administrativo e limite da evidência
 
-**Data:** 2026-10-09  
-**Issue:** [#49](https://github.com/sylviohmartins/telechir/issues/49)  
-**Cliente:** `@google/gemini-cli@0.63.0`, Linux GitHub Actions descartável.  
+**Data:** 2026-10-09
+**Issue:** [#49](https://github.com/sylviohmartins/telechir/issues/49)
+**Cliente:** `@google/gemini-cli@0.63.0`, Linux GitHub Actions descartável.
 **Estado:** `PASS` **somente para o diagnóstico de comportamento de `gemini mcp list`**; OAuth iniciado pelo Gemini permanece **`NOT_TESTED`**. Não existe autorização implícita para login de modelo, uso de conta real, staging ou produção.
 
 ## Pergunta testada
