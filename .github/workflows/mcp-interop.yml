@@ -155,6 +155,8 @@ jobs:
           python3 -m py_compile scripts/interop/codex-app-server-oauth-readonly.py
           bash -n scripts/interop/keycloak-gemini-cli-native-oauth-smoke.sh
           node --check apps/control-plane/test/fixtures/keycloak-gemini-cli-native-oauth.mjs
+          bash -n scripts/interop/keycloak-gemini-cli-repl-oauth-smoke.sh
+          node --check apps/control-plane/test/fixtures/keycloak-gemini-cli-repl-oauth.mjs
 
       - name: Verify real disposable Keycloak HTTPS OIDC and JWT issuance
         run: bash scripts/interop/keycloak-real-idp-contract.sh
