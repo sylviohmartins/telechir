@@ -159,6 +159,7 @@ jobs:
           node --check apps/control-plane/test/fixtures/keycloak-gemini-cli-repl-oauth.mjs
           bash -n scripts/interop/keycloak-claude-code-native-oauth-smoke.sh
           node --check apps/control-plane/test/fixtures/keycloak-claude-code-native-oauth.mjs
+          node --check apps/control-plane/test/fixtures/keycloak-claude-code-oauth-revocation.mjs
 
       - name: Verify real disposable Keycloak HTTPS OIDC and JWT issuance
         run: bash scripts/interop/keycloak-real-idp-contract.sh
