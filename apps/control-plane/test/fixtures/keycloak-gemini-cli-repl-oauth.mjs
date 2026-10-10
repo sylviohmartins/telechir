@@ -46,7 +46,7 @@ writeFileSync(
   `#!/bin/sh
 set -eu
 umask 077
-case "${1:-}" in
+case "\${1:-}" in
   https://127.0.0.1:9443/realms/telechir-phase16/*)
     printf '%s' "$1" > "$TELECHIR_BROWSER_URL_FILE";;
   *) exit 81;;
