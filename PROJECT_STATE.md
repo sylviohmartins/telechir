@@ -10,6 +10,8 @@ A implementação possui Local Agent Core, control plane, identidade/pairing Ed2
 
 ## Gates atuais
 
+**Claude Code — recusa e recuperação após desabilitação de usuário (2026-10-10):** o CLI oficial 2.1.295, reutilizando o **mesmo OAuth armazenado** no `HOME` do fornecedor, passou de `Connected` para recusa de conexão após `users.disabled_at` no D1 e voltou a `Connected` após reabilitação da mesma identidade, sem novo login. O Worker permaneceu saudável, com TLS verificado. [CI #38028376197](https://github.com/sylviohmartins/telechir/actions/runs/38028376197), 3/3 jobs `success`. Não comprova revogação criptográfica do token, desconexão de sessão persistente, chamada `tools/call` ou LLM. Evidência: `docs/testing/acceptance/phase16-claude-code-oauth-revocation-2026-10-10.md`. Phase 16 segue `IN_PROGRESS`.
+
 **Claude Code — OAuth nativo Keycloak 2026-10-10:** a CLI oficial 2.1.295 executou `mcp login --no-browser` com PKCE S256/`state` de sua autoria, cliente público pré-registrado e consentimento Chrome/Keycloak real. Um segundo `claude mcp list` reutilizou a credencial armazenada pelo próprio Claude e reportou `Connected` ao MCP Workerd/D1 sem Bearer pré-injetado. [CI #38023908095](https://github.com/sylviohmartins/telechir/actions/runs/38023908095) 3/3 PASS. **Não** certifica `tools/call` iniciado pelo Claude, negativos pós-desabilitação, inferência LLM, conta real ou dispositivo físico. Registro: `docs/testing/acceptance/phase16-claude-code-native-oauth-2026-10-10.md`; issue #49 permanece `IN_PROGRESS`.
 
 
