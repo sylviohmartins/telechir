@@ -1,7 +1,7 @@
 # Phase 16 — OpenCode V2: estado de conexão versus autorização MCP real
 
-**Data:** 2026-10-10 (America/Sao_Paulo)  
-**Issue:** [#49](https://github.com/sylviohmartins/telechir/issues/49)  
+**Data:** 2026-10-10 (America/Sao_Paulo)
+**Issue:** [#49](https://github.com/sylviohmartins/telechir/issues/49)
 **Cliente oficial:** `@opencode/cli@2.0.24`, Keycloak 26.8.0, Workerd HTTPS e D1 locais descartáveis.
 
 ## Resultado — PASS de autorização do servidor; estado OpenCode não certificado como negativa
