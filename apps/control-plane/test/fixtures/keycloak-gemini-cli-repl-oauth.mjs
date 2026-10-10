@@ -162,7 +162,7 @@ const child = spawn(
     "--quiet",
     "--return",
     "--command",
-    'stty -echo && node -e \'if(!process.stdin.isTTY || !process.stdout.isTTY)process.exit(86)\' && exec "$TELECHIR_GEMINI_BIN" --screen-reader',
+    "stty -echo && node -e 'if(!process.stdin.isTTY || !process.stdout.isTTY)process.exit(86)' && exec \"$TELECHIR_GEMINI_BIN\" --screen-reader",
     "/dev/null",
   ],
   { cwd: home, env, stdio: ["pipe", "pipe", "pipe"] },
