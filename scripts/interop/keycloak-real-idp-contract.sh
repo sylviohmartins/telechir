@@ -243,5 +243,7 @@ source "$repo_root/scripts/interop/keycloak-gemini-cli-native-oauth-smoke.sh"
 # Investigate whether /mcp auth can be triggered from the official REPL without
 # a model-provider account. Absence of authorization is NOT a compatibility PASS.
 source "$repo_root/scripts/interop/keycloak-gemini-cli-repl-oauth-smoke.sh"
+# Separate official Claude CLI vendor-owned PKCE/Keycloak sign-in gate.
+source "$repo_root/scripts/interop/keycloak-claude-code-native-oauth-smoke.sh"
 echo "RESULT: KEYCLOAK_REAL_IDP_ISSUANCE_CONTRACT_PASS"
 echo "NOTE: Keycloak credentials, scripted PKCE, headless Chromium login and consent tested against local Worker/D1; no production hosted tenant/Worker, model-initiated UI or real-world user."
