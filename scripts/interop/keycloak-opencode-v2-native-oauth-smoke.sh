@@ -98,6 +98,7 @@ NODE_EXTRA_CA_CERTS="$work_dir/opencode-v2-dual-ca.crt" \
   timeout 30s node \
   "$repo_root/apps/control-plane/test/fixtures/keycloak-opencode-v2-stored-token-server-probe.mjs" \
   "$work_dir" "$worker_url" reenabled
-echo "RESULT: KEYCLOAK_OPENCODE_V2_SERVER_SCOPE_REVOCATION_REFERENCE_PASS"\necho "NOT_CERTIFIED: official OpenCode mcp list may remain connected during D1 disable; no vendor tool invocation proven"
+echo "RESULT: KEYCLOAK_OPENCODE_V2_SERVER_SCOPE_REVOCATION_REFERENCE_PASS"
+echo "NOT_CERTIFIED: official OpenCode mcp list may remain connected during D1 disable; no vendor tool invocation proven"
 echo "RESULT: KEYCLOAK_OPENCODE_V2_VENDOR_OAUTH_GATE_PASS"
 echo "NOTE: vendor-owned login and reconnect only; no LLM inference or tool execution."
