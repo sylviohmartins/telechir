@@ -164,7 +164,7 @@ inspector_scope_id="$(jq -er \
   "$tmp/inspector-scopes.json")"
 # Isolate consented read-only access to all three independent MCP clients
 # without changing Keycloak's existing profile/email defaults.
-for oauth_client in telechir-phase16-inspector telechir-phase16-gemini telechir-phase16-codex; do
+for oauth_client in telechir-phase16-inspector telechir-phase16-gemini telechir-phase16-codex telechir-phase16-claude; do
   curl --fail --silent --show-error --cacert "$tmp/root.crt" --max-time 12 \
     -H "Authorization: Bearer $admin_token" \
     "https://127.0.0.1:9443/admin/realms/telechir-phase16/clients?clientId=$oauth_client" \
