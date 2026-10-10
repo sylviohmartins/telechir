@@ -164,7 +164,7 @@ inspector_scope_id="$(jq -er \
   "$tmp/inspector-scopes.json")"
 # Isolate consented read-only access to all three independent MCP clients
 # without changing Keycloak's existing profile/email defaults.
-for oauth_client in telechir-phase16-inspector telechir-phase16-gemini telechir-phase16-codex telechir-phase16-claude; do
+for oauth_client in telechir-phase16-inspector telechir-phase16-gemini telechir-phase16-codex telechir-phase16-claude telechir-phase16-opencode-v2; do
   curl --fail --silent --show-error --cacert "$tmp/root.crt" --max-time 12 \
     -H "Authorization: Bearer $admin_token" \
     "https://127.0.0.1:9443/admin/realms/telechir-phase16/clients?clientId=$oauth_client" \
@@ -245,5 +245,7 @@ source "$repo_root/scripts/interop/keycloak-gemini-cli-native-oauth-smoke.sh"
 source "$repo_root/scripts/interop/keycloak-gemini-cli-repl-oauth-smoke.sh"
 # Separate official Claude CLI vendor-owned PKCE/Keycloak sign-in gate.
 source "$repo_root/scripts/interop/keycloak-claude-code-native-oauth-smoke.sh"
+# Official OpenCode V2 vendor OAuth against same disposable Keycloak/Worker.
+source "$repo_root/scripts/interop/keycloak-opencode-v2-native-oauth-smoke.sh"
 echo "RESULT: KEYCLOAK_REAL_IDP_ISSUANCE_CONTRACT_PASS"
 echo "NOTE: Keycloak credentials, scripted PKCE, headless Chromium login and consent tested against local Worker/D1; no production hosted tenant/Worker, model-initiated UI or real-world user."
