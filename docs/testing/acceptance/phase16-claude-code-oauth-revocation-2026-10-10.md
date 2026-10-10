@@ -1,8 +1,8 @@
 # Phase 16 — Claude Code: recusa após `users.disabled_at` e recuperação da conexão
 
-**Data:** 2026-10-10 (America/Sao_Paulo)  
-**Issue:** [#49](https://github.com/sylviohmartins/telechir/issues/49)  
-**Cliente real:** `@anthropic-ai/claude-code@2.1.295`, processo CLI oficial em GitHub Actions Linux.  
+**Data:** 2026-10-10 (America/Sao_Paulo)
+**Issue:** [#49](https://github.com/sylviohmartins/telechir/issues/49)
+**Cliente real:** `@anthropic-ai/claude-code@2.1.295`, processo CLI oficial em GitHub Actions Linux.
 **Alvo:** Keycloak oficial 26.8.0 + Worker Workerd HTTPS + D1 local + identidade sintética.
 
 ## Resultado — PASS delimitado de autorização no estabelecimento da conexão
