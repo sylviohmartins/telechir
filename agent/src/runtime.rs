@@ -294,7 +294,9 @@ mod tests {
             Some("connection_test_0001"),
         );
         socket
-            .send(Message::Text(serde_json::to_string(&hello_ack).unwrap().into()))
+            .send(Message::Text(
+                serde_json::to_string(&hello_ack).unwrap().into(),
+            ))
             .await
             .unwrap();
 
@@ -322,7 +324,10 @@ mod tests {
             "POLICY_DENIED"
         );
         assert_eq!(
-            timeout(Duration::from_secs(2), client).await.unwrap().unwrap(),
+            timeout(Duration::from_secs(2), client)
+                .await
+                .unwrap()
+                .unwrap(),
             Ok(SessionExit::StoppedByHost)
         );
     }
