@@ -33,6 +33,13 @@ Se um documento vivo entrar em conflito com um artefato arquivado, prefira o doc
 - Considere `specs/` fonte de verdade para contratos cross-language durante a implementação.
 - Mudança breaking em `specs/` exige versionamento e, quando arquitetural, ADR.
 
+## Prevenção de alertas de antivírus no desenvolvimento Windows
+
+- **Não execute** `cargo test`, `cargo build`, `cargo clippy`, `cargo run`, `cargo clean` seguido de build, nem qualquer recompilação Rust no **host Windows pessoal por automação**, salvo autorização explícita do usuário para **aquele** build local. Dependências de crates geram diversos `build-script-build.exe`, que podem disparar janelas repetidas do Avast CyberCapture.
+- Para novos gates Windows use a CI hospedada [`.github/workflows/agent-windows-native.yml`](.github/workflows/agent-windows-native.yml) (workflow dispatch/PR), e [`scripts/interop/windows-agent-native-preflight.ps1`](scripts/interop/windows-agent-native-preflight.ps1), que por padrão não executa compilação no host e exige `-AllowLocalBuild` no runner. `cargo fmt --check` não executa build scripts e pode ser usado localmente.
+- Não desabilite, suspenda, automatize bypass do Avast/CyberCapture, inclua diretórios do Cargo/Temp em exceções, nem trate alertas de AV como prova de arquivo seguro. Não abra `build-script-build.exe` manualmente. Se houver detecção, preserve a proteção e investigue antes de rodar.
+- Não crie `CARGO_TARGET_DIR` novo a cada execução local nem apague caches como rotina, pois isso força rebuild e repete análises. O preflight já aprovado em CI deve ser preferido ao host físico até o runtime operacional do Agent ser implementado.
+
 ## Higiene do repositório
 
 - Use commits focados com mensagens no estilo Conventional Commits.
