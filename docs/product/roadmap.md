@@ -2,6 +2,11 @@
 
 Este roadmap é intencionalmente gated. Ele descreve a ordem de maturação do projeto, não uma autorização para implementar todas as fases.
 
+
+> **Status operacional em 12/10/2026:** as Phases 0–15 representam integração de **componentes**, não aplicativo finalizado. A etapa atual do produto é **G1/7 — Runtime operacional do Local Agent ([#82](https://github.com/sylviohmartins/telechir/issues/82))**; em seguida vêm integração local (G2), staging autorizada (G3), E2E físico (G4), exit review/security (G5), beta fechado (G6) e publicação (G7). **MVP funcional = G1–G4 concluídos; beta = G1–G6; lançamento = G1–G7.** O [painel de conclusão](release-readiness-2026-10-09.md#painel-de-conclusão--fonte-única-de-verdade-12102026) é a fonte de verdade para status, próximas ações e bloqueios. Não contar um novo PR de teste isolado como avanço de um gate se seu aceite operacional não foi atingido.
+
+
+
 ## Gates de discovery
 
 1. **Naming discovery** — **concluído**: Telechir / `NAME_READY`.

@@ -6,6 +6,21 @@
 
 **Discovery concluído / Phases 0–15 integradas / Phase 16 — Multi-AI compatibility certification em andamento (issue #49)**
 
+
+### Painel executivo de conclusão (12/10/2026)
+
+**Etapa atual: G1/7 — implementar Agent operacional ([#82](https://github.com/sylviohmartins/telechir/issues/82)); próxima entrega concreta: identidade/pairing/credencial curta + host residente ligando `main.rs` ao supervisor `runtime.rs`, com execução explícita e policy fail-closed.** O supervisor WebSocket já foi testado em loopback (99 testes Rust), mas o Agent compilado ainda termina após `core ready`.
+
+| Marco | Gate operacional | Estado |
+|---|---|---|
+| MVP técnico | **G1** Agent residente + **G2** integração local + **G3** staging autorizada + **G4** E2E em dispositivo Windows autorizado | **NÃO CONCLUÍDO**; G1 em execução |
+| Beta fechado | **G5** compatibilidade mínima/segurança e **G6** instalação, operação e aceites com usuários convidados | **NÃO CONCLUÍDO** |
+| Lançamento público | **G7** publicação por canal, aprovação do fornecedor e clearance comercial | **NÃO CONCLUÍDO**; #15/#14 externas |
+
+**Fonte única de verdade do acompanhamento de entrega:** [painel G1–G7, Definition of Done e próximo trabalho](docs/product/release-readiness-2026-10-09.md#painel-de-conclusão--fonte-única-de-verdade-12102026). O [roadmap histórico](docs/product/roadmap.md) informa fases já integradas, **não** prontidão de produto. Não inferir percentual de conclusão, não iniciar nova fase/certificação secundária enquanto G1 estiver bloqueando o MVP; usuários e aprovações externas são gates separados.
+
+
+
 A implementação possui Local Agent Core, control plane, identidade/pairing Ed25519, canal realtime outbound, Remote MCP/OAuth, seis typed filesystem tools, shell/process lifecycle, Basic Git read-only, governança de policy/approvals/audit, Dashboard MVP, tooling fail-closed para package/review do plugin público OpenAI, sandbox Docker local opt-in, Computer use tipado/bounded no Windows e Browser automation Playwright isolada com egress anti-SSRF. A superfície MCP pública possui 24 tools. O projeto **não possui deploy de produção**, plugin submetido, aprovado ou publicado.
 
 ## Gates atuais
