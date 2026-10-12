@@ -7,6 +7,17 @@ Este repositório pode ser utilizado por ChatGPT, Codex, Claude Code, Gemini CLI
 O projeto concluiu discovery e integrou as Phases 0–15 à `main`. A Phase 16 — Multi-AI compatibility certification está em execução via issue #49, com matriz de clientes reais e protocolo; os resultados de SDK/wire não equivalem a certificação de produtos externos. **Não declare `PHASE_16_COMPLETE` sem evidência real dos clientes previstos e validações de segurança**, nem atravesse automaticamente para a Phase 17. Nunca faça deploy de produção, crie recursos pagos ou publique plugin sem autorização específica do gate correspondente.
 
 ## Ordem de fonte de verdade
+## Contrato de conclusão e reporte — evitar progresso indefinido
+
+O **painel G1–G7** em [`docs/product/release-readiness-2026-10-09.md`](docs/product/release-readiness-2026-10-09.md#painel-de-conclusão--fonte-única-de-verdade-12102026) é a fonte oficial de **etapa atual, próxima ação, dependências, entrega de MVP/beta/lançamento**. Os PRs das Phases 0–15 provam módulos, não um produto E2E. Estado atual: **G1 — Agent operacional, issue #82;** não reabrir certificações opcionais de outros clientes enquanto `agent/src/main.rs` não operar o supervisor de sessão com pairing e policy por padrão fail-closed.
+
+- Para cada `prossiga`/rodada de desenvolvimento, publicar no início e ao fim: **ETAPA ATUAL; ENTREGA DA RODADA; EVIDÊNCIA/PR/CI; PRÓXIMO PASSO ÚNICO; BLOQUEIOS/HUMAN GATES**. Quando não houver entrega de um gate, afirmar claramente que o gate permanece aberto, mesmo que o PR tenha sido integrado.
+- Não criar novas fases ou ferramentas sem necessidade para o MVP. Marcar explicitamente `NOT_TESTED`/`BLOCKED` em integrações secundárias inviáveis, com justificativa, sem permanecer indefinidamente explorando.
+- Uma tarefa técnica exige critérios de aceite, teste positivo e negativo, revisão do diff, CI no último head e PR integrado apenas depois dos checks. Aplicar quando disponíveis as práticas do **Superpowers**: design objetivo, TDD, plano por entregáveis, verificação antes de alegar conclusão e revisão final. **O plugin não substitui** GitHub Issues/CI, nem é pré-requisito de instalação para outros colaboradores.
+- Atualizar **o painel existente** quando G1–G7 avançarem; não produzir novos roadmaps paralelos nem percentuais arbitrários. Separar claramente **MVP técnico, beta e publicação externa**. Nunca declarar MVP `DONE` sem G4/E2E físico aprovado.
+- Toda compilação Rust continua CI-first, especialmente no Windows pessoal com Avast; nenhum serviço, produção, Cloudflare pago, publicação ou conta externa sem autorização específica.
+
+
 
 1. `PROJECT_STATE.md`
 2. ADRs aceitos em `docs/architecture/adr/`
