@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Call Telechir MCP via an official Codex app-server using its OWN stored
-OAuth credential from 'codex mcp login' (no bearer token injection).
+"""Call Telechir MCP via official Codex app-server using its OWN stored
+OAuth credential from codex mcp login (no bearer injection).
 
-Two executions: positive for one prelinked device; then disabled user denied.
-No AI API, ChatGPT login, model inference, real user or production state.
+Supports read, separate-process disabled-user denial and LIVE same-thread
+read -> D1 disable -> denied -> D1 re-enable -> read. No model/production.
 """
 import json
 import os
@@ -26,7 +26,7 @@ def main():
     root = Path(sys.argv[1]).resolve()
     device_path = Path(sys.argv[2]).resolve()
     scenario = sys.argv[3]
-    expect(scenario in {"read", "disabled"}, "unrecognized scenario")
+    expect(scenario in {"read", "disabled", "live-revocation"}, "unrecognized scenario")
     expect(device_path.is_file() and device_path.is_relative_to(root),
            "device fixture outside private CI temp root")
     expected_device = device_path.read_text().strip()
@@ -50,6 +50,39 @@ def main():
         "NO_PROXY": "127.0.0.1,localhost",
         "no_proxy": "127.0.0.1,localhost",
     })
+    def update_disposable_d1(enabled):
+        repo = Path(__file__).resolve().parents[2]
+        app = repo / "apps" / "control-plane"
+        state = root / "worker-state"
+        sql = root / "browser-pkce" / ("seed.sql" if enabled else "disable.sql")
+        wrangler = app / "node_modules" / ".bin" / "wrangler"
+        expect(state.is_dir() and sql.is_file() and wrangler.is_file(),
+               "disposable D1 resources missing")
+        statement = sql.read_text(encoding="utf8")
+        expect(statement.startswith("UPDATE users SET disabled_at")
+               and "identity_provider" in statement
+               and "provider_subject_hash" in statement
+               and statement.count(";") == 1,
+               "unsafe or unexpected D1 fixture statement")
+        changed = subprocess.run(
+            [str(wrangler), "d1", "execute", "DB", "--local",
+             "--persist-to", str(state), "--file", str(sql)],
+            cwd=app, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            timeout=45, check=False)
+        expect(changed.returncode == 0, "disposable D1 identity change failed")
+
+    def assert_worker_healthy():
+        checked = subprocess.run(
+            ["curl", "--fail", "--silent", "--show-error", "--cacert",
+             str(root / "worker-root.crt"), "--max-time", "8",
+             "https://127.0.0.1:8988/health"],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
+            timeout=12, check=False)
+        expect(checked.returncode == 0, "real Worker not healthy after D1 disable")
+        body = json.loads(checked.stdout)
+        expect(body.get("status") == "ok" and body.get("fixture") == "phase16",
+               "wrong Worker health response")
+
     received = queue.Queue()
     with open(root / ("codex-oauth-" + scenario + ".stderr"),
               "w", encoding="utf8") as diagnostic:
@@ -116,25 +149,59 @@ def main():
                 "threadId": thread_id, "server": ALIAS,
                 "tool": "list_devices", "arguments": {"status": "all"},
             }, timeout=90)
-            if scenario == "read":
-                expect(not result.get("_rejected"), "stored OAuth token rejected at MCP")
-                expect(result.get("isError") is not True, "MCP returned tool failure")
-                values = result.get("structuredContent", {}).get("devices")
-                expect(isinstance(values, list) and len(values) == 1 and
-                       values[0].get("device_id") == expected_device,
-                       "Codex OAuth MCP exposed wrong device set")
-                print("RESULT: KEYCLOAK_CODEX_OAUTH_APP_SERVER_DEVICE_READ_PASS", flush=True)
-            else:
-                if result.get("_rejected"):
-                    expect(result.get("_auth") and not result.get("_other"),
-                           "Codex disabled-user error was not auth rejection")
+            def verify_read(checked):
+                expect(not checked.get("_rejected"), "stored OAuth tool was rejected")
+                expect(checked.get("isError") is not True, "MCP tool failed")
+                values = checked.get("structuredContent", {}).get("devices")
+                expect(isinstance(values, list) and len(values) == 1
+                       and values[0].get("device_id") == expected_device,
+                       "Codex OAuth MCP exposed unexpected device ownership")
+
+            def verify_denied(checked):
+                if checked.get("_rejected"):
+                    expect(checked.get("_auth") and not checked.get("_other"),
+                           "Codex disabled-user error was not authorization denial")
                 else:
-                    expect(result.get("isError") is True, "disabled user tool unexpectedly succeeded")
-                    serialized = json.dumps(result).lower()
-                    expect(any(x in serialized for x in
+                    expect(checked.get("isError") is True,
+                           "disabled user tool unexpectedly succeeded")
+                    # Never print or copy any actual MCP tool error payload.
+                    summary = json.dumps(checked).lower()
+                    expect(any(word in summary for word in
                                ("401", "unauthorized", "invalid_token", "auth required")),
-                           "disabled user tool missing authorization failure")
+                           "disabled user tool did not report an authorization error")
+
+            if scenario == "read":
+                verify_read(result)
+                print("RESULT: KEYCLOAK_CODEX_OAUTH_APP_SERVER_DEVICE_READ_PASS", flush=True)
+            elif scenario == "disabled":
+                verify_denied(result)
                 print("RESULT: KEYCLOAK_CODEX_OAUTH_APP_SERVER_DISABLED_USER_PASS", flush=True)
+            else:
+                # All three operations use exactly the SAME active process,
+                # threadId and official vendor-owned OAuth credential store.
+                verify_read(result)
+                print("RESULT: KEYCLOAK_CODEX_OAUTH_IN_SESSION_BASELINE_READ_PASS", flush=True)
+                update_disposable_d1(enabled=False)
+                try:
+                    assert_worker_healthy()
+                    denied = request("mcpServer/tool/call", {
+                        "threadId": thread_id, "server": ALIAS,
+                        "tool": "list_devices", "arguments": {"status": "all"},
+                    }, timeout=90)
+                    verify_denied(denied)
+                    print("RESULT: KEYCLOAK_CODEX_OAUTH_IN_SESSION_USER_DISABLED_PASS", flush=True)
+                finally:
+                    # Do not leave the synthetic principal disabled even if a
+                    # check fails. Subsequent test stages are independent.
+                    update_disposable_d1(enabled=True)
+                assert_worker_healthy()
+                restored = request("mcpServer/tool/call", {
+                    "threadId": thread_id, "server": ALIAS,
+                    "tool": "list_devices", "arguments": {"status": "all"},
+                }, timeout=90)
+                verify_read(restored)
+                print("RESULT: KEYCLOAK_CODEX_OAUTH_IN_SESSION_USER_REENABLED_PASS", flush=True)
+                print("RESULT: KEYCLOAK_CODEX_OAUTH_IN_SESSION_REVOCATION_GATE_PASS", flush=True)
         finally:
             if proc.poll() is None:
                 proc.terminate()
