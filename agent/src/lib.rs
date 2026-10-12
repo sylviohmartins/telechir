@@ -13,6 +13,7 @@ pub mod ports;
 pub mod process;
 pub mod protocol;
 pub mod realtime;
+pub mod runtime;
 pub mod sandbox;
 
 pub use computer::{ComputerExecutor, INPUT_CONTROL_CAPABILITY, SCREEN_CAPTURE_CAPABILITY};
@@ -33,5 +34,9 @@ pub use protocol::{DeviceMessage, MessageType, ProtocolValidationError, decode_a
 pub use realtime::{
     DEFAULT_HANDSHAKE_TIMEOUT, RealtimeClientConfig, RealtimeConnection, RealtimeError,
     RealtimeState, ReconnectController, connect_realtime, new_connection_nonce,
+};
+pub use runtime::{
+    SessionCredentials, SessionError, SessionExit, run_authenticated_session,
+    run_established_session,
 };
 pub use sandbox::{DockerSandboxConfig, ExecutionMode, SANDBOX_CAPABILITY};
