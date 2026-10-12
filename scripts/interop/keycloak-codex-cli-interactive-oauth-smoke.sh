@@ -38,7 +38,7 @@ echo "RESULT: KEYCLOAK_CODEX_OFFICIAL_PKCE_LOGIN_PASS"
 # The official Codex app-server stays alive across all three read-only tool
 # calls. D1 principal is disabled and re-enabled between calls, not the
 # app-server, its thread or the OAuth credentials saved by Codex.
-timeout 220s python3 "$repo_root/scripts/interop/codex-app-server-oauth-readonly.py" \\
+timeout 220s python3 "$repo_root/scripts/interop/codex-app-server-oauth-readonly.py" \
   "$work_dir" "$work_dir/pkce/worker-device-id" live-revocation
 timeout 160s python3 "$repo_root/scripts/interop/codex-app-server-oauth-readonly.py" \
   "$work_dir" "$work_dir/pkce/worker-device-id" read
