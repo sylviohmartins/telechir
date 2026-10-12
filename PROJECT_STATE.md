@@ -1,6 +1,6 @@
 # Estado do Projeto
 
-**Atualizado em:** 2026-10-10
+**Atualizado em:** 2026-10-12
 
 ## Fase atual
 
@@ -9,6 +9,8 @@
 A implementação possui Local Agent Core, control plane, identidade/pairing Ed25519, canal realtime outbound, Remote MCP/OAuth, seis typed filesystem tools, shell/process lifecycle, Basic Git read-only, governança de policy/approvals/audit, Dashboard MVP, tooling fail-closed para package/review do plugin público OpenAI, sandbox Docker local opt-in, Computer use tipado/bounded no Windows e Browser automation Playwright isolada com egress anti-SSRF. A superfície MCP pública possui 24 tools. O projeto **não possui deploy de produção**, plugin submetido, aprovado ou publicado.
 
 ## Gates atuais
+
+**Codex App Server — autorização em sessão ativa com OAuth Keycloak (2026-10-12):** o cliente oficial 0.162.0 executou três chamadas `mcpServer/tool/call:list_devices` no **mesmo processo e thread**, usando a credencial OAuth que o Codex obteve por PKCE: leitura positiva do dispositivo sintético vinculado → recusa após `users.disabled_at` no D1 sem reiniciar o Codex (Worker saudável) → leitura novamente positiva após reabilitação. A [CI #38207585691](https://github.com/sylviohmartins/telechir/actions/runs/38207585691) terminou **3/3 `success`**; testes antigos de nova conexão também passaram. Não é inferência LLM, revogação de JWT pelo IdP nem E2E de dispositivo físico. Evidência: `docs/testing/acceptance/phase16-codex-oauth-in-session-revocation-2026-10-12.md`; issue #49 segue aberta.
 
 **OpenCode V2 — autorização do servidor com OAuth armazenado (2026-10-10):** o verificador independente utilizou o access token sintético obtido da tabela SQLite de credenciais do próprio OpenCode em ambiente CI para consultar `tools/list` na rota MCP Workerd/D1: **HTTP 200 ativo → HTTP 401 após `users.disabled_at` → HTTP 200 reabilitado**. [CI #38031715802](https://github.com/sylviohmartins/telechir/actions/runs/38031715802) 3/3 `success`. Entretanto, a CLI `opencode mcp list` continuou mostrando `connected` enquanto o servidor negava a ferramenta protegida; status de conexão **não** é PASS de autorização do cliente. Nenhum `tools/call` originado pelo OpenCode, LLM ou produção foi homologado. Registro: `docs/testing/acceptance/phase16-opencode-v2-stored-oauth-authorization-2026-10-10.md`. Issue #49 permanece aberta.
 
