@@ -1,8 +1,8 @@
 # Phase 16 — Codex App Server: revogação na mesma sessão com OAuth nativo Keycloak
 
-**Data de aferição:** 2026-10-12 (America/Sao_Paulo)  
-**Issue:** [#49](https://github.com/sylviohmartins/telechir/issues/49)  
-**Cliente oficial:** `@openai/codex@0.162.0`, `app-server` JSON-RPC real, Ubuntu GitHub Actions descartável.  
+**Data de aferição:** 2026-10-12 (America/Sao_Paulo)
+**Issue:** [#49](https://github.com/sylviohmartins/telechir/issues/49)
+**Cliente oficial:** `@openai/codex@0.162.0`, `app-server` JSON-RPC real, Ubuntu GitHub Actions descartável.
 **Autorização:** OAuth Authorization Code + PKCE S256 iniciados pelo próprio Codex CLI; Keycloak 26.8.0, Workerd HTTPS e D1 local real.
 
 ## Resultado — PASS de autorização em chamada de ferramenta na sessão ativa
