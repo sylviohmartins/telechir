@@ -275,8 +275,10 @@ try {
   );
   // Official --no-browser paste mode owns validation and PKCE exchange.
   // Never print or persist the sensitive redirect URL.
+  // Keep the controlling PTY open until Claude completes its own code exchange.
+  // Closing stdin immediately after pasting the callback can race CLI input
+  // handling and surface a spurious exit=130 even after Keycloak consent.
   proc.stdin.write(returned.href + "\n");
-  proc.stdin.end();
   const status = await bounded(
     exited,
     32000,
