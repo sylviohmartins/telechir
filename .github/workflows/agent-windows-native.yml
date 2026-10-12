@@ -45,5 +45,15 @@ jobs:
           rustup default 1.99.0
           rustc -vV
 
+      - name: Assert unattended local Cargo builds are refused
+        run: |
+          $output = & pwsh -NoProfile -File ./scripts/interop/windows-agent-native-preflight.ps1 2>&1 | Out-String
+          if ($LASTEXITCODE -eq 0 -or $output -notmatch "AGENT_WINDOWS_LOCAL_CARGO_BUILD_REQUIRES_OPT_IN") {
+            throw "Local build guard failed: the preflight did not refuse unattended compilation"
+          }
+          Write-Output "PASS: AGENT_WINDOWS_UNATTENDED_CARGO_BLOCKED"
+          # The child exit 1 is expected; reset the native exit status before
+          # GitHub Actions evaluates the successful negative test step.
+          exit 0
       - name: Validate Windows Agent contracts, lints and safe bootstrap
-        run: ./scripts/interop/windows-agent-native-preflight.ps1
+        run: ./scripts/interop/windows-agent-native-preflight.ps1 -AllowLocalBuild

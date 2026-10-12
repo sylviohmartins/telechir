@@ -244,7 +244,7 @@ aarch64-apple-darwin
 
 ## Windows e antivírus
 
-Se o antivírus do host interceptar repetidamente executáveis temporários `build-script-build.exe` do Cargo, execute os gates em container Linux com `CARGO_TARGET_DIR` em volume Docker.
+Se o antivírus do host interceptar repetidamente executáveis temporários `build-script-build.exe` do Cargo, **não repita os builds neste Windows**. Prefira a CI Windows hospedada em `.github/workflows/agent-windows-native.yml` ou um build isolado em container Linux. O script `scripts/interop/windows-agent-native-preflight.ps1` é **CI-first**: sem `-AllowLocalBuild`, recusa a compilação local antes de executar Cargo. Não crie diretórios de target novos a cada tentativa, pois isso força recompilações, e não coloque pastas de Cargo/Temp nas exceções do Avast. A execução no host é exclusivamente por aprovação expressa e `-AllowLocalBuild`.
 
 Não é necessário desativar proteção nem criar exclusão ampla para o repositório.
 

@@ -25,7 +25,7 @@ O primeiro `cargo test --offline` não pôde iniciar porque o cache do Cargo nã
 
 - `scripts/interop/windows-agent-native-preflight.ps1`: valida Rustfmt, testes, Clippy, build e boot/invalidação de configuração, usando `CARGO_TARGET_DIR` temporário, subprocessos com ambiente `TELECHIR_*` limpo, sem executar ações de mouse/teclado.
 - `.github/workflows/agent-windows-native.yml`: CI específica em Windows MSVC hospedado, toolchain `1.99.0` pinado, acionada em mudanças no `agent/` ou harness e por despacho manual. Sua aprovação prova reprodutibilidade de build/tests em runner Windows, **não** o E2E físico do produto.
-- Para reproduzir em Windows com cache de dependências preparado: `./scripts/interop/windows-agent-native-preflight.ps1 -Offline`. Se as políticas locais restringirem a execução, use o mecanismo aprovado para scripts assinados ou política restrita ao processo, **nunca** altere as políticas globais por conveniência.
+- Para executar o mesmo teste **intencionalmente no Windows local**, após autorização explícita e com cache de dependências preparado: `./scripts/interop/windows-agent-native-preflight.ps1 -Offline -AllowLocalBuild`. **Por padrão, sem `-AllowLocalBuild`, o preflight falha fechado antes de qualquer compilação**, pois os crates geram vários executáveis `build-script-build.exe` analisados pelo Avast CyberCapture; prefira a CI Windows hospedada. A CI valida também que uma execução desassistida sem o flag é bloqueada. Se as políticas locais restringirem a execução, use o mecanismo aprovado para scripts assinados ou política restrita ao processo, **nunca** altere as políticas globais por conveniência.
 
 ## Bloqueio confirmado: executável não é serviço operacional
 
