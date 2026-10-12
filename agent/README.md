@@ -26,6 +26,13 @@ Core local do Telechir implementado em Rust.
 - assinatura do contrato `../specs/auth/pairing-proof-v1.md`;
 - fixture Ed25519 compartilhado com o control plane.
 
+### Runtime operacional — incremento inicial (issue #82)
+
+- `agent/src/runtime.rs`: supervisor **explicitamente invocado** de sessão realtime, credenciais curtas fornecidas externamente e redigidas, heartbeat negociado, dispatcher existente com policy local e shutdown limitado;
+- teste real WebSocket **somente em loopback CI**: hello/ack, `command.request`, `command.failed` por executor `DenyAll`, sem comandos ou ações no computador;
+- transporte remoto sem TLS falha fechado; não há replay nem reconexão automática com credenciais antigas;
+- **não operacional ainda na CLI**: `main.rs` segue bootstrap-only; faltam pairing, broker de credenciais, ativação segura do host e E2E com dispositivo. Consulte [#82](https://github.com/sylviohmartins/telechir/issues/82) e [aceite](../docs/testing/acceptance/phase16-agent-runtime-session-loopback-2026-10-12.md).
+
 ### Phase 4 — Device Realtime Channel
 
 - assinatura Ed25519 do pedido de connection credential curta;
