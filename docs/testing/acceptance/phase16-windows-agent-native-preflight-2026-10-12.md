@@ -1,8 +1,8 @@
 # Phase 16 — Preflight nativo do Local Agent em host Windows físico
 
-**Data:** 2026-10-12 (America/Sao_Paulo)  
-**Host de homologação:** Windows x86_64 MSVC autorizado, via Desktop Commander Remote, sem dados pessoais registrados.  
-**Issue de implementação:** [#82 — Operational Local Agent runtime](https://github.com/sylviohmartins/telechir/issues/82)  
+**Data:** 2026-10-12 (America/Sao_Paulo)
+**Host de homologação:** Windows x86_64 MSVC autorizado, via Desktop Commander Remote, sem dados pessoais registrados.
+**Issue de implementação:** [#82 — Operational Local Agent runtime](https://github.com/sylviohmartins/telechir/issues/82)
 **Issue de certificação:** [#49 — Phase 16](https://github.com/sylviohmartins/telechir/issues/49)
 
 ## Resultado comprovado no Windows físico
