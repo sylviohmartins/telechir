@@ -1,0 +1,49 @@
+name: Phase 16 Windows Agent native preflight
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "agent/**"
+      - "scripts/interop/windows-agent-native-preflight.ps1"
+      - ".github/workflows/agent-windows-native.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "agent/**"
+      - "scripts/interop/windows-agent-native-preflight.ps1"
+      - ".github/workflows/agent-windows-native.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-windows-native-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-agent:
+    name: Real Windows MSVC agent core and bootstrap safety
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      CARGO_BUILD_JOBS: "2"
+      CARGO_TERM_COLOR: never
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install pinned Rust MSVC toolchain
+        run: |
+          rustup toolchain install 1.99.0 --profile minimal --component rustfmt --component clippy
+          rustup default 1.99.0
+          rustc -vV
+
+      - name: Validate Windows Agent contracts, lints and safe bootstrap
+        run: ./scripts/interop/windows-agent-native-preflight.ps1

@@ -5,6 +5,10 @@
 **Natureza:** plano de gates verificáveis, **não** autorização para implantar, contratar serviços, publicar plugin ou abrir uma Phase 17.
 **Fontes duráveis:** [estado](../../PROJECT_STATE.md), [roadmap](roadmap.md), [regras](../../AGENTS.md), [matriz Phase 16](../testing/acceptance/phase16-certification-matrix-2026-10-08.md), [issue #49](https://github.com/sylviohmartins/telechir/issues/49), [#15](https://github.com/sylviohmartins/telechir/issues/15), [#14](https://github.com/sylviohmartins/telechir/issues/14).
 
+## Atualização P0 — Agent Windows e entrypoint operacional (2026-10-12)
+
+No Windows físico autorizado, o core Rust passou 96/96 testes, `rustfmt`, Clippy, build MSVC e bootstrap fail-closed com capacidades de input desligadas. A prova está em [aceite Windows](../testing/acceptance/phase16-windows-agent-native-preflight-2026-10-12.md). **Isso não é E2E físico:** `agent/src/main.rs` apenas carrega e valida configuração, imprime `core ready` e encerra sem criar identidade, pairing ou sessão realtime. A [issue #82](https://github.com/sylviohmartins/telechir/issues/82) é dependência bloqueante do vertical slice real; concluir a Phase 16 de clientes MCP não substitui implementar o entrypoint residente. Um workflow Windows cobre build/tests em CI e também não prova dispositivo remoto. Staging segue dependente de autorização específica.
+
 ## 1. Diagnóstico executivo: três conceitos diferentes
 
 - **Implementado:** Phases 0–10 e 12–15 marcadas completas em seus escopos; a Phase 11 entregou `PHASE_11_SUBMISSION_READY`, não publicação. Agent Rust, Worker, D1, Durable Objects, Dashboard MVP e 24 MCP tools compõem a implementação de referência.
