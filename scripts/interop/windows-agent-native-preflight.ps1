@@ -20,7 +20,7 @@ if (-not $AllowLocalBuild) {
     Write-Output "Default is CI-only: run the 'Phase 16 Windows Agent native preflight' GitHub Actions workflow."
     Write-Output "Compiling locally executes third-party Cargo build scripts that can trigger repeated Avast CyberCapture popups."
     Write-Output "Use -AllowLocalBuild only for an explicitly approved local compilation; do not weaken antivirus protections."
-    return
+    throw "Native Cargo compilation blocked by default (no -AllowLocalBuild)."
 }
 if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
     throw "Windows host required for native MSVC validation"
