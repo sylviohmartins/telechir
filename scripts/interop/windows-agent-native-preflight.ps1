@@ -3,10 +3,25 @@
 # Nao registra dispositivo, conecta a cloud, executa input ou desliga o antivirus.
 [CmdletBinding()]
 param(
-    [switch]$Offline
+    [switch]$Offline,
+    [switch]$AllowLocalBuild
 )
 
 $ErrorActionPreference = "Stop"
+
+# Cargo compiles and EXECUTES many third-party build-script-build.exe binaries.
+# Avast CyberCapture can analyze EACH newly generated binary, producing multiple
+# windows on a developer workstation. Default to no local execution so an
+# automated agent or accidental script run cannot retrigger the warning storm.
+# The Windows CI runner explicitly passes -AllowLocalBuild. To intentionally
+# compile on a workstation, the operator must opt in to the same flag.
+if (-not $AllowLocalBuild) {
+    Write-Output "BLOCKED: AGENT_WINDOWS_LOCAL_CARGO_BUILD_REQUIRES_OPT_IN"
+    Write-Output "Default is CI-only: run the 'Phase 16 Windows Agent native preflight' GitHub Actions workflow."
+    Write-Output "Compiling locally executes third-party Cargo build scripts that can trigger repeated Avast CyberCapture popups."
+    Write-Output "Use -AllowLocalBuild only for an explicitly approved local compilation; do not weaken antivirus protections."
+    return
+}
 if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
     throw "Windows host required for native MSVC validation"
 }
