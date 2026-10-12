@@ -52,5 +52,8 @@ jobs:
             throw "Local build guard failed: the preflight did not refuse unattended compilation"
           }
           Write-Output "PASS: AGENT_WINDOWS_UNATTENDED_CARGO_BLOCKED"
+          # The child exit 1 is expected; reset the native exit status before
+          # GitHub Actions evaluates the successful negative test step.
+          exit 0
       - name: Validate Windows Agent contracts, lints and safe bootstrap
         run: ./scripts/interop/windows-agent-native-preflight.ps1 -AllowLocalBuild
