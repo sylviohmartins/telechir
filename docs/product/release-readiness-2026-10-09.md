@@ -9,7 +9,7 @@
 
 **Meta:** transformar módulos e testes em um produto Telechir funcional, homologado e distribuível. Este quadro, e não a quantidade de PRs ou fases históricas, define o progresso. O [roadmap](roadmap.md) registra o histórico das fases; `PROJECT_STATE.md` resume o status corrente; este documento controla os **gates de saída até a conclusão**.
 
-**Etapa atual: G1 — Agent operacional / [issue #82](https://github.com/sylviohmartins/telechir/issues/82). Próxima entrega obrigatória:** ligar identidade/pareamento e credencial de conexão curta a um host Agent residente, com executor/policy, desligamento gracioso e conexão **somente opt-in**. O supervisor de sessão isolado do [PR #85](https://github.com/sylviohmartins/telechir/pull/85) já está integrado, mas `agent/src/main.rs` ainda termina após imprimir `core ready`. Não confundir isto com um Agent conectado.
+**Etapa atual: G1 — Agent operacional / [issue #82](https://github.com/sylviohmartins/telechir/issues/82). Próxima entrega obrigatória: G1-C — executor, policy, approvals e audit no host com default-deny.** G1-A provisionou pairing/credential, e G1-B ligou comandos opt-in de pairing e foreground `serve` ao supervisor ([PR #89](https://github.com/sylviohmartins/telechir/pull/89)). O host G1-B ainda usa `DenyAllHostExecutor`: conexão não significa autorização para executar qualquer operação. G1-D e o E2E físico continuam pendentes.
 
 ### Linhas de chegada (três definições, não intercambiáveis)
 
