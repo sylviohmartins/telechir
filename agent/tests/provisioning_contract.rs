@@ -13,14 +13,13 @@ use tokio::net::TcpListener;
 use url::Url;
 
 use telechir_agent::identity::{
-    CONNECTION_PROOF_AUDIENCE, PAIRING_PROOF_AUDIENCE, DeviceIdentityManager,
-    DevicePairingMetadata, MemoryIdentityStore, connection_credential_proof_message,
-    pairing_proof_message,
+    CONNECTION_PROOF_AUDIENCE, DeviceIdentityManager, DevicePairingMetadata, MemoryIdentityStore,
+    PAIRING_PROOF_AUDIENCE, connection_credential_proof_message, pairing_proof_message,
 };
 use telechir_agent::provisioning::{
     AgentMetadata, PairingProgress, advance_pairing, begin_pairing, prepare_connection,
 };
-use telechir_agent::provisioning_http::{ProvisioningHttp, ProvisionError};
+use telechir_agent::provisioning_http::{ProvisionError, ProvisioningHttp};
 use telechir_agent::provisioning_store::{BindingError, DeviceBinding, DeviceBindingStore};
 
 const PAIRING_ID: &str = "11111111-1111-4111-8111-111111111111";
@@ -53,9 +52,7 @@ fn response(status: &str, data: Value) -> Vec<u8> {
     .into_bytes()
 }
 
-async fn receive_http(
-    stream: &mut tokio::net::TcpStream,
-) -> (String, Value) {
+async fn receive_http(stream: &mut tokio::net::TcpStream) -> (String, Value) {
     let mut incoming = Vec::new();
     let mut header_end = None;
     let mut length = None;
@@ -133,7 +130,11 @@ async fn provisioning_e2e_lab_user_approved_pairing_to_fresh_credential() {
                 }
                 1 => {
                     assert!(header.starts_with(&format!("GET /api/v1/pairings/{PAIRING_ID} ")));
-                    assert!(header.to_ascii_lowercase().contains("x-telechir-device-key-id:"));
+                    assert!(
+                        header
+                            .to_ascii_lowercase()
+                            .contains("x-telechir-device-key-id:")
+                    );
                     let original = registration.as_ref().unwrap();
                     response(
                         "200 OK",
@@ -143,18 +144,31 @@ async fn provisioning_e2e_lab_user_approved_pairing_to_fresh_credential() {
                     )
                 }
                 2 => {
-                    assert!(header.starts_with(&format!("POST /api/v1/pairings/{PAIRING_ID}/proof ")));
+                    assert!(
+                        header.starts_with(&format!("POST /api/v1/pairings/{PAIRING_ID}/proof "))
+                    );
                     let original = registration.as_ref().unwrap();
                     assert_eq!(data["device_key_id"], original["device_key_id"]);
-                    assert_eq!(data["device_installation_id"], original["device_installation_id"]);
-                    let public = URL_SAFE_NO_PAD.decode(original["public_key"].as_str().unwrap()).unwrap();
+                    assert_eq!(
+                        data["device_installation_id"],
+                        original["device_installation_id"]
+                    );
+                    let public = URL_SAFE_NO_PAD
+                        .decode(original["public_key"].as_str().unwrap())
+                        .unwrap();
                     let canonical = pairing_proof_message(
-                        PAIRING_ID, original["device_key_id"].as_str().unwrap(),
+                        PAIRING_ID,
+                        original["device_key_id"].as_str().unwrap(),
                         original["device_installation_id"].as_str().unwrap(),
-                        CHALLENGE, PAIRING_PROOF_AUDIENCE,
-                    ).unwrap();
+                        CHALLENGE,
+                        PAIRING_PROOF_AUDIENCE,
+                    )
+                    .unwrap();
                     verify_proof(&public, canonical, data["signature"].as_str().unwrap());
-                    response("200 OK", json!({"pairing_id": PAIRING_ID, "state": "ACTIVE", "device_id": DEVICE_ID}))
+                    response(
+                        "200 OK",
+                        json!({"pairing_id": PAIRING_ID, "state": "ACTIVE", "device_id": DEVICE_ID}),
+                    )
                 }
                 3 => {
                     assert!(header.starts_with(&format!(
@@ -165,17 +179,26 @@ async fn provisioning_e2e_lab_user_approved_pairing_to_fresh_credential() {
                     let nonce = data["connection_nonce"].as_str().unwrap();
                     assert!((16..=128).contains(&nonce.len()));
                     verified_nonce = Some(nonce.to_owned());
-                    let public = URL_SAFE_NO_PAD.decode(original["public_key"].as_str().unwrap()).unwrap();
+                    let public = URL_SAFE_NO_PAD
+                        .decode(original["public_key"].as_str().unwrap())
+                        .unwrap();
                     let canonical = connection_credential_proof_message(
-                        DEVICE_ID, original["device_key_id"].as_str().unwrap(), nonce,
-                        data["requested_at"].as_str().unwrap(), CONNECTION_PROOF_AUDIENCE,
-                    ).unwrap();
+                        DEVICE_ID,
+                        original["device_key_id"].as_str().unwrap(),
+                        nonce,
+                        data["requested_at"].as_str().unwrap(),
+                        CONNECTION_PROOF_AUDIENCE,
+                    )
+                    .unwrap();
                     verify_proof(&public, canonical, data["signature"].as_str().unwrap());
-                    response("201 Created", json!({
-                      "credential": "synthetic_local_only_credential",
-                      "expires_at": issued,
-                      "websocket_path": format!("/api/v1/devices/{DEVICE_ID}/realtime"),
-                    }))
+                    response(
+                        "201 Created",
+                        json!({
+                          "credential": "synthetic_local_only_credential",
+                          "expires_at": issued,
+                          "websocket_path": format!("/api/v1/devices/{DEVICE_ID}/realtime"),
+                        }),
+                    )
                 }
                 _ => unreachable!(),
             };
@@ -228,7 +251,10 @@ async fn provisioning_e2e_lab_user_approved_pairing_to_fresh_credential() {
     assert_eq!(prepared.config.device_id, DEVICE_ID);
     assert_eq!(
         prepared.config.websocket_url,
-        format!("ws://127.0.0.1:{}/api/v1/devices/{DEVICE_ID}/realtime", origin.port().unwrap())
+        format!(
+            "ws://127.0.0.1:{}/api/v1/devices/{DEVICE_ID}/realtime",
+            origin.port().unwrap()
+        )
     );
     assert!(prepared.config.capabilities.is_empty());
     assert!(!format!("{:?}", prepared.credentials).contains("synthetic_local_only_credential"));
@@ -246,7 +272,10 @@ async fn provisioning_lab_missing_identity_blocks_before_any_http() {
     let identity = DeviceIdentityManager::new(MemoryIdentityStore::default());
     let binding = LabBinding::default();
     let result = prepare_connection(
-        &identity, &binding, &api, &origin,
+        &identity,
+        &binding,
+        &api,
+        &origin,
         AgentMetadata {
             agent_version: "0.1.0".to_owned(),
             os: "windows".to_owned(),
@@ -254,6 +283,7 @@ async fn provisioning_lab_missing_identity_blocks_before_any_http() {
             capabilities: Vec::new(),
         },
         Utc::now(),
-    ).await;
+    )
+    .await;
     assert!(matches!(result, Err(ProvisionError::InvalidState)));
 }
