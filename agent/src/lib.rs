@@ -6,6 +6,7 @@ pub mod config;
 pub mod executor;
 pub mod filesystem;
 pub mod git;
+pub mod host;
 pub mod identity;
 pub mod lifecycle;
 pub mod policy;

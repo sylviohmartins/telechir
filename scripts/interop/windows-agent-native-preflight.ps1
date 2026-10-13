@@ -54,9 +54,11 @@ function Invoke-CargoChecked {
 }
 
 function Invoke-AgentBootstrap {
-    param([string]$Executable, [switch]$InvalidInput)
+    param([string]$Executable, [switch]$InvalidInput, [string[]]$Arguments = @())
     $start = New-Object System.Diagnostics.ProcessStartInfo
     $start.FileName = $Executable
+    # Only static, space-free CLI arguments are used in this safe preflight.
+    $start.Arguments = $Arguments -join ' '
     $start.WorkingDirectory = $agentDir
     $start.UseShellExecute = $false
     $start.CreateNoWindow = $true
@@ -117,8 +119,30 @@ try {
         throw "Native Agent did not fail closed for invalid computer-input enablement"
     }
     Write-Output "PASS: AGENT_WINDOWS_INPUT_CONFIG_FAIL_CLOSED"
+    # G1-B validates opt-in CLI parsing WITHOUT contacting a keyring,
+    # connecting to any URL, or mutating the host machine.
+    $help = Invoke-AgentBootstrap -Executable $exe -Arguments @("--help")
+    if ($help.ExitCode -ne 0 -or
+        $help.Stdout -notmatch "serve <https-origin>" -or
+        $help.Stdout -notmatch "foreground, deny-all") {
+        throw "Agent opt-in help does not document safe remote defaults"
+    }
+    Write-Output "PASS: AGENT_WINDOWS_FOREGROUND_HELP"
+
+    $noOrigin = Invoke-AgentBootstrap -Executable $exe -Arguments @("serve")
+    if ($noOrigin.ExitCode -ne 2 -or
+        $noOrigin.Stderr -notmatch "invalid Agent command") {
+        throw "Agent allowed serve without an explicit trusted origin"
+    }
+    $plainHttp = Invoke-AgentBootstrap -Executable $exe -Arguments @("serve", "http://example.org")
+    if ($plainHttp.ExitCode -ne 2 -or
+        $plainHttp.Stderr -notmatch "provisioning") {
+        throw "Agent accepted an external plaintext provisioning origin"
+    }
+    Write-Output "PASS: AGENT_WINDOWS_FOREGROUND_ARGS_FAIL_CLOSED"
     Write-Output "RESULT: TELECHIR_AGENT_WINDOWS_NATIVE_PREFLIGHT_PASS"
-    Write-Output "NOT_TESTED: executable is bootstrap-only; no pairing, WebSocket runtime, MCP-to-device operation or real human approval"
+    Write-Output "NOT_TESTED: device pairing/credential on a physical host, a real remote session, command execution or human approval"
+
 } finally {
     Pop-Location
 }
