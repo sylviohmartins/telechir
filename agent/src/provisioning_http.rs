@@ -3,13 +3,12 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use reqwest::redirect::Policy;
-use reqwest::{Client, StatusCode};
+use reqwest::{Client, Method, StatusCode};
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::time::Duration;
 use thiserror::Error;
 use url::{Host, Url};
-use uuid::Uuid;
 use zeroize::Zeroize;
 
 use crate::identity::{ConnectionCredentialProof, PairingProof, PairingRegistration};
@@ -147,24 +146,6 @@ pub struct ProvisioningHttp {
     client: Client,
 }
 
-const RESPONSE_LIMIT: usize = 16 * 1024;
-const PAIRING_REQUEST_LIMIT: usize = 16 * 1024;
-const CREDENTIAL_REQUEST_LIMIT: usize = 8 * 1024;
-
-#[derive(Deserialize)]
-struct Envelope<T> {
-    ok: bool,
-    data: T,
-}
-
-fn valid_uuid(value: &str) -> Result<String, ProvisionError> {
-    let value = Uuid::parse_str(value).map_err(|_| ProvisionError::InvalidResponse)?;
-    if value.is_nil() {
-        return Err(ProvisionError::InvalidResponse);
-    }
-    Ok(value.to_string())
-}
-
 impl ProvisioningHttp {
     pub fn new(origin: Url) -> Result<Self, ProvisionError> {
         let local = match origin.host() {
@@ -193,67 +174,6 @@ impl ProvisioningHttp {
         Ok(Self { origin, client })
     }
 
-    fn route(&self, path: &str) -> Result<Url, ProvisionError> {
-        self.origin
-            .join(path)
-            .map_err(|_| ProvisionError::InvalidResponse)
-    }
-
-    fn request_json<T: Serialize>(
-        &self,
-        builder: reqwest::RequestBuilder,
-        body: &T,
-        limit: usize,
-    ) -> Result<reqwest::RequestBuilder, ProvisionError> {
-        let serialized = serde_json::to_vec(body).map_err(|_| ProvisionError::InvalidResponse)?;
-        if serialized.len() > limit {
-            return Err(ProvisionError::InvalidResponse);
-        }
-        Ok(builder
-            .header(reqwest::header::CONTENT_TYPE, "application/json")
-            .body(serialized))
-    }
-
-    async fn decode<T: DeserializeOwned>(
-        &self,
-        mut response: reqwest::Response,
-        expected: StatusCode,
-    ) -> Result<T, ProvisionError> {
-        if response.status() != expected {
-            return Err(
-                if response.status() == StatusCode::UNAUTHORIZED
-                    || response.status() == StatusCode::FORBIDDEN
-                {
-                    ProvisionError::Denied
-                } else {
-                    ProvisionError::InvalidResponse
-                },
-            );
-        }
-        if response
-            .content_length()
-            .is_some_and(|size| size > RESPONSE_LIMIT as u64)
-        {
-            return Err(ProvisionError::InvalidResponse);
-        }
-        let mut collected = Vec::new();
-        while let Some(chunk) = response
-            .chunk()
-            .await
-            .map_err(|_| ProvisionError::Unavailable)?
-        {
-            if chunk.len() > RESPONSE_LIMIT.saturating_sub(collected.len()) {
-                return Err(ProvisionError::InvalidResponse);
-            }
-            collected.extend_from_slice(&chunk);
-        }
-        let envelope: Envelope<T> =
-            serde_json::from_slice(&collected).map_err(|_| ProvisionError::InvalidResponse)?;
-        if !envelope.ok {
-            return Err(ProvisionError::InvalidResponse);
-        }
-        Ok(envelope.data)
-    }
 }
 
 const MAX_PAIRING_JSON: usize = 16 * 1024;
@@ -492,7 +412,7 @@ mod tests {
 
     #[tokio::test]
     async fn provisioning_http_rejects_oversize_or_invalid_json() {
-        for body in ["{malformed-json".to_owned(), "x".repeat(RESPONSE_LIMIT + 1)] {
+        for body in ["{malformed-json".to_owned(), "x".repeat(MAX_PAIRING_JSON + 1)] {
             let response = http_response("200 OK", &body, "Content-Type: application/json\\r\\n");
             let (origin, server) = mock_http(response).await;
             let api = ProvisioningHttp::new(origin).unwrap();
@@ -521,15 +441,15 @@ mod tests {
         server.await.unwrap();
     }
 
-    #[test]
-    fn provisioning_http_blocks_cross_origin_path_and_secret_debug() {
+    #[tokio::test]
+    async fn provisioning_http_blocks_cross_origin_path_and_secret_debug() {
         assert!(matches!(
             ProvisioningHttp::new(Url::parse("https://example.com/other/").unwrap()),
             Err(ProvisionError::InvalidOrigin)
         ));
         let api = ProvisioningHttp::new(Url::parse("https://example.com/").unwrap()).unwrap();
         assert!(matches!(
-            api.route("//evil.example/path"),
+            api.get_pairing("//evil.example/path", "11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222").await,
             Err(ProvisionError::InvalidResponse)
         ));
         let secret = CredentialResponse {
