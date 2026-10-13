@@ -369,6 +369,93 @@ impl ProvisioningApi for ProvisioningHttp {
 mod tests {
     use super::*;
 
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+
+    async fn mock_http(response: String) -> (Url, tokio::task::JoinHandle<String>) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let origin = Url::parse(&format!("http://{}/", listener.local_addr().unwrap())).unwrap();
+        let task = tokio::spawn(async move {
+            let (mut socket, _) = tokio::time::timeout(Duration::from_secs(3), listener.accept())
+                .await.unwrap().unwrap();
+            let mut request = [0_u8; 8192];
+            let read = tokio::time::timeout(Duration::from_secs(3), socket.read(&mut request))
+                .await.unwrap().unwrap();
+            socket.write_all(response.as_bytes()).await.unwrap();
+            String::from_utf8_lossy(&request[..read]).into_owned()
+        });
+        (origin, task)
+    }
+
+    fn http_response(status: &str, body: &str, additional_headers: &str) -> String {
+        format!(
+            "HTTP/1.1 {status}\\r\\nContent-Length: {}\\r\\nConnection: close\\r\\n{additional_headers}\\r\\n{body}",
+            body.len()
+        ).replace("\\r\\n", "\r\n")
+    }
+
+    #[tokio::test]
+    async fn provisioning_http_does_not_follow_redirect() {
+        let redirect = http_response("302 Found", "", "Location: https://evil.example/");
+        let (origin, server) = mock_http(redirect).await;
+        let api = ProvisioningHttp::new(origin).unwrap();
+        let a = "11111111-1111-4111-8111-111111111111";
+        let b = "22222222-2222-4222-8222-222222222222";
+        let c = "33333333-3333-4333-8333-333333333333";
+        assert!(matches!(api.get_pairing(a, b, c).await, Err(ProvisionError::InvalidResponse)));
+        let request = server.await.unwrap();
+        assert!(request.starts_with(&format!("GET /api/v1/pairings/{a} ")));
+        assert!(request.contains("x-telechir-device-key-id:"));
+        assert!(request.contains("x-telechir-device-installation-id:"));
+    }
+
+    #[tokio::test]
+    async fn provisioning_http_rejects_oversize_or_invalid_json() {
+        for body in [
+            "{malformed-json".to_owned(),
+            "x".repeat(RESPONSE_LIMIT + 1),
+        ] {
+            let response = http_response("200 OK", &body, "Content-Type: application/json\\r\\n");
+            let (origin, server) = mock_http(response).await;
+            let api = ProvisioningHttp::new(origin).unwrap();
+            let a = "11111111-1111-4111-8111-111111111111";
+            let b = "22222222-2222-4222-8222-222222222222";
+            let c = "33333333-3333-4333-8333-333333333333";
+            assert!(matches!(api.get_pairing(a, b, c).await, Err(ProvisionError::InvalidResponse)));
+            server.await.unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn provisioning_http_redacts_remote_error() {
+        let body = r#"{\"ok\":false,\"error\":\"secret-device-token-DO-NOT-LOG\"}"#;
+        let (origin, server) = mock_http(http_response("403 Forbidden", body, "")).await;
+        let api = ProvisioningHttp::new(origin).unwrap();
+        let a = "11111111-1111-4111-8111-111111111111";
+        let b = "22222222-2222-4222-8222-222222222222";
+        let c = "33333333-3333-4333-8333-333333333333";
+        let result = api.get_pairing(a, b, c).await;
+        assert!(matches!(result, Err(ProvisionError::Denied)));
+        assert!(!format!("{result:?}").contains("secret-device-token"));
+        server.await.unwrap();
+    }
+
+    #[test]
+    fn provisioning_http_blocks_cross_origin_path_and_secret_debug() {
+        assert!(matches!(
+            ProvisioningHttp::new(Url::parse("https://example.com/other/").unwrap()),
+            Err(ProvisionError::InvalidOrigin)
+        ));
+        let api = ProvisioningHttp::new(Url::parse("https://example.com/").unwrap()).unwrap();
+        assert!(matches!(api.route("//evil.example/path"), Err(ProvisionError::InvalidResponse)));
+        let secret = CredentialResponse {
+            credential: "top-secret-token".to_owned(),
+            expires_at: Utc::now(),
+            websocket_path: "/api/v1/devices/synthetic/realtime".to_owned(),
+        };
+        assert!(!format!("{secret:?}").contains("top-secret-token"));
+    }
+
     #[test]
     fn provisioning_http_rejects_non_loopback_plaintext_or_url_credentials() {
         for url in [
