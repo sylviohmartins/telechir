@@ -246,83 +246,122 @@ impl ProvisioningHttp {
     }
 }
 
+const MAX_PAIRING_JSON: usize = 16 * 1024;
+const MAX_CREDENTIAL_JSON: usize = 8 * 1024;
+
+#[derive(Deserialize)]
+struct SuccessEnvelope<T> {
+    ok: bool,
+    data: T,
+    meta: serde_json::Value,
+}
+
+fn checked_uuid(id: &str) -> Result<(), ProvisionError> {
+    if uuid::Uuid::parse_str(id).is_ok_and(|parsed| !parsed.is_nil()) {
+        Ok(())
+    } else {
+        Err(ProvisionError::InvalidResponse)
+    }
+}
+
+impl ProvisioningHttp {
+    async fn call<T: DeserializeOwned>(
+        &self,
+        method: Method,
+        path: &[&str],
+        headers: &[(&str, &str)],
+        body: Option<Vec<u8>>,
+        expected: StatusCode,
+        limit: usize,
+    ) -> Result<T, ProvisionError> {
+        let mut url = self.origin.clone();
+        {
+            let mut segments = url.path_segments_mut().map_err(|_| ProvisionError::InvalidOrigin)?;
+            segments.pop_if_empty();
+            for segment in path {
+                if segment.is_empty() || segment.contains(['\r', '\n']) || segment == &".." || segment == &"." {
+                    return Err(ProvisionError::InvalidResponse);
+                }
+                segments.push(segment);
+            }
+        }
+        let mut req = self.client.request(method, url).header(reqwest::header::ACCEPT, "application/json");
+        for &(name, value) in headers {
+            if value.is_empty() || value.contains(['\r', '\n']) {
+                return Err(ProvisionError::InvalidResponse);
+            }
+            req = req.header(name, value);
+        }
+        if let Some(mut bytes) = body {
+            if bytes.is_empty() || bytes.len() > limit {
+                bytes.zeroize();
+                return Err(ProvisionError::InvalidResponse);
+            }
+            req = req.header(reqwest::header::CONTENT_TYPE, "application/json").body(bytes);
+        }
+        let mut response = req.send().await.map_err(|_| ProvisionError::Unavailable)?;
+        let status = response.status();
+        if status != expected {
+            return Err(if status == StatusCode::UNAUTHORIZED || status == StatusCode::FORBIDDEN {
+                ProvisionError::Denied
+            } else {
+                ProvisionError::InvalidResponse
+            });
+        }
+        if !response
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|mime| mime.starts_with("application/json"))
+        {
+            return Err(ProvisionError::InvalidResponse);
+        }
+        let mut payload = Vec::new();
+        while let Some(part) = response.chunk().await.map_err(|_| ProvisionError::Unavailable)? {
+            if payload.len().saturating_add(part.len()) > limit {
+                payload.zeroize();
+                return Err(ProvisionError::InvalidResponse);
+            }
+            payload.extend_from_slice(&part);
+        }
+        let envelope: Result<SuccessEnvelope<T>, _> = serde_json::from_slice(&payload);
+        payload.zeroize();
+        let envelope = envelope.map_err(|_| ProvisionError::InvalidResponse)?;
+        if !envelope.ok || !envelope.meta.is_object() {
+            return Err(ProvisionError::InvalidResponse);
+        }
+        Ok(envelope.data)
+    }
+}
+
 #[async_trait]
 impl ProvisioningApi for ProvisioningHttp {
-    async fn create_pairing(
-        &self,
-        registration: &PairingRegistration,
-    ) -> Result<PairingStart, ProvisionError> {
-        let url = self.route("api/v1/pairings")?;
-        let request = self.request_json(
-            self.client.post(url),
-            registration,
-            PAIRING_REQUEST_LIMIT,
-        )?;
-        let response = request.send().await.map_err(|_| ProvisionError::Unavailable)?;
-        let start: PairingStart = self.decode(response, StatusCode::CREATED).await?;
-        if valid_uuid(&start.pairing_id).is_err() || start.fingerprint != registration.fingerprint {
-            return Err(ProvisionError::IdentityMismatch);
-        }
-        Ok(start)
+    async fn create_pairing(&self, registration: &PairingRegistration) -> Result<PairingStart, ProvisionError> {
+        let body = serde_json::to_vec(registration).map_err(|_| ProvisionError::InvalidResponse)?;
+        self.call(Method::POST, &["api","v1","pairings"], &[], Some(body), StatusCode::CREATED, MAX_PAIRING_JSON).await
     }
 
-    async fn get_pairing(
-        &self,
-        pairing_id: &str,
-        key_id: &str,
-        installation_id: &str,
-    ) -> Result<PairingStatus, ProvisionError> {
-        let pairing_id = valid_uuid(pairing_id)?;
-        let key_id = valid_uuid(key_id)?;
-        let installation_id = valid_uuid(installation_id)?;
-        let url = self.route(&format!("api/v1/pairings/{pairing_id}"))?;
-        let response = self.client.get(url)
-            .header("x-telechir-device-key-id", key_id)
-            .header("x-telechir-device-installation-id", installation_id)
-            .send().await.map_err(|_| ProvisionError::Unavailable)?;
-        let status: PairingStatus = self.decode(response, StatusCode::OK).await?;
-        if status.pairing_id != pairing_id {
-            return Err(ProvisionError::IdentityMismatch);
+    async fn get_pairing(&self, pairing_id: &str, key_id: &str, installation_id: &str) -> Result<PairingStatus, ProvisionError> {
+        for id in [pairing_id, key_id, installation_id] {
+            checked_uuid(id)?;
         }
-        Ok(status)
+        self.call(Method::GET, &["api","v1","pairings", pairing_id],
+            &[("x-telechir-device-key-id", key_id), ("x-telechir-device-installation-id", installation_id)],
+            None, StatusCode::OK, MAX_PAIRING_JSON).await
     }
 
-    async fn prove_device(
-        &self,
-        pairing_id: &str,
-        proof: &PairingProof,
-    ) -> Result<PairingActivation, ProvisionError> {
-        let pairing_id = valid_uuid(pairing_id)?;
-        let url = self.route(&format!("api/v1/pairings/{pairing_id}/proof"))?;
-        let request = self.request_json(self.client.post(url), proof, PAIRING_REQUEST_LIMIT)?;
-        let response = request.send().await.map_err(|_| ProvisionError::Unavailable)?;
-        let activation: PairingActivation = self.decode(response, StatusCode::OK).await?;
-        if activation.state != PairingState::Active
-            || activation.pairing_id != pairing_id
-            || valid_uuid(&activation.device_id).is_err()
-        {
-            return Err(ProvisionError::InvalidResponse);
-        }
-        Ok(activation)
+    async fn prove_device(&self, pairing_id: &str, proof: &PairingProof) -> Result<PairingActivation, ProvisionError> {
+        checked_uuid(pairing_id)?;
+        let body = serde_json::to_vec(proof).map_err(|_| ProvisionError::InvalidResponse)?;
+        self.call(Method::POST, &["api","v1","pairings", pairing_id, "proof"],
+            &[], Some(body), StatusCode::OK, MAX_PAIRING_JSON).await
     }
 
-    async fn issue_credential(
-        &self,
-        device_id: &str,
-        proof: &ConnectionCredentialProof,
-    ) -> Result<CredentialResponse, ProvisionError> {
-        let device_id = valid_uuid(device_id)?;
-        let url = self.route(&format!("api/v1/devices/{device_id}/connection-credential"))?;
-        let request = self.request_json(self.client.post(url), proof, CREDENTIAL_REQUEST_LIMIT)?;
-        let response = request.send().await.map_err(|_| ProvisionError::Unavailable)?;
-        let credential: CredentialResponse = self.decode(response, StatusCode::CREATED).await?;
-        if credential.websocket_path != format!("/api/v1/devices/{device_id}/realtime")
-            || credential.credential.is_empty()
-            || credential.credential.len() > 16 * 1024
-        {
-            return Err(ProvisionError::InvalidResponse);
-        }
-        Ok(credential)
+    async fn issue_credential(&self, device_id: &str, proof: &ConnectionCredentialProof) -> Result<CredentialResponse, ProvisionError> {
+        checked_uuid(device_id)?;
+        let body = serde_json::to_vec(proof).map_err(|_| ProvisionError::InvalidResponse)?;
+        self.call(Method::POST, &["api","v1","devices",device_id,"connection-credential"],
+            &[], Some(body), StatusCode::CREATED, MAX_CREDENTIAL_JSON).await
     }
 }
 
