@@ -49,7 +49,7 @@
 
 ## Sequência de execução (RED → GREEN → review)
 
-**Comandos de CI:** no checkout limpo do runner Windows executar `cd agent && cargo test --locked --all-features provisioning_ -- --nocapture` para filtro direcionado, seguido da suíte oficial `./scripts/interop/windows-agent-native-preflight.ps1 -AllowLocalBuild`. O workflow atual usa o segundo comando; durante o RED criar um workflow temporário/etapa de CI para executar o teste de filtro na branch e demonstrar falha esperada **sem confundir um check vermelho de desenvolvimento com prontidão de merge**. Corrigir até GREEN, retirar o passo temporário antes da integração. No Linux repetir `cargo test --locked --all-features` em runner compatível, caso necessário por diferenças keyring; não assumir que verde no Windows cobre Linux.
+**Comandos de CI:** no checkout limpo do runner Windows executar `cd agent && cargo test --locked --all-features provisioning_ -- --nocapture` para filtro direcionado, seguido da suíte oficial `./scripts/interop/windows-agent-native-preflight.ps1 -AllowLocalBuild`. O workflow atual usa o segundo comando; durante o RED criar um workflow temporário/etapa de CI para executar o teste de filtro na branch e demonstrar falha esperada **sem confundir um check vermelho de desenvolvimento com prontidão de merge**. As assinaturas mínimas/stubs de tipos públicos devem compilar para o teste falhar **por asserção do comportamento ausente**, não por símbolos ou dependências inexistentes. Corrigir até GREEN, retirar o passo temporário antes da integração. No Linux repetir `cargo test --locked --all-features` em runner compatível, caso necessário por diferenças keyring; não assumir que verde no Windows cobre Linux.
 
 ### Task 1: Identidade existente, sem autogeração durante conexão
 
@@ -63,7 +63,7 @@
 - `load_or_generate()` mantém seu contrato histórico, mas é chamado **apenas no fluxo explícito de pairing**.
 
 - [ ] **Step 1 — RED:** escrever `provisioning_missing_identity_does_not_generate`: store vazio → `Ok(None)`, nenhum `save`; store contendo bytes corrompidos → `Err(CorruptStore)`, sem geração; identidade existente → mesma public identity. Criar store de teste com contadores se necessário.
-- [ ] **Step 2 — verify RED (hosted CI):** executar `cargo test --locked --all-features provisioning_missing_identity_does_not_generate`; exigir falha por método ausente, não por instalação, lint ou recurso de runner.
+- [ ] **Step 2 — verify RED (hosted CI):** executar `cargo test --locked --all-features provisioning_missing_identity_does_not_generate`; exigir falha de asserção contra stub compilável (ausência de carregamento estrito), não por erro de compilação, instalação ou runner.
 - [ ] **Step 3 — GREEN:** implementar `load_existing()` lendo apenas `store.load()`; zerar buffer secreto sempre após decode; não escrever e não regenerar em caso de ausência/corrupção.
 - [ ] **Step 4 — verify GREEN:** mesmo teste PASS e suite `identity::tests` PASS no runner; verificar `cargo fmt` e diff.
 - [ ] **Step 5 — commit:** `git add agent/src/identity.rs && git commit -m "feat(agent): load existing device identity without implicit generation"`.
@@ -82,7 +82,7 @@
 - Consumes: `DevicePublicIdentity` e `Uuid::parse_str`.
 
 - [ ] **Step 1 — RED:** testes `provisioning_binding_roundtrip`, `provisioning_binding_rejects_corrupt_or_mismatched_key`, `provisioning_binding_rejects_blank_or_invalid_uuid`. Exigir que o store rejeite bytes quebrados/versão desconhecida, e não retorne vínculo quando fingerprint/key/installation divergirem.
-- [ ] **Step 2 — verify RED:** `cargo test --locked --all-features provisioning_binding_` falha em CI por ausência de API.
+- [ ] **Step 2 — verify RED:** `cargo test --locked --all-features provisioning_binding_` falha de asserção de persistência/matching contra API stub que compila.
 - [ ] **Step 3 — GREEN:** implementar o tipo versionado e `DeviceBinding::matches(&self, public: &DevicePublicIdentity) -> bool`; `NativeKeyringDeviceBindingStore` persiste JSON via `keyring::Entry`, sem bearer; evitar alteração de store de identidade existente. Não tentar rollback automático de identidades por falha de persistência.
 - [ ] **Step 4 — verify GREEN:** testes positivos e corrupt-store/rotated-key PASS; `cargo clippy` sem warnings; revisar erros redigidos.
 - [ ] **Step 5 — commit:** `git add agent/src/provisioning_store.rs agent/src/lib.rs && git commit -m "feat(agent): persist identity-bound device association in native keyring"`.
@@ -100,7 +100,7 @@
 - Consumes: envelopes JSON oficiais `{ ok: true, data: ..., meta: ... }`; status `201` criar pairing/credential; `200` status/proof, inclusive as respostas negativas de control plane.
 
 - [ ] **Step 1 — RED:** `provisioning_http_rejects_non_loopback_plaintext_or_url_credentials`, `provisioning_http_does_not_follow_redirect`, `provisioning_http_rejects_oversize_or_invalid_json`, `provisioning_http_escapes_path_segment_and_blocks_cross_origin`, `provisioning_http_redacts_remote_error`. Use servidor `127.0.0.1:0` com protocolo HTTP local apenas no runner CI; TLS externo rejeitado no construtor sem rede.
-- [ ] **Step 2 — verify RED:** `cargo test --locked --all-features provisioning_http_` deve falhar por adapter ausente.
+- [ ] **Step 2 — verify RED:** `cargo test --locked --all-features provisioning_http_` deve falhar por comportamento inseguro/sem validação no adapter stub compilável.
 - [ ] **Step 3 — GREEN:** adicionar dependências definidas no header, atualizar `agent/Cargo.lock` **na CI/worktree isolada**; `ProvisioningHttp` implementa a porta, desliga redirects, valida HTTP status + envelope e limita bytes antes de desserializar. Nunca usar o body remoto como erro/log. Compor paths por segmentos escapados e origem fixada. Não há fallback a HTTPS inseguro.
 - [ ] **Step 4 — verify GREEN:** HTTP tests PASS; revisão de `Cargo.lock` para dependências transitivas e MSRV Rust 1.99.0; CI Windows `fmt/test/clippy/build`, sem permitir exceções Avast locais.
 - [ ] **Step 5 — commit:** `git add agent/Cargo.toml agent/Cargo.lock agent/src/provisioning_http.rs agent/src/lib.rs agent/tests/provisioning_http_contract.rs && git commit -m "feat(agent): add bounded fail-closed HTTPS provisioning adapter"`.
@@ -119,7 +119,7 @@
 - Produces: `async fn advance_pairing<...>(...) -> Result<PairingProgress, ProvisionError>` recebendo `pairing_id` explicitamente; `advance` lê a mesma identidade sem regenerar, compara `pairing_id`, fingerprint e key/install ids e **nunca cria a identidade**.
 
 - [ ] **Step 1 — RED:** `provisioning_pairing_created_requires_user_verification` (sem assinatura/sem save), `provisioning_pairing_rejects_expired_or_revoked`, `provisioning_pairing_rejects_mismatched_fingerprint_or_id`, `provisioning_pairing_active_persists_once`. Servidor/porta fake somente no teste, com chamadas registradas; criar fixture que emite challenge apenas após estado `USER_VERIFIED`.
-- [ ] **Step 2 — verify RED:** `cargo test --locked --all-features provisioning_pairing_` deve falhar antes da orquestração; afirmar que falha por implementação ausente.
+- [ ] **Step 2 — verify RED:** `cargo test --locked --all-features provisioning_pairing_` deve falhar por asserção da transição de pairing não implementada, mantendo assinaturas compiláveis.
 - [ ] **Step 3 — GREEN:** implementar uma ação `begin` explícita + uma transição `advance` por chamada (polling bounded fica no host G1-B, não loop interno infinito); assinar challenge com audience constante existente; persistir somente resposta `ACTIVE` com device_id UUID válido, fingerprint e ids consistentes; não duplicar vínculo de outra identidade.
 - [ ] **Step 4 — verify GREEN:** suite `provisioning_pairing_` PASS; simular challenge reutilizado/trocado e verificar que não produz outro device nem registra vínculo.
 - [ ] **Step 5 — commit:** `git add agent/src/provisioning.rs agent/src/lib.rs agent/tests/provisioning_contract.rs && git commit -m "feat(agent): orchestrate explicit user-verified device pairing"`.
@@ -137,7 +137,7 @@
 - `AgentMetadata` contém `agent_version`, `os`, `arch`, `capabilities` aprovadas pelo host; defaults não devem incluir screen/input/browser/sandbox.
 
 - [ ] **Step 1 — RED:** `provisioning_session_missing_identity_never_calls_api`, `provisioning_session_mismatched_binding_never_calls_api`, `provisioning_session_revoked_credential_denied`, `provisioning_session_rejects_expired_or_long_ttl_or_altered_ws_path`, `provisioning_session_valid_credential_does_not_connect`.
-- [ ] **Step 2 — verify RED:** `cargo test --locked --all-features provisioning_session_` falha antes da implementação de sessão.
+- [ ] **Step 2 — verify RED:** `cargo test --locked --all-features provisioning_session_` falha por asserção da sessão não preparada, sem erro de compilação.
 - [ ] **Step 3 — GREEN:** não chamar `load_or_generate` neste caminho; exigência de vínculo e identidade; nonce novo, RFC3339 UTC fresco e assinatura Ed25519; aceitar token apenas se `0 < expires_at - now <= 60s` (inclusive boundary), `websocket_path` canônico, resposta `device_id`/nonce se presentes iguais; construir `RealtimeClientConfig` com URL baseada **só na origin aprovada** e chamar `validate()` antes de devolver. Não abrir socket.
 - [ ] **Step 4 — verify GREEN:** positivos/negativos PASS, testes de nonce fresco por duas invocações, fail-closed por 401/403 e sem `SessionCredentials` em caso de erro.
 - [ ] **Step 5 — commit:** `git add agent/src/provisioning.rs agent/tests/provisioning_contract.rs && git commit -m "feat(agent): prepare single-use short-lived realtime credential without connecting"`.
@@ -155,7 +155,7 @@
 - Produces: evidência rastreável de que o Agent **prepara** a sessão, porém **não a inicia**; linha do painel G1-A `COMPLETE` só quando a CI final aprovar.
 
 - [ ] **Step 1 — RED:** teste integrado `provisioning_e2e_lab_user_approved_pairing_to_fresh_credential`, com HTTP local real e fake do control plane apenas para credenciais e confirmação humana simulada no runner; `CREATED → USER_VERIFIED → ACTIVE → credential`. Testar também `CREATED → DENIED`, 403 revogado, replay/nonce e caminho alterado. Contratos wire e assinaturas devem corresponder exatamente às fixtures Rust/TypeScript.
-- [ ] **Step 2 — verify RED:** CI direcionada falha pelo caminho de orquestração ainda ausente; não confundir red TDD com CI final.
+- [ ] **Step 2 — verify RED:** CI direcionada falha por asserção de integração ausente usando stubs compiláveis; não confundir RED TDD com CI final.
 - [ ] **Step 3 — GREEN:** corrigir somente as divergências provadas, executar o fluxo completo em runner; revisar que nenhum teste depende de credencial real, clock wall não controlado ou localhost pessoal.
 - [ ] **Step 4 — final validation:** `cargo fmt --all -- --check`, `cargo test --locked --all-features`, `cargo clippy --locked --all-targets --all-features -- -D warnings`, build nativo e `scripts/interop/windows-agent-native-preflight.ps1 -AllowLocalBuild` na CI Windows; regressões MCP/Keycloak e control plane **3/3** no último SHA; conferir warnings, mocks, números de testes e logs redigidos. Não usar build Cargo por DCR no computador pessoal.
 - [ ] **Step 5 — review & commit:** revisão independente de fronteiras keyring/HTTP/TLS, credentials e testes negativos; gravar aceite com links de runs/commit, atualizar `PROJECT_STATE.md` e painel **somente da subetapa G1-A**. Abrir PR de implementação separado, aguardar CI verde no último SHA, merge/delete/sync e comentário #82. **Não declarar G1 operacional**.
