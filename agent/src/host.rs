@@ -11,7 +11,9 @@ use crate::config::AgentConfig;
 use crate::identity::{DeviceIdentityManager, DevicePairingMetadata, NativeKeyringIdentityStore};
 use crate::ports::{AuthorizationOutcome, CommandExecutor, ExecutionOutcome};
 use crate::protocol::{CommandRequest, ErrorCode, TelechirError};
-use crate::provisioning::{AgentMetadata, PairingProgress, advance_pairing, begin_pairing, prepare_connection};
+use crate::provisioning::{
+    AgentMetadata, PairingProgress, advance_pairing, begin_pairing, prepare_connection,
+};
 use crate::provisioning_http::{ProvisionError, ProvisioningHttp};
 use crate::provisioning_store::NativeKeyringDeviceBindingStore;
 use crate::realtime::ReconnectController;
@@ -98,8 +100,7 @@ fn metadata() -> AgentMetadata {
 fn deny_request() -> TelechirError {
     TelechirError {
         code: ErrorCode::PolicyDenied,
-        message: "remote operations are disabled until G1-C policy approval is complete"
-            .to_owned(),
+        message: "remote operations are disabled until G1-C policy approval is complete".to_owned(),
         retryable: false,
         retry_after_ms: None,
         details: None,
@@ -128,20 +129,33 @@ impl CommandExecutor for DenyAllHostExecutor {
 
 /// One explicitly invoked CLI operation; provisioning and session never run
 /// merely because a user launches telechir-agent without arguments.
-pub async fn run_host_action(
-    action: HostAction,
-    config: &AgentConfig,
-) -> Result<(), HostError> {
+pub async fn run_host_action(action: HostAction, config: &AgentConfig) -> Result<(), HostError> {
     match action {
         HostAction::CoreInfo => {
             println!(
                 "telechir-agent {} core ready (protocol {}, sandbox={}, screen={}, input={}, browser={})",
                 env!("CARGO_PKG_VERSION"),
                 config.protocol_version,
-                if config.sandbox_enabled() { "docker" } else { "disabled" },
-                if config.computer_screen_enabled { "enabled" } else { "disabled" },
-                if config.computer_input_enabled { "enabled" } else { "disabled" },
-                if config.browser_configured() { "configured" } else { "disabled" },
+                if config.sandbox_enabled() {
+                    "docker"
+                } else {
+                    "disabled"
+                },
+                if config.computer_screen_enabled {
+                    "enabled"
+                } else {
+                    "disabled"
+                },
+                if config.computer_input_enabled {
+                    "enabled"
+                } else {
+                    "disabled"
+                },
+                if config.browser_configured() {
+                    "configured"
+                } else {
+                    "disabled"
+                },
             );
             Ok(())
         }
@@ -274,7 +288,10 @@ mod tests {
     #[test]
     fn operational_cli_never_activates_on_default_or_bad_arguments() {
         assert_eq!(HostAction::parse(&[]).unwrap(), HostAction::CoreInfo);
-        assert_eq!(HostAction::parse(&["--help".into()]).unwrap(), HostAction::Help);
+        assert_eq!(
+            HostAction::parse(&["--help".into()]).unwrap(),
+            HostAction::Help
+        );
         assert!(HostAction::parse(&["serve".into()]).is_err());
         assert!(HostAction::parse(&["--serve".into()]).is_err());
         assert!(HostAction::parse(&["serve".into(), "http://external.example".into()]).is_err());
@@ -290,7 +307,10 @@ mod tests {
     fn operational_host_rejects_sensitive_capabilities_and_denies_all_commands() {
         let mut config = AgentConfig::default();
         config.computer_input_enabled = true;
-        assert_eq!(safe_operational_config(&config), Err(HostError::UnsafeConfiguration));
+        assert_eq!(
+            safe_operational_config(&config),
+            Err(HostError::UnsafeConfiguration)
+        );
         assert_eq!(safe_operational_config(&AgentConfig::default()), Ok(()));
 
         let mut executor = DenyAllHostExecutor;
@@ -307,7 +327,9 @@ mod tests {
 
     struct EmptyBinding;
     impl DeviceBindingStore for EmptyBinding {
-        fn load(&self) -> Result<Option<DeviceBinding>, BindingError> { Ok(None) }
+        fn load(&self) -> Result<Option<DeviceBinding>, BindingError> {
+            Ok(None)
+        }
         fn save(&self, _: &DeviceBinding) -> Result<(), BindingError> {
             Err(BindingError::InvalidBinding)
         }
@@ -316,18 +338,38 @@ mod tests {
     struct NeverCallApi(AtomicUsize);
     #[async_trait::async_trait]
     impl crate::provisioning_http::ProvisioningApi for NeverCallApi {
-        async fn create_pairing(&self, _: &crate::identity::PairingRegistration)
-            -> Result<crate::provisioning_http::PairingStart, ProvisionError>
-        { self.0.fetch_add(1, Ordering::SeqCst); Err(ProvisionError::Unavailable) }
-        async fn get_pairing(&self, _: &str, _: &str, _: &str)
-            -> Result<crate::provisioning_http::PairingStatus, ProvisionError>
-        { self.0.fetch_add(1, Ordering::SeqCst); Err(ProvisionError::Unavailable) }
-        async fn prove_device(&self, _: &str, _: &crate::identity::PairingProof)
-            -> Result<crate::provisioning_http::PairingActivation, ProvisionError>
-        { self.0.fetch_add(1, Ordering::SeqCst); Err(ProvisionError::Unavailable) }
-        async fn issue_credential(&self, _: &str, _: &crate::identity::ConnectionCredentialProof)
-            -> Result<crate::provisioning_http::CredentialResponse, ProvisionError>
-        { self.0.fetch_add(1, Ordering::SeqCst); Err(ProvisionError::Unavailable) }
+        async fn create_pairing(
+            &self,
+            _: &crate::identity::PairingRegistration,
+        ) -> Result<crate::provisioning_http::PairingStart, ProvisionError> {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            Err(ProvisionError::Unavailable)
+        }
+        async fn get_pairing(
+            &self,
+            _: &str,
+            _: &str,
+            _: &str,
+        ) -> Result<crate::provisioning_http::PairingStatus, ProvisionError> {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            Err(ProvisionError::Unavailable)
+        }
+        async fn prove_device(
+            &self,
+            _: &str,
+            _: &crate::identity::PairingProof,
+        ) -> Result<crate::provisioning_http::PairingActivation, ProvisionError> {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            Err(ProvisionError::Unavailable)
+        }
+        async fn issue_credential(
+            &self,
+            _: &str,
+            _: &crate::identity::ConnectionCredentialProof,
+        ) -> Result<crate::provisioning_http::CredentialResponse, ProvisionError> {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            Err(ProvisionError::Unavailable)
+        }
     }
 
     #[tokio::test]
@@ -335,8 +377,18 @@ mod tests {
         let identity = DeviceIdentityManager::new(MemoryIdentityStore::default());
         let api = NeverCallApi(AtomicUsize::new(0));
         let origin = Url::parse("https://127.0.0.1:8988/").unwrap();
-        let result = serve_foreground(&identity, &EmptyBinding, &api, &origin, std::future::pending()).await;
-        assert_eq!(result, Err(HostError::Provisioning(ProvisionError::InvalidState)));
+        let result = serve_foreground(
+            &identity,
+            &EmptyBinding,
+            &api,
+            &origin,
+            std::future::pending(),
+        )
+        .await;
+        assert_eq!(
+            result,
+            Err(HostError::Provisioning(ProvisionError::InvalidState))
+        );
         assert_eq!(api.0.load(Ordering::SeqCst), 0);
     }
 
