@@ -1,7 +1,6 @@
 //! Explicit opt-in foreground host. No remote authority is enabled by default.
 //! Until G1-C local policy/approvals are operational, ALL inbound tools are denied.
 use std::convert::Infallible;
-use std::time::Duration;
 
 use chrono::Utc;
 use thiserror::Error;
@@ -247,8 +246,8 @@ where
                 println!("STATE=STOPPED");
                 return Ok(());
             }
-            Err(SessionError::InvalidConfiguration | SessionError::NotProvisioned) => {
-                return Err(HostError::Session(SessionError::InvalidConfiguration));
+            Err(error @ (SessionError::InvalidConfiguration | SessionError::NotProvisioned)) => {
+                return Err(HostError::Session(error));
             }
             Err(error) if attempt == MAX_RECONNECTS => return Err(HostError::Session(error)),
             Err(_) => {
