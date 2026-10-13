@@ -9,7 +9,7 @@
 
 ### Painel executivo de conclusão (12/10/2026)
 
-**Etapa atual: G1/7 — Agent operacional ([#82](https://github.com/sylviohmartins/telechir/issues/82)); próxima entrega técnica após G1-A: **G1-B — host residente opt-in** conectando `main.rs` à identidade previamente pareada, ao broker de credential e ao supervisor `runtime.rs`, sem ativação remota implícita.** O supervisor WebSocket já foi testado em loopback (99 testes Rust), mas o Agent compilado ainda termina após `core ready`.
+**Etapa atual: G1/7 — Agent operacional ([#82](https://github.com/sylviohmartins/telechir/issues/82)); próxima entrega técnica **G1-C — integrar executor tipado, policy, approvals e audit ao host seguro**, mantendo G1-D e E2E físico pendentes.** G1-A integrou identidade/pairing/credential curta; G1-B integrou os comandos explícitos da CLI e supervisor com execução remota `deny-all` ([PR #89](https://github.com/sylviohmartins/telechir/pull/89)). Iniciar o Agent sem argumentos continua sem conexão.
 
 | Marco | Gate operacional | Estado |
 |---|---|---|
