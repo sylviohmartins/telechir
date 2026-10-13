@@ -116,10 +116,26 @@ impl std::fmt::Debug for CredentialResponse {
 
 #[async_trait]
 pub trait ProvisioningApi: Send + Sync {
-    async fn create_pairing(&self, registration: &PairingRegistration) -> Result<PairingStart, ProvisionError>;
-    async fn get_pairing(&self, pairing_id: &str, key_id: &str, installation_id: &str) -> Result<PairingStatus, ProvisionError>;
-    async fn prove_device(&self, pairing_id: &str, proof: &PairingProof) -> Result<PairingActivation, ProvisionError>;
-    async fn issue_credential(&self, device_id: &str, proof: &ConnectionCredentialProof) -> Result<CredentialResponse, ProvisionError>;
+    async fn create_pairing(
+        &self,
+        registration: &PairingRegistration,
+    ) -> Result<PairingStart, ProvisionError>;
+    async fn get_pairing(
+        &self,
+        pairing_id: &str,
+        key_id: &str,
+        installation_id: &str,
+    ) -> Result<PairingStatus, ProvisionError>;
+    async fn prove_device(
+        &self,
+        pairing_id: &str,
+        proof: &PairingProof,
+    ) -> Result<PairingActivation, ProvisionError>;
+    async fn issue_credential(
+        &self,
+        device_id: &str,
+        proof: &ConnectionCredentialProof,
+    ) -> Result<CredentialResponse, ProvisionError>;
 }
 
 pub struct ProvisioningHttp {
@@ -137,17 +153,33 @@ impl ProvisioningHttp {
 
 #[async_trait]
 impl ProvisioningApi for ProvisioningHttp {
-    async fn create_pairing(&self, _registration: &PairingRegistration) -> Result<PairingStart, ProvisionError> {
+    async fn create_pairing(
+        &self,
+        _registration: &PairingRegistration,
+    ) -> Result<PairingStart, ProvisionError> {
         let _ = (&self.origin, &self.client);
         Err(ProvisionError::Unavailable)
     }
-    async fn get_pairing(&self, _pairing_id: &str, _key_id: &str, _installation_id: &str) -> Result<PairingStatus, ProvisionError> {
+    async fn get_pairing(
+        &self,
+        _pairing_id: &str,
+        _key_id: &str,
+        _installation_id: &str,
+    ) -> Result<PairingStatus, ProvisionError> {
         Err(ProvisionError::Unavailable)
     }
-    async fn prove_device(&self, _pairing_id: &str, _proof: &PairingProof) -> Result<PairingActivation, ProvisionError> {
+    async fn prove_device(
+        &self,
+        _pairing_id: &str,
+        _proof: &PairingProof,
+    ) -> Result<PairingActivation, ProvisionError> {
         Err(ProvisionError::Unavailable)
     }
-    async fn issue_credential(&self, _device_id: &str, _proof: &ConnectionCredentialProof) -> Result<CredentialResponse, ProvisionError> {
+    async fn issue_credential(
+        &self,
+        _device_id: &str,
+        _proof: &ConnectionCredentialProof,
+    ) -> Result<CredentialResponse, ProvisionError> {
         Err(ProvisionError::Unavailable)
     }
 }
