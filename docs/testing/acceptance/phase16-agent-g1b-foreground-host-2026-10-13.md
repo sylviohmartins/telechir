@@ -3,7 +3,7 @@
 **Data:** 2026-10-13 (America/Sao_Paulo)  
 **Gate:** G1 / [issue #82](https://github.com/sylviohmartins/telechir/issues/82)  
 **PR:** [#89](https://github.com/sylviohmartins/telechir/pull/89)  
-**CI Windows aferida:** [#38437835854](https://github.com/sylviohmartins/telechir/actions/runs/38437835854) (validação anterior do lockfile); [#38438411637](https://github.com/sylviohmartins/telechir/actions/runs/38438411637) — **1/1 success** no código funcional antes deste aceite.
+**CI Windows aferida:** [#38438411637](https://github.com/sylviohmartins/telechir/actions/runs/38438411637) — **1/1 success** no código funcional antes deste aceite.
 
 ## Entrega comprovada na CI hospedada
 
