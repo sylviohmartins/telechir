@@ -12,6 +12,7 @@ pub mod policy;
 pub mod ports;
 pub mod process;
 pub mod protocol;
+pub mod provisioning_http;
 pub mod provisioning_store;
 pub mod realtime;
 pub mod runtime;
