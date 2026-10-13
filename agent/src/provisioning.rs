@@ -68,11 +68,11 @@ where
     {
         return Err(ProvisionError::InvalidOrigin);
     }
-    if metadata.capabilities.len() != 0
+    if !metadata.capabilities.is_empty()
         || [metadata.agent_version.as_str(), metadata.os.as_str(), metadata.arch.as_str()]
             .iter()
             .any(|value| value.is_empty() || value.len() > 64 || value.chars().any(char::is_control))
-        || (Utc::now() - now).num_seconds().abs() > 30
+        || Utc::now().signed_duration_since(&now).num_seconds().abs() > 30
     {
         // G1-A cannot authorize screen/input/browser/sandbox. G1-C owns the
         // eventual capabilities policy and the trusted runtime clock.
