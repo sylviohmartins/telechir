@@ -1,8 +1,8 @@
 # G1-B — Executável Agent com pairing explícito e host foreground default-deny
 
-**Data:** 2026-10-13 (America/Sao_Paulo)  
-**Gate:** G1 / [issue #82](https://github.com/sylviohmartins/telechir/issues/82)  
-**PR:** [#89](https://github.com/sylviohmartins/telechir/pull/89)  
+**Data:** 2026-10-13 (America/Sao_Paulo)
+**Gate:** G1 / [issue #82](https://github.com/sylviohmartins/telechir/issues/82)
+**PR:** [#89](https://github.com/sylviohmartins/telechir/pull/89)
 **CI Windows aferida:** [#38438411637](https://github.com/sylviohmartins/telechir/actions/runs/38438411637) — **1/1 success** no código funcional antes deste aceite.
 
 ## Entrega comprovada na CI hospedada
