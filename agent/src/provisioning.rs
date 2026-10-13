@@ -1,5 +1,7 @@
 //! Explicit, user-verified device pairing. This layer never opens a WebSocket.
-use chrono::{Duration as ChronoDuration, Utc};
+use chrono::{DateTime, Duration as ChronoDuration, Utc};
+use std::time::Duration;
+
 use url::Url;
 use uuid::Uuid;
 
@@ -8,6 +10,8 @@ use crate::identity::{
 };
 use crate::provisioning_http::{PairingStart, PairingState, ProvisionError, ProvisioningApi};
 use crate::provisioning_store::{BindingError, DeviceBinding, DeviceBindingStore};
+use crate::realtime::RealtimeClientConfig;
+use crate::runtime::SessionCredentials;
 
 fn valid_uuid(value: &str) -> bool {
     Uuid::parse_str(value).is_ok_and(|uuid| !uuid.is_nil())
@@ -18,6 +22,39 @@ fn store_error(error: BindingError) -> ProvisionError {
         BindingError::InvalidBinding => ProvisionError::IdentityMismatch,
         BindingError::StoreUnavailable => ProvisionError::StoreUnavailable,
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct AgentMetadata {
+    pub agent_version: String,
+    pub os: String,
+    pub arch: String,
+    pub capabilities: Vec<String>,
+}
+
+pub struct PreparedConnection {
+    pub config: RealtimeClientConfig,
+    pub credentials: SessionCredentials,
+}
+
+/// Prepare a fresh proof and credential without opening a socket. A host may
+/// consume this only after separately approving an operational session.
+pub async fn prepare_connection<S, B, A>(
+    identity: &DeviceIdentityManager<S>,
+    binding: &B,
+    api: &A,
+    origin: &Url,
+    metadata: AgentMetadata,
+    now: DateTime<Utc>,
+) -> Result<PreparedConnection, ProvisionError>
+where
+    S: DeviceIdentityStore,
+    B: DeviceBindingStore,
+    A: ProvisioningApi,
+{
+    let _ = (identity, binding, api, origin, metadata, now);
+    // TDD RED: credential and device binding are not checked yet.
+    Err(ProvisionError::InvalidState)
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -327,4 +364,171 @@ mod tests {
         assert_eq!(api.proofs.load(Ordering::SeqCst), 0);
         assert_eq!(store.writes.load(Ordering::SeqCst), 0);
     }
+
+    struct CredentialApi {
+        calls: AtomicUsize,
+        nonces: Mutex<Vec<String>>,
+        ttl_seconds: i64,
+        path: String,
+        denied: bool,
+    }
+    impl CredentialApi {
+        fn new(ttl_seconds: i64, path: String, denied: bool) -> Self {
+            Self {
+                calls: AtomicUsize::new(0),
+                nonces: Mutex::new(Vec::new()),
+                ttl_seconds,
+                path,
+                denied,
+            }
+        }
+    }
+
+    #[async_trait]
+    impl ProvisioningApi for CredentialApi {
+        async fn create_pairing(
+            &self,
+            _registration: &PairingRegistration,
+        ) -> Result<PairingStart, ProvisionError> {
+            Err(ProvisionError::InvalidState)
+        }
+        async fn get_pairing(
+            &self,
+            _pairing_id: &str,
+            _key_id: &str,
+            _installation_id: &str,
+        ) -> Result<PairingStatus, ProvisionError> {
+            Err(ProvisionError::InvalidState)
+        }
+        async fn prove_device(
+            &self,
+            _pairing_id: &str,
+            _proof: &PairingProof,
+        ) -> Result<PairingActivation, ProvisionError> {
+            Err(ProvisionError::InvalidState)
+        }
+        async fn issue_credential(
+            &self,
+            _device_id: &str,
+            proof: &ConnectionCredentialProof,
+        ) -> Result<CredentialResponse, ProvisionError> {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            self.nonces.lock().unwrap().push(proof.connection_nonce.clone());
+            if self.denied {
+                return Err(ProvisionError::Denied);
+            }
+            Ok(CredentialResponse {
+                credential: "ephemeral_ci_only_mock_credential".to_owned(),
+                expires_at: Utc::now() + Duration::seconds(self.ttl_seconds),
+                websocket_path: self.path.clone(),
+            })
+        }
+    }
+
+    fn active_binding() -> (DeviceIdentityManager<MemoryIdentityStore>, MemoryBinding) {
+        let identity = DeviceIdentityManager::new(MemoryIdentityStore::default());
+        let public = identity.load_or_generate().unwrap().public_identity();
+        let binding = DeviceBinding::new(DEVICE_ID.to_owned(), &public).unwrap();
+        (
+            identity,
+            MemoryBinding {
+                binding: Mutex::new(Some(binding)),
+                writes: AtomicUsize::new(0),
+            },
+        )
+    }
+
+    fn connection_metadata() -> AgentMetadata {
+        AgentMetadata {
+            agent_version: "0.1.0".to_owned(),
+            os: "windows".to_owned(),
+            arch: "x86_64".to_owned(),
+            capabilities: Vec::new(),
+        }
+    }
+
+    fn connection_origin() -> Url {
+        Url::parse("https://example.org/").unwrap()
+    }
+
+    fn credential_path() -> String {
+        format!("/api/v1/devices/{DEVICE_ID}/realtime")
+    }
+
+    #[tokio::test]
+    async fn provisioning_session_missing_identity_never_calls_api() {
+        let identity = DeviceIdentityManager::new(MemoryIdentityStore::default());
+        let store = MemoryBinding::default();
+        let api = CredentialApi::new(30, credential_path(), false);
+        let result = prepare_connection(
+            &identity, &store, &api, &connection_origin(), connection_metadata(), Utc::now(),
+        ).await;
+        assert!(matches!(result, Err(ProvisionError::InvalidState)));
+        assert_eq!(api.calls.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn provisioning_session_mismatched_binding_never_calls_api() {
+        let (identity, store) = active_binding();
+        let other_identity = DeviceIdentityManager::new(MemoryIdentityStore::default());
+        other_identity.load_or_generate().unwrap();
+        let api = CredentialApi::new(30, credential_path(), false);
+        let result = prepare_connection(
+            &other_identity, &store, &api, &connection_origin(), connection_metadata(), Utc::now(),
+        ).await;
+        assert!(matches!(result, Err(ProvisionError::IdentityMismatch)));
+        assert_eq!(api.calls.load(Ordering::SeqCst), 0);
+        drop(identity);
+    }
+
+    #[tokio::test]
+    async fn provisioning_session_valid_credential_does_not_connect() {
+        let (identity, store) = active_binding();
+        let api = CredentialApi::new(30, credential_path(), false);
+        let prepared = prepare_connection(
+            &identity, &store, &api, &connection_origin(), connection_metadata(), Utc::now(),
+        ).await.unwrap();
+        assert_eq!(prepared.config.device_id, DEVICE_ID);
+        assert_eq!(
+            prepared.config.websocket_url,
+            format!("wss://example.org/api/v1/devices/{DEVICE_ID}/realtime")
+        );
+        assert!(prepared.config.capabilities.is_empty());
+        assert!(!format!("{:?}", prepared.credentials).contains("ephemeral_ci_only_mock_credential"));
+        let second = prepare_connection(
+            &identity, &store, &api, &connection_origin(), connection_metadata(), Utc::now(),
+        ).await.unwrap();
+        assert_ne!(api.nonces.lock().unwrap()[0], api.nonces.lock().unwrap()[1]);
+        assert_eq!(second.config.device_id, prepared.config.device_id);
+        assert_eq!(api.calls.load(Ordering::SeqCst), 2);
+    }
+
+    #[tokio::test]
+    async fn provisioning_session_rejects_expired_or_long_ttl_or_altered_ws_path() {
+        let (identity, store) = active_binding();
+        for (ttl, path) in [
+            (-5, credential_path()),
+            (121, credential_path()),
+            (30, "/api/v1/devices/not-the-bound-device/realtime".to_owned()),
+        ] {
+            let api = CredentialApi::new(ttl, path, false);
+            let result = prepare_connection(
+                &identity, &store, &api, &connection_origin(), connection_metadata(), Utc::now(),
+            ).await;
+            assert!(result.is_err());
+            assert_eq!(api.calls.load(Ordering::SeqCst), 1);
+        }
+    }
+
+    #[tokio::test]
+    async fn provisioning_session_revoked_credential_denied() {
+        let (identity, store) = active_binding();
+        let api = CredentialApi::new(30, credential_path(), true);
+        let result = prepare_connection(
+            &identity, &store, &api, &connection_origin(), connection_metadata(), Utc::now(),
+        ).await;
+        assert!(matches!(result, Err(ProvisionError::Denied)));
+        assert_eq!(api.calls.load(Ordering::SeqCst), 1);
+    }
+
 }
