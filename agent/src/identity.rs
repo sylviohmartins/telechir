@@ -245,9 +245,14 @@ where
     /// Never generates or rotates a key. The session path MUST fail closed
     /// when the device has not been paired explicitly.
     pub fn load_existing(&self) -> Result<Option<DeviceIdentity>, IdentityError> {
-        // TDD RED: identity decoding and secret zeroization are intentionally
-        // not implemented yet; see provisioning_missing_identity tests.
-        Ok(None)
+        match self.store.load()? {
+            None => Ok(None),
+            Some(mut stored) => {
+                let decoded = decode_identity(&stored);
+                stored.zeroize();
+                decoded.map(Some)
+            }
+        }
     }
 
     pub fn load_or_generate(&self) -> Result<DeviceIdentity, IdentityError> {
