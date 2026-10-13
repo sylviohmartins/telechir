@@ -45,7 +45,7 @@
 
 ### Próximas entregas técnicas dentro de G1 (não criar fases adicionais)
 
-- **G1-A — Bootstrap provisionado:** interface entre keyring/identity, pairing e credential broker; sem credencial válida o runtime nem tenta abrir WebSocket. Testes de identity ausente, pairing revogado, credencial expirada e endpoint TLS inválido.
+- **G1-A — Bootstrap provisionado: IMPLEMENTADO / VALIDADO EM LABORATÓRIO (PR #88).** Interfaces de keyring/identity, pairing e credencial de 60 s preparam sessão sem abrir WebSocket. [Aceite técnico](../testing/acceptance/phase16-agent-g1a-provisioning-2026-10-13.md), [CI Windows #38428031545](https://github.com/sylviohmartins/telechir/actions/runs/38428031545), 118 testes Rust. **Não** comprova pairing humano real, keyring pessoal nem E2E; manter G1 aberto. G1-B é a próxima entrega.
 - **G1-B — Host residente:** `main.rs` com `--serve`/modo explícito equivalente, estados `UNPAIRED/READY/CONNECTED/BLOCKED`, shutdown/heartbeat/reconnect bounded com **credencial nova**; seguir a API `runtime.rs` existente, sem trabalho de fundo permanente por padrão.
 - **G1-C — Executor seguro:** encaixar executor existente, roots/workspaces e policy/approvals/audit ao runtime com default-deny, testes de side effects, deduplicação e falha fechada.
 - **G1-D — Aceite do Agent:** loopback completo em CI Windows/Linux com credenciais sintéticas **somente para teste**, sem acesso ao dispositivo pessoal; review e exit evidence da #82. Só então iniciar G2.
