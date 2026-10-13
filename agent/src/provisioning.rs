@@ -411,7 +411,10 @@ mod tests {
             proof: &ConnectionCredentialProof,
         ) -> Result<CredentialResponse, ProvisionError> {
             self.calls.fetch_add(1, Ordering::SeqCst);
-            self.nonces.lock().unwrap().push(proof.connection_nonce.clone());
+            self.nonces
+                .lock()
+                .unwrap()
+                .push(proof.connection_nonce.clone());
             if self.denied {
                 return Err(ProvisionError::Denied);
             }
@@ -459,8 +462,14 @@ mod tests {
         let store = MemoryBinding::default();
         let api = CredentialApi::new(30, credential_path(), false);
         let result = prepare_connection(
-            &identity, &store, &api, &connection_origin(), connection_metadata(), Utc::now(),
-        ).await;
+            &identity,
+            &store,
+            &api,
+            &connection_origin(),
+            connection_metadata(),
+            Utc::now(),
+        )
+        .await;
         assert!(matches!(result, Err(ProvisionError::InvalidState)));
         assert_eq!(api.calls.load(Ordering::SeqCst), 0);
     }
@@ -472,8 +481,14 @@ mod tests {
         other_identity.load_or_generate().unwrap();
         let api = CredentialApi::new(30, credential_path(), false);
         let result = prepare_connection(
-            &other_identity, &store, &api, &connection_origin(), connection_metadata(), Utc::now(),
-        ).await;
+            &other_identity,
+            &store,
+            &api,
+            &connection_origin(),
+            connection_metadata(),
+            Utc::now(),
+        )
+        .await;
         assert!(matches!(result, Err(ProvisionError::IdentityMismatch)));
         assert_eq!(api.calls.load(Ordering::SeqCst), 0);
         drop(identity);
@@ -484,18 +499,34 @@ mod tests {
         let (identity, store) = active_binding();
         let api = CredentialApi::new(30, credential_path(), false);
         let prepared = prepare_connection(
-            &identity, &store, &api, &connection_origin(), connection_metadata(), Utc::now(),
-        ).await.unwrap();
+            &identity,
+            &store,
+            &api,
+            &connection_origin(),
+            connection_metadata(),
+            Utc::now(),
+        )
+        .await
+        .unwrap();
         assert_eq!(prepared.config.device_id, DEVICE_ID);
         assert_eq!(
             prepared.config.websocket_url,
             format!("wss://example.org/api/v1/devices/{DEVICE_ID}/realtime")
         );
         assert!(prepared.config.capabilities.is_empty());
-        assert!(!format!("{:?}", prepared.credentials).contains("ephemeral_ci_only_mock_credential"));
+        assert!(
+            !format!("{:?}", prepared.credentials).contains("ephemeral_ci_only_mock_credential")
+        );
         let second = prepare_connection(
-            &identity, &store, &api, &connection_origin(), connection_metadata(), Utc::now(),
-        ).await.unwrap();
+            &identity,
+            &store,
+            &api,
+            &connection_origin(),
+            connection_metadata(),
+            Utc::now(),
+        )
+        .await
+        .unwrap();
         let nonces = api.nonces.lock().unwrap();
         assert_ne!(nonces[0], nonces[1]);
         assert_eq!(second.config.device_id, prepared.config.device_id);
@@ -508,12 +539,21 @@ mod tests {
         for (ttl, path) in [
             (-5, credential_path()),
             (121, credential_path()),
-            (30, "/api/v1/devices/not-the-bound-device/realtime".to_owned()),
+            (
+                30,
+                "/api/v1/devices/not-the-bound-device/realtime".to_owned(),
+            ),
         ] {
             let api = CredentialApi::new(ttl, path, false);
             let result = prepare_connection(
-                &identity, &store, &api, &connection_origin(), connection_metadata(), Utc::now(),
-            ).await;
+                &identity,
+                &store,
+                &api,
+                &connection_origin(),
+                connection_metadata(),
+                Utc::now(),
+            )
+            .await;
             assert!(result.is_err());
             assert_eq!(api.calls.load(Ordering::SeqCst), 1);
         }
@@ -524,10 +564,15 @@ mod tests {
         let (identity, store) = active_binding();
         let api = CredentialApi::new(30, credential_path(), true);
         let result = prepare_connection(
-            &identity, &store, &api, &connection_origin(), connection_metadata(), Utc::now(),
-        ).await;
+            &identity,
+            &store,
+            &api,
+            &connection_origin(),
+            connection_metadata(),
+            Utc::now(),
+        )
+        .await;
         assert!(matches!(result, Err(ProvisionError::Denied)));
         assert_eq!(api.calls.load(Ordering::SeqCst), 1);
     }
-
 }
