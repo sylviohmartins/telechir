@@ -4,8 +4,8 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use reqwest::redirect::Policy;
 use reqwest::{Client, Method, StatusCode};
-use serde::de::DeserializeOwned;
 use serde::Deserialize;
+use serde::de::DeserializeOwned;
 use std::time::Duration;
 use thiserror::Error;
 use url::{Host, Url};
@@ -173,7 +173,6 @@ impl ProvisioningHttp {
             .map_err(|_| ProvisionError::Unavailable)?;
         Ok(Self { origin, client })
     }
-
 }
 
 const MAX_PAIRING_JSON: usize = 16 * 1024;
@@ -412,7 +411,10 @@ mod tests {
 
     #[tokio::test]
     async fn provisioning_http_rejects_oversize_or_invalid_json() {
-        for body in ["{malformed-json".to_owned(), "x".repeat(MAX_PAIRING_JSON + 1)] {
+        for body in [
+            "{malformed-json".to_owned(),
+            "x".repeat(MAX_PAIRING_JSON + 1),
+        ] {
             let response = http_response("200 OK", &body, "Content-Type: application/json\\r\\n");
             let (origin, server) = mock_http(response).await;
             let api = ProvisioningHttp::new(origin).unwrap();
@@ -449,7 +451,12 @@ mod tests {
         ));
         let api = ProvisioningHttp::new(Url::parse("https://example.com/").unwrap()).unwrap();
         assert!(matches!(
-            api.get_pairing("//evil.example/path", "11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222").await,
+            api.get_pairing(
+                "//evil.example/path",
+                "11111111-1111-4111-8111-111111111111",
+                "22222222-2222-4222-8222-222222222222"
+            )
+            .await,
             Err(ProvisionError::InvalidResponse)
         ));
         let secret = CredentialResponse {
