@@ -3,8 +3,8 @@
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use keyring::{Entry, Error as KeyringError};
-use sha2::{Digest, Sha256};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use thiserror::Error;
 use uuid::Uuid;
 use zeroize::Zeroize;
@@ -49,7 +49,9 @@ impl DeviceBinding {
         let decoded = URL_SAFE_NO_PAD
             .decode(&public.public_key)
             .map_err(|_| BindingError::InvalidBinding)?;
-        if decoded.len() != 32 || URL_SAFE_NO_PAD.encode(Sha256::digest(decoded)) != binding.fingerprint {
+        if decoded.len() != 32
+            || URL_SAFE_NO_PAD.encode(Sha256::digest(decoded)) != binding.fingerprint
+        {
             return Err(BindingError::InvalidBinding);
         }
         Ok(binding)
@@ -65,13 +67,19 @@ impl DeviceBinding {
                 .decode(&public.public_key)
                 .ok()
                 .filter(|decoded| decoded.len() == 32)
-                .is_some_and(|decoded| URL_SAFE_NO_PAD.encode(Sha256::digest(decoded)) == public.fingerprint)
+                .is_some_and(|decoded| {
+                    URL_SAFE_NO_PAD.encode(Sha256::digest(decoded)) == public.fingerprint
+                })
     }
     fn valid(&self) -> bool {
         self.version == BINDING_VERSION
-            && [&self.device_id, &self.device_key_id, &self.device_installation_id]
-                .into_iter()
-                .all(|value| Uuid::parse_str(value).is_ok_and(|uuid| !uuid.is_nil()))
+            && [
+                &self.device_id,
+                &self.device_key_id,
+                &self.device_installation_id,
+            ]
+            .into_iter()
+            .all(|value| Uuid::parse_str(value).is_ok_and(|uuid| !uuid.is_nil()))
             && URL_SAFE_NO_PAD
                 .decode(&self.fingerprint)
                 .is_ok_and(|decoded| decoded.len() == 32)
