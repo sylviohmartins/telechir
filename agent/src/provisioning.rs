@@ -47,8 +47,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Mutex;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     use async_trait::async_trait;
     use chrono::{Duration, Utc};
@@ -163,11 +163,14 @@ mod tests {
         let identity = DeviceIdentityManager::new(MemoryIdentityStore::default());
         let store = MemoryBinding::default();
         let api = FakeApi::new(PairingState::Created);
-        let started = begin_pairing(&identity, &store, &api, metadata()).await.unwrap();
+        let started = begin_pairing(&identity, &store, &api, metadata())
+            .await
+            .unwrap();
         assert_eq!(started.pairing_id, PAIRING_ID);
         assert_eq!(
             advance_pairing(&identity, &store, &api, PAIRING_ID)
-                .await.unwrap(),
+                .await
+                .unwrap(),
             PairingProgress::WaitingForUser
         );
         assert_eq!(api.proofs.load(Ordering::SeqCst), 0);
@@ -179,13 +182,17 @@ mod tests {
         let identity = DeviceIdentityManager::new(MemoryIdentityStore::default());
         let store = MemoryBinding::default();
         let api = FakeApi::new(PairingState::UserVerified);
-        begin_pairing(&identity, &store, &api, metadata()).await.unwrap();
+        begin_pairing(&identity, &store, &api, metadata())
+            .await
+            .unwrap();
         let active = advance_pairing(&identity, &store, &api, PAIRING_ID)
-            .await.unwrap();
+            .await
+            .unwrap();
         let PairingProgress::Active(binding) = active else {
             panic!("validated pairing did not activate");
         };
-        let public: DevicePublicIdentity = identity.load_existing().unwrap().unwrap().public_identity();
+        let public: DevicePublicIdentity =
+            identity.load_existing().unwrap().unwrap().public_identity();
         assert_eq!(binding.device_id, DEVICE_ID);
         assert!(binding.matches(&public));
         assert_eq!(store.writes.load(Ordering::SeqCst), 1);
