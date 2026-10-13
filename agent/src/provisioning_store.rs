@@ -1,12 +1,15 @@
 //! OS-native store for the confirmed, identity-bound device association.
 //! No WebSocket, pairing, token or implicit credential issuance in this module.
+use base64::Engine;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use keyring::{Entry, Error as KeyringError};
+use sha2::{Digest, Sha256};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
 use zeroize::Zeroize;
 
-use crate::identity::DevicePublicIdentity;
+use crate::identity::{DEVICE_KEY_ALGORITHM, DevicePublicIdentity};
 
 const BINDING_VERSION: u8 = 1;
 const MAX_BINDING_BYTES: usize = 4096;
@@ -33,16 +36,58 @@ pub struct DeviceBinding {
 
 impl DeviceBinding {
     pub fn new(device_id: String, public: &DevicePublicIdentity) -> Result<Self, BindingError> {
-        let _ = (device_id, public);
-        // TDD RED: strict versioned association checks not implemented.
-        Err(BindingError::InvalidBinding)
+        let binding = Self {
+            version: BINDING_VERSION,
+            device_id,
+            device_key_id: public.device_key_id.clone(),
+            device_installation_id: public.device_installation_id.clone(),
+            fingerprint: public.fingerprint.clone(),
+        };
+        if !binding.valid() || public.algorithm != DEVICE_KEY_ALGORITHM {
+            return Err(BindingError::InvalidBinding);
+        }
+        let decoded = URL_SAFE_NO_PAD
+            .decode(&public.public_key)
+            .map_err(|_| BindingError::InvalidBinding)?;
+        if decoded.len() != 32 || URL_SAFE_NO_PAD.encode(Sha256::digest(decoded)) != binding.fingerprint {
+            return Err(BindingError::InvalidBinding);
+        }
+        Ok(binding)
     }
 
     pub fn matches(&self, public: &DevicePublicIdentity) -> bool {
-        let _ = public;
-        // TDD RED: fail closed until the association is checked.
-        false
+        self.valid()
+            && public.algorithm == DEVICE_KEY_ALGORITHM
+            && self.device_key_id == public.device_key_id
+            && self.device_installation_id == public.device_installation_id
+            && self.fingerprint == public.fingerprint
+            && URL_SAFE_NO_PAD
+                .decode(&public.public_key)
+                .ok()
+                .filter(|decoded| decoded.len() == 32)
+                .is_some_and(|decoded| URL_SAFE_NO_PAD.encode(Sha256::digest(decoded)) == public.fingerprint)
     }
+    fn valid(&self) -> bool {
+        self.version == BINDING_VERSION
+            && [&self.device_id, &self.device_key_id, &self.device_installation_id]
+                .into_iter()
+                .all(|value| Uuid::parse_str(value).is_ok_and(|uuid| !uuid.is_nil()))
+            && URL_SAFE_NO_PAD
+                .decode(&self.fingerprint)
+                .is_ok_and(|decoded| decoded.len() == 32)
+    }
+}
+
+fn decode_binding(bytes: &[u8]) -> Result<DeviceBinding, BindingError> {
+    if bytes.is_empty() || bytes.len() > MAX_BINDING_BYTES {
+        return Err(BindingError::InvalidBinding);
+    }
+    let binding: DeviceBinding =
+        serde_json::from_slice(bytes).map_err(|_| BindingError::InvalidBinding)?;
+    if !binding.valid() {
+        return Err(BindingError::InvalidBinding);
+    }
+    Ok(binding)
 }
 
 pub trait DeviceBindingStore: Send + Sync {
@@ -69,15 +114,29 @@ impl DeviceBindingStore for NativeKeyringDeviceBindingStore {
             Err(KeyringError::NoEntry) => return Ok(None),
             Err(_) => return Err(BindingError::StoreUnavailable),
         };
-        // TDD RED: credential store contents must be validated and decoded.
+        let decoded = decode_binding(&stored);
         stored.zeroize();
-        Ok(None)
+        decoded.map(Some)
     }
 
     fn save(&self, binding: &DeviceBinding) -> Result<(), BindingError> {
-        let _ = binding;
-        // TDD RED: never persist an unverified association.
-        Err(BindingError::InvalidBinding)
+        if !binding.valid() {
+            return Err(BindingError::InvalidBinding);
+        }
+        if let Some(existing) = self.load()? {
+            return if existing == *binding {
+                Ok(())
+            } else {
+                Err(BindingError::InvalidBinding)
+            };
+        }
+        let mut bytes = serde_json::to_vec(binding).map_err(|_| BindingError::InvalidBinding)?;
+        let saved = self
+            .entry
+            .set_secret(&bytes)
+            .map_err(|_| BindingError::StoreUnavailable);
+        bytes.zeroize();
+        saved
     }
 }
 
