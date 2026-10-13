@@ -387,9 +387,9 @@ mod tests {
 
     fn http_response(status: &str, body: &str, additional_headers: &str) -> String {
         format!(
-            "HTTP/1.1 {status}\\r\\nContent-Length: {}\\r\\nConnection: close\\r\\n{additional_headers}\\r\\n{body}",
+            "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n{additional_headers}\r\n\r\n{body}",
             body.len()
-        ).replace("\\r\\n", "\r\n")
+        )
     }
 
     #[tokio::test]
