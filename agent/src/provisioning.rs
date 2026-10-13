@@ -1,6 +1,6 @@
 //! Explicit, user-verified device pairing. This layer never opens a WebSocket.
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
-use url::Url;
+use url::{Host, Url};
 use uuid::Uuid;
 
 use crate::identity::{
@@ -8,7 +8,7 @@ use crate::identity::{
 };
 use crate::provisioning_http::{PairingStart, PairingState, ProvisionError, ProvisioningApi};
 use crate::provisioning_store::{BindingError, DeviceBinding, DeviceBindingStore};
-use crate::realtime::RealtimeClientConfig;
+use crate::realtime::{DEFAULT_HANDSHAKE_TIMEOUT, RealtimeClientConfig, new_connection_nonce};
 use crate::runtime::SessionCredentials;
 
 fn valid_uuid(value: &str) -> bool {
@@ -50,9 +50,81 @@ where
     B: DeviceBindingStore,
     A: ProvisioningApi,
 {
-    let _ = (identity, binding, api, origin, metadata, now);
-    // TDD RED: credential and device binding are not checked yet.
-    Err(ProvisionError::InvalidState)
+    // Caller must supply an origin authorized by the host. No URL from a
+    // server response can replace this origin or expand its authority.
+    let local = match origin.host() {
+        Some(Host::Ipv4(ip)) => ip.is_loopback(),
+        Some(Host::Ipv6(ip)) => ip.is_loopback(),
+        Some(Host::Domain(host)) => host.eq_ignore_ascii_case("localhost"),
+        None => false,
+    };
+    if !(origin.scheme() == "https" || (origin.scheme() == "http" && local))
+        || origin.host().is_none()
+        || !origin.username().is_empty()
+        || origin.password().is_some()
+        || origin.query().is_some()
+        || origin.fragment().is_some()
+        || origin.path() != "/"
+    {
+        return Err(ProvisionError::InvalidOrigin);
+    }
+    if metadata.capabilities.len() != 0
+        || [metadata.agent_version.as_str(), metadata.os.as_str(), metadata.arch.as_str()]
+            .iter()
+            .any(|value| value.is_empty() || value.len() > 64 || value.chars().any(char::is_control))
+        || (Utc::now() - now).num_seconds().abs() > 30
+    {
+        // G1-A cannot authorize screen/input/browser/sandbox. G1-C owns the
+        // eventual capabilities policy and the trusted runtime clock.
+        return Err(ProvisionError::InvalidState);
+    }
+    let device = identity
+        .load_existing()
+        .map_err(|_| ProvisionError::StoreUnavailable)?
+        .ok_or(ProvisionError::InvalidState)?;
+    let public = device.public_identity();
+    let association = binding
+        .load()
+        .map_err(store_error)?
+        .ok_or(ProvisionError::InvalidState)?;
+    if !association.matches(&public) {
+        return Err(ProvisionError::IdentityMismatch);
+    }
+    let nonce = new_connection_nonce().map_err(|_| ProvisionError::Unavailable)?;
+    let at = now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+    let proof = device
+        .sign_connection_credential_request(&association.device_id, &nonce, &at)
+        .map_err(|_| ProvisionError::InvalidState)?;
+    let mut issued = api.issue_credential(&association.device_id, &proof).await?;
+    if issued.expires_at <= Utc::now()
+        || issued.expires_at > now + ChronoDuration::seconds(60)
+        || issued.websocket_path
+            != format!("/api/v1/devices/{}/realtime", association.device_id)
+        || issued.credential.is_empty()
+        || issued.credential.len() > 16 * 1024
+        || issued.credential.bytes().any(|ch| !ch.is_ascii_graphic())
+    {
+        return Err(ProvisionError::InvalidResponse);
+    }
+    let mut websocket = origin.clone();
+    websocket
+        .set_scheme(if origin.scheme() == "https" { "wss" } else { "ws" })
+        .map_err(|_| ProvisionError::InvalidOrigin)?;
+    websocket.set_path(&issued.websocket_path);
+    let config = RealtimeClientConfig {
+        websocket_url: websocket.to_string(),
+        device_id: association.device_id,
+        device_key_id: public.device_key_id,
+        agent_version: metadata.agent_version,
+        os: metadata.os,
+        arch: metadata.arch,
+        capabilities: metadata.capabilities,
+        handshake_timeout: DEFAULT_HANDSHAKE_TIMEOUT,
+    };
+    config.validate().map_err(|_| ProvisionError::InvalidOrigin)?;
+    let credentials = SessionCredentials::new(std::mem::take(&mut issued.credential), nonce)
+        .map_err(|_| ProvisionError::InvalidResponse)?;
+    Ok(PreparedConnection { config, credentials })
 }
 
 #[derive(Debug, PartialEq, Eq)]
