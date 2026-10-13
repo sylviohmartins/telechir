@@ -305,8 +305,10 @@ mod tests {
 
     #[test]
     fn operational_host_rejects_sensitive_capabilities_and_denies_all_commands() {
-        let mut config = AgentConfig::default();
-        config.computer_input_enabled = true;
+        let config = AgentConfig {
+            computer_input_enabled: true,
+            ..AgentConfig::default()
+        };
         assert_eq!(
             safe_operational_config(&config),
             Err(HostError::UnsafeConfiguration)
