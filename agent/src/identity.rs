@@ -409,7 +409,9 @@ mod tests {
                 *self.saved.lock().unwrap() = Some(bytes.to_vec());
                 Ok(())
             }
-            fn delete(&self) -> Result<(), IdentityError> { Ok(()) }
+            fn delete(&self) -> Result<(), IdentityError> {
+                Ok(())
+            }
         }
 
         let writes = Arc::new(AtomicUsize::new(0));
@@ -426,14 +428,20 @@ mod tests {
             saved: Mutex::new(Some(encode_identity(&identity))),
             writes: Arc::clone(&writes),
         });
-        assert_eq!(existing.load_existing().unwrap().unwrap().public_identity(), public);
+        assert_eq!(
+            existing.load_existing().unwrap().unwrap().public_identity(),
+            public
+        );
         assert_eq!(writes.load(Ordering::SeqCst), 0);
 
         let invalid = DeviceIdentityManager::new(ObservedStore {
             saved: Mutex::new(Some(vec![0_u8; 3])),
             writes: Arc::clone(&writes),
         });
-        assert!(matches!(invalid.load_existing(), Err(IdentityError::CorruptStore(_))));
+        assert!(matches!(
+            invalid.load_existing(),
+            Err(IdentityError::CorruptStore(_))
+        ));
         assert_eq!(writes.load(Ordering::SeqCst), 0);
     }
 
