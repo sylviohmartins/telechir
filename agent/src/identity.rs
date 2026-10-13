@@ -242,6 +242,19 @@ where
         Self { store }
     }
 
+    /// Never generates or rotates a key. The session path MUST fail closed
+    /// when the device has not been paired explicitly.
+    pub fn load_existing(&self) -> Result<Option<DeviceIdentity>, IdentityError> {
+        match self.store.load()? {
+            None => Ok(None),
+            Some(mut stored) => {
+                let decoded = decode_identity(&stored);
+                stored.zeroize();
+                decoded.map(Some)
+            }
+        }
+    }
+
     pub fn load_or_generate(&self) -> Result<DeviceIdentity, IdentityError> {
         if let Some(mut stored) = self.store.load()? {
             let identity = decode_identity(&stored);
@@ -382,6 +395,60 @@ mod tests {
     use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 
     use super::*;
+
+    #[test]
+    fn provisioning_missing_identity_does_not_generate() {
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        struct ObservedStore {
+            saved: Mutex<Option<Vec<u8>>>,
+            writes: Arc<AtomicUsize>,
+        }
+        impl DeviceIdentityStore for ObservedStore {
+            fn load(&self) -> Result<Option<Vec<u8>>, IdentityError> {
+                Ok(self.saved.lock().unwrap().clone())
+            }
+            fn save(&self, bytes: &[u8]) -> Result<(), IdentityError> {
+                self.writes.fetch_add(1, Ordering::SeqCst);
+                *self.saved.lock().unwrap() = Some(bytes.to_vec());
+                Ok(())
+            }
+            fn delete(&self) -> Result<(), IdentityError> {
+                Ok(())
+            }
+        }
+
+        let writes = Arc::new(AtomicUsize::new(0));
+        let empty = DeviceIdentityManager::new(ObservedStore {
+            saved: Mutex::new(None),
+            writes: Arc::clone(&writes),
+        });
+        assert!(empty.load_existing().unwrap().is_none());
+        assert_eq!(writes.load(Ordering::SeqCst), 0);
+
+        let identity = generate_identity().unwrap();
+        let public = identity.public_identity();
+        let existing = DeviceIdentityManager::new(ObservedStore {
+            saved: Mutex::new(Some(encode_identity(&identity))),
+            writes: Arc::clone(&writes),
+        });
+        assert_eq!(
+            existing.load_existing().unwrap().unwrap().public_identity(),
+            public
+        );
+        assert_eq!(writes.load(Ordering::SeqCst), 0);
+
+        let invalid = DeviceIdentityManager::new(ObservedStore {
+            saved: Mutex::new(Some(vec![0_u8; 3])),
+            writes: Arc::clone(&writes),
+        });
+        assert!(matches!(
+            invalid.load_existing(),
+            Err(IdentityError::CorruptStore(_))
+        ));
+        assert_eq!(writes.load(Ordering::SeqCst), 0);
+    }
 
     #[test]
     fn identity_is_stable_when_loaded_from_store() {

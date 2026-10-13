@@ -10,7 +10,22 @@
 
 **Spec:** [G1-A approved design](../specs/2026-10-12-agent-g1a-provisioning-design.md)  
 **Issue:** [#82](https://github.com/sylviohmartins/telechir/issues/82)  
-**Status:** PLANO EM REVISÃO — sem implementação autorizada por este arquivo. O usuário já aprovou o design anterior; o plano/método de execução precisam de revisão separada.
+**Status:** IMPLEMENTAÇÃO EXECUTADA EM [PR #88](https://github.com/sylviohmartins/telechir/pull/88); **gate G1-A aguarda CI final, revisão e merge**. Plano e execução nativa foram aprovados pelo usuário em 2026-10-13.
+
+### Acompanhamento real de execução (2026-10-13)
+
+| Tarefa | Resultado observado | Pendência |
+|---|---|---|
+| 1. Leitura de identidade sem geração | Método `load_existing()` implementado, testes de identidade existentes + negativos verdes | Integrado ao PR #88 |
+| 2. Associação em keyring | `DeviceBinding` versionado, validação de UUID/chave/fingerprint e implementação `NativeKeyringDeviceBindingStore` compilada no Windows | Roundtrip real no keyring do sistema operacional não foi homologado; verificar no G1-B |
+| 3. HTTP de provisionamento | `ProvisioningHttp` com limites/TLS/redirect bloqueado, testes de servidor HTTP de loopback verdes | TLS de staging e origem do host dependem de G2/G3 |
+| 4. Pairing com confirmação | RED [CI #38425258578](https://github.com/sylviohmartins/telechir/actions/runs/38425258578) (**100 ok, 2 falhas esperadas**) → GREEN [#38425881776](https://github.com/sylviohmartins/telechir/actions/runs/38425881776) | Consentimento humano real só em G2/G4 |
+| 5. Sessão/credential 60 s | RED [CI #38426603208](https://github.com/sylviohmartins/telechir/actions/runs/38426603208) (**103 ok, 4 falhas esperadas**) → testes GREEN [#38428031545](https://github.com/sylviohmartins/telechir/actions/runs/38428031545) | Host residente G1-B ainda não existe |
+| 6. Contrato integrado | [CI Windows #38428031545](https://github.com/sylviohmartins/telechir/actions/runs/38428031545) **118 testes verdes**, incluindo HTTP loopback real e provas Ed25519 verificadas; Clippy, Rustfmt e build verdes | CI do último SHA documental, exit review e merge do PR #88 |
+
+**Disciplina TDD:** os REDs de 1, 4 e 5 foram registrados em CI. A cobertura GREEN de 2, 3 e 6 é comprovada, mas execuções RED individuais dessas etapas **não foram preservadas como evidência**; não atribuir evidência retroativa inexistente. Esse ponto é um desvio do processo de plano, distinto dos critérios de funcionamento e segurança testados. As caixas de checklist abaixo são planejamento original; prevalecem os resultados e limites desta tabela e o relatório de aceite.
+
+ O usuário já aprovou o design anterior; o plano/método de execução precisam de revisão separada.
 
 ## Global Constraints
 
