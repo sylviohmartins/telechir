@@ -32,10 +32,7 @@ pub struct DeviceBinding {
 }
 
 impl DeviceBinding {
-    pub fn new(
-        device_id: String,
-        public: &DevicePublicIdentity,
-    ) -> Result<Self, BindingError> {
+    pub fn new(device_id: String, public: &DevicePublicIdentity) -> Result<Self, BindingError> {
         let _ = (device_id, public);
         // TDD RED: strict versioned association checks not implemented.
         Err(BindingError::InvalidBinding)
@@ -111,11 +108,8 @@ mod tests {
     #[test]
     fn provisioning_binding_rejects_corrupt_or_mismatched_key() {
         let public = identity();
-        let binding = DeviceBinding::new(
-            "22222222-2222-4222-8222-222222222222".to_owned(),
-            &public,
-        )
-        .unwrap();
+        let binding =
+            DeviceBinding::new("22222222-2222-4222-8222-222222222222".to_owned(), &public).unwrap();
         let other = identity();
         assert!(!binding.matches(&other));
         let mut altered = binding.clone();
@@ -132,6 +126,8 @@ mod tests {
         let public = identity();
         assert!(DeviceBinding::new("".to_owned(), &public).is_err());
         assert!(DeviceBinding::new("not-a-uuid".to_owned(), &public).is_err());
-        assert!(DeviceBinding::new("00000000-0000-0000-0000-000000000000".to_owned(), &public).is_err());
+        assert!(
+            DeviceBinding::new("00000000-0000-0000-0000-000000000000".to_owned(), &public).is_err()
+        );
     }
 }
