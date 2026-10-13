@@ -1,7 +1,25 @@
 //! Explicit, user-verified device pairing. This layer never opens a WebSocket.
-use crate::identity::{DeviceIdentityManager, DeviceIdentityStore, DevicePairingMetadata};
-use crate::provisioning_http::{PairingStart, ProvisionError, ProvisioningApi};
-use crate::provisioning_store::{DeviceBinding, DeviceBindingStore};
+use chrono::{Duration as ChronoDuration, Utc};
+use url::Url;
+use uuid::Uuid;
+
+use crate::identity::{
+    PAIRING_PROOF_AUDIENCE, DeviceIdentityManager, DeviceIdentityStore, DevicePairingMetadata,
+};
+use crate::provisioning_http::{PairingStart, PairingState, ProvisionError, ProvisioningApi};
+use crate::provisioning_store::{BindingError, DeviceBinding, DeviceBindingStore};
+
+fn valid_uuid(value: &str) -> bool {
+    Uuid::parse_str(value).is_ok_and(|uuid| !uuid.is_nil())
+}
+
+fn store_error(error: BindingError) -> ProvisionError {
+    match error {
+        BindingError::InvalidBinding => ProvisionError::IdentityMismatch,
+        BindingError::StoreUnavailable => ProvisionError::StoreUnavailable,
+    }
+}
+
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum PairingProgress {
@@ -23,9 +41,44 @@ where
     B: DeviceBindingStore,
     A: ProvisioningApi,
 {
-    let _ = (identity, binding, api, metadata);
-    // RED: server registration and fingerprint validation are not wired.
-    Err(ProvisionError::InvalidState)
+    // Existing pairing cannot be silently overwritten or transferred.
+    if binding.load().map_err(store_error)?.is_some() {
+        return Err(ProvisionError::InvalidState);
+    }
+    if metadata.display_name.trim().is_empty()
+        || metadata.display_name.len() > 128
+        || metadata.display_name.chars().any(char::is_control)
+        || [metadata.os.as_str(), metadata.arch.as_str(), metadata.agent_version.as_str()]
+            .iter()
+            .any(|value| value.is_empty() || value.len() > 64 || value.chars().any(char::is_control))
+    {
+        return Err(ProvisionError::InvalidState);
+    }
+    // Key creation is ONLY allowed in this explicitly invoked pairing action.
+    let device = identity
+        .load_or_generate()
+        .map_err(|_| ProvisionError::StoreUnavailable)?;
+    let public = device.public_identity();
+    let started = api.create_pairing(&device.pairing_registration(metadata)).await?;
+    let now = Utc::now();
+    let verification = Url::parse(&started.verification_uri)
+        .map_err(|_| ProvisionError::InvalidResponse)?;
+    if !valid_uuid(&started.pairing_id)
+        || started.fingerprint != public.fingerprint
+        || started.expires_at <= now
+        || started.expires_at > now + ChronoDuration::minutes(10)
+        || started.user_code.is_empty()
+        || started.user_code.len() > 64
+        || started.user_code.chars().any(char::is_control)
+        || verification.scheme() != "https"
+        || verification.host().is_none()
+        || !verification.username().is_empty()
+        || verification.password().is_some()
+        || verification.fragment().is_some()
+    {
+        return Err(ProvisionError::InvalidResponse);
+    }
+    Ok(started)
 }
 
 /// Only verified pairing may produce a device association in the OS keyring.
@@ -40,9 +93,63 @@ where
     B: DeviceBindingStore,
     A: ProvisioningApi,
 {
-    let _ = (identity, binding, api, pairing_id);
-    // RED: no proof or activation until the server's state is verified.
-    Err(ProvisionError::InvalidState)
+    if !valid_uuid(pairing_id) {
+        return Err(ProvisionError::InvalidState);
+    }
+    // Never create an identity while polling for a pairing or preparing a session.
+    let device = identity
+        .load_existing()
+        .map_err(|_| ProvisionError::StoreUnavailable)?
+        .ok_or(ProvisionError::InvalidState)?;
+    let public = device.public_identity();
+    let previous = binding.load().map_err(store_error)?;
+    if previous.as_ref().is_some_and(|saved| !saved.matches(&public)) {
+        return Err(ProvisionError::IdentityMismatch);
+    }
+    let status = api
+        .get_pairing(pairing_id, &public.device_key_id, &public.device_installation_id)
+        .await?;
+    if status.pairing_id != pairing_id || status.fingerprint != public.fingerprint {
+        return Err(ProvisionError::IdentityMismatch);
+    }
+    match status.state {
+        PairingState::Created | PairingState::DeviceProvedKey => {
+            return Ok(PairingProgress::WaitingForUser);
+        }
+        PairingState::Expired => return Ok(PairingProgress::Expired),
+        PairingState::Revoked => return Ok(PairingProgress::Revoked),
+        PairingState::Active => {
+            // A status alone does not authorize a new keyring binding. A prior
+            // validated, identity-matching activation must already exist.
+            return match (previous, status.device_id) {
+                (Some(saved), Some(device_id)) if saved.device_id == device_id => {
+                    Ok(PairingProgress::Active(saved))
+                }
+                _ => Err(ProvisionError::InvalidState),
+            };
+        }
+        PairingState::UserVerified => {}
+    }
+    if previous.is_some() || status.expires_at <= Utc::now() || status.device_id.is_some() {
+        return Err(ProvisionError::InvalidState);
+    }
+    let challenge = status.challenge.ok_or(ProvisionError::InvalidResponse)?;
+    if challenge.is_empty()
+        || challenge.len() > 512
+        || challenge.chars().any(char::is_control)
+    {
+        return Err(ProvisionError::InvalidResponse);
+    }
+    let proof = device
+        .sign_pairing_proof(pairing_id, &challenge, PAIRING_PROOF_AUDIENCE)
+        .map_err(|_| ProvisionError::InvalidResponse)?;
+    let activated = api.prove_device(pairing_id, &proof).await?;
+    if activated.state != PairingState::Active || activated.pairing_id != pairing_id {
+        return Err(ProvisionError::InvalidResponse);
+    }
+    let association = DeviceBinding::new(activated.device_id, &public).map_err(store_error)?;
+    binding.save(&association).map_err(store_error)?;
+    Ok(PairingProgress::Active(association))
 }
 
 #[cfg(test)]
