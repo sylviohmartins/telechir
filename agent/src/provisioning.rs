@@ -1,7 +1,5 @@
 //! Explicit, user-verified device pairing. This layer never opens a WebSocket.
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
-use std::time::Duration;
-
 use url::Url;
 use uuid::Uuid;
 
@@ -498,7 +496,8 @@ mod tests {
         let second = prepare_connection(
             &identity, &store, &api, &connection_origin(), connection_metadata(), Utc::now(),
         ).await.unwrap();
-        assert_ne!(api.nonces.lock().unwrap()[0], api.nonces.lock().unwrap()[1]);
+        let nonces = api.nonces.lock().unwrap();
+        assert_ne!(nonces[0], nonces[1]);
         assert_eq!(second.config.device_id, prepared.config.device_id);
         assert_eq!(api.calls.load(Ordering::SeqCst), 2);
     }
