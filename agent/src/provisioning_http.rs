@@ -2,11 +2,11 @@
 //! made by constructing this adapter; calls require explicit pairing/session actions.
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use std::time::Duration;
-use reqwest::{Client, StatusCode};
 use reqwest::redirect::Policy;
-use serde::{Deserialize, Serialize};
+use reqwest::{Client, StatusCode};
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
+use std::time::Duration;
 use thiserror::Error;
 use url::{Host, Url};
 use uuid::Uuid;
@@ -173,8 +173,7 @@ impl ProvisioningHttp {
             Some(Host::Domain(host)) => host.eq_ignore_ascii_case("localhost"),
             None => false,
         };
-        let allowed_scheme = origin.scheme() == "https"
-            || (origin.scheme() == "http" && local);
+        let allowed_scheme = origin.scheme() == "https" || (origin.scheme() == "http" && local);
         if !allowed_scheme
             || origin.host().is_none()
             || !origin.username().is_empty()
@@ -210,7 +209,9 @@ impl ProvisioningHttp {
         if serialized.len() > limit {
             return Err(ProvisionError::InvalidResponse);
         }
-        Ok(builder.header(reqwest::header::CONTENT_TYPE, "application/json").body(serialized))
+        Ok(builder
+            .header(reqwest::header::CONTENT_TYPE, "application/json")
+            .body(serialized))
     }
 
     async fn decode<T: DeserializeOwned>(
@@ -219,19 +220,28 @@ impl ProvisioningHttp {
         expected: StatusCode,
     ) -> Result<T, ProvisionError> {
         if response.status() != expected {
-            return Err(if response.status() == StatusCode::UNAUTHORIZED
-                || response.status() == StatusCode::FORBIDDEN
-            {
-                ProvisionError::Denied
-            } else {
-                ProvisionError::InvalidResponse
-            });
+            return Err(
+                if response.status() == StatusCode::UNAUTHORIZED
+                    || response.status() == StatusCode::FORBIDDEN
+                {
+                    ProvisionError::Denied
+                } else {
+                    ProvisionError::InvalidResponse
+                },
+            );
         }
-        if response.content_length().is_some_and(|size| size > RESPONSE_LIMIT as u64) {
+        if response
+            .content_length()
+            .is_some_and(|size| size > RESPONSE_LIMIT as u64)
+        {
             return Err(ProvisionError::InvalidResponse);
         }
         let mut collected = Vec::new();
-        while let Some(chunk) = response.chunk().await.map_err(|_| ProvisionError::Unavailable)? {
+        while let Some(chunk) = response
+            .chunk()
+            .await
+            .map_err(|_| ProvisionError::Unavailable)?
+        {
             if chunk.len() > RESPONSE_LIMIT.saturating_sub(collected.len()) {
                 return Err(ProvisionError::InvalidResponse);
             }
@@ -276,16 +286,25 @@ impl ProvisioningHttp {
     ) -> Result<T, ProvisionError> {
         let mut url = self.origin.clone();
         {
-            let mut segments = url.path_segments_mut().map_err(|_| ProvisionError::InvalidOrigin)?;
+            let mut segments = url
+                .path_segments_mut()
+                .map_err(|_| ProvisionError::InvalidOrigin)?;
             segments.pop_if_empty();
             for segment in path {
-                if segment.is_empty() || segment.contains(['\r', '\n']) || segment == &".." || segment == &"." {
+                if segment.is_empty()
+                    || segment.contains(['\r', '\n'])
+                    || segment == &".."
+                    || segment == &"."
+                {
                     return Err(ProvisionError::InvalidResponse);
                 }
                 segments.push(segment);
             }
         }
-        let mut req = self.client.request(method, url).header(reqwest::header::ACCEPT, "application/json");
+        let mut req = self
+            .client
+            .request(method, url)
+            .header(reqwest::header::ACCEPT, "application/json");
         for &(name, value) in headers {
             if value.is_empty() || value.contains(['\r', '\n']) {
                 return Err(ProvisionError::InvalidResponse);
@@ -297,16 +316,20 @@ impl ProvisioningHttp {
                 bytes.zeroize();
                 return Err(ProvisionError::InvalidResponse);
             }
-            req = req.header(reqwest::header::CONTENT_TYPE, "application/json").body(bytes);
+            req = req
+                .header(reqwest::header::CONTENT_TYPE, "application/json")
+                .body(bytes);
         }
         let mut response = req.send().await.map_err(|_| ProvisionError::Unavailable)?;
         let status = response.status();
         if status != expected {
-            return Err(if status == StatusCode::UNAUTHORIZED || status == StatusCode::FORBIDDEN {
-                ProvisionError::Denied
-            } else {
-                ProvisionError::InvalidResponse
-            });
+            return Err(
+                if status == StatusCode::UNAUTHORIZED || status == StatusCode::FORBIDDEN {
+                    ProvisionError::Denied
+                } else {
+                    ProvisionError::InvalidResponse
+                },
+            );
         }
         if !response
             .headers()
@@ -317,7 +340,11 @@ impl ProvisioningHttp {
             return Err(ProvisionError::InvalidResponse);
         }
         let mut payload = Vec::new();
-        while let Some(part) = response.chunk().await.map_err(|_| ProvisionError::Unavailable)? {
+        while let Some(part) = response
+            .chunk()
+            .await
+            .map_err(|_| ProvisionError::Unavailable)?
+        {
             if payload.len().saturating_add(part.len()) > limit {
                 payload.zeroize();
                 return Err(ProvisionError::InvalidResponse);
@@ -336,32 +363,79 @@ impl ProvisioningHttp {
 
 #[async_trait]
 impl ProvisioningApi for ProvisioningHttp {
-    async fn create_pairing(&self, registration: &PairingRegistration) -> Result<PairingStart, ProvisionError> {
+    async fn create_pairing(
+        &self,
+        registration: &PairingRegistration,
+    ) -> Result<PairingStart, ProvisionError> {
         let body = serde_json::to_vec(registration).map_err(|_| ProvisionError::InvalidResponse)?;
-        self.call(Method::POST, &["api","v1","pairings"], &[], Some(body), StatusCode::CREATED, MAX_PAIRING_JSON).await
+        self.call(
+            Method::POST,
+            &["api", "v1", "pairings"],
+            &[],
+            Some(body),
+            StatusCode::CREATED,
+            MAX_PAIRING_JSON,
+        )
+        .await
     }
 
-    async fn get_pairing(&self, pairing_id: &str, key_id: &str, installation_id: &str) -> Result<PairingStatus, ProvisionError> {
+    async fn get_pairing(
+        &self,
+        pairing_id: &str,
+        key_id: &str,
+        installation_id: &str,
+    ) -> Result<PairingStatus, ProvisionError> {
         for id in [pairing_id, key_id, installation_id] {
             checked_uuid(id)?;
         }
-        self.call(Method::GET, &["api","v1","pairings", pairing_id],
-            &[("x-telechir-device-key-id", key_id), ("x-telechir-device-installation-id", installation_id)],
-            None, StatusCode::OK, MAX_PAIRING_JSON).await
+        self.call(
+            Method::GET,
+            &["api", "v1", "pairings", pairing_id],
+            &[
+                ("x-telechir-device-key-id", key_id),
+                ("x-telechir-device-installation-id", installation_id),
+            ],
+            None,
+            StatusCode::OK,
+            MAX_PAIRING_JSON,
+        )
+        .await
     }
 
-    async fn prove_device(&self, pairing_id: &str, proof: &PairingProof) -> Result<PairingActivation, ProvisionError> {
+    async fn prove_device(
+        &self,
+        pairing_id: &str,
+        proof: &PairingProof,
+    ) -> Result<PairingActivation, ProvisionError> {
         checked_uuid(pairing_id)?;
         let body = serde_json::to_vec(proof).map_err(|_| ProvisionError::InvalidResponse)?;
-        self.call(Method::POST, &["api","v1","pairings", pairing_id, "proof"],
-            &[], Some(body), StatusCode::OK, MAX_PAIRING_JSON).await
+        self.call(
+            Method::POST,
+            &["api", "v1", "pairings", pairing_id, "proof"],
+            &[],
+            Some(body),
+            StatusCode::OK,
+            MAX_PAIRING_JSON,
+        )
+        .await
     }
 
-    async fn issue_credential(&self, device_id: &str, proof: &ConnectionCredentialProof) -> Result<CredentialResponse, ProvisionError> {
+    async fn issue_credential(
+        &self,
+        device_id: &str,
+        proof: &ConnectionCredentialProof,
+    ) -> Result<CredentialResponse, ProvisionError> {
         checked_uuid(device_id)?;
         let body = serde_json::to_vec(proof).map_err(|_| ProvisionError::InvalidResponse)?;
-        self.call(Method::POST, &["api","v1","devices",device_id,"connection-credential"],
-            &[], Some(body), StatusCode::CREATED, MAX_CREDENTIAL_JSON).await
+        self.call(
+            Method::POST,
+            &["api", "v1", "devices", device_id, "connection-credential"],
+            &[],
+            Some(body),
+            StatusCode::CREATED,
+            MAX_CREDENTIAL_JSON,
+        )
+        .await
     }
 }
 
@@ -377,10 +451,14 @@ mod tests {
         let origin = Url::parse(&format!("http://{}/", listener.local_addr().unwrap())).unwrap();
         let task = tokio::spawn(async move {
             let (mut socket, _) = tokio::time::timeout(Duration::from_secs(3), listener.accept())
-                .await.unwrap().unwrap();
+                .await
+                .unwrap()
+                .unwrap();
             let mut request = [0_u8; 8192];
             let read = tokio::time::timeout(Duration::from_secs(3), socket.read(&mut request))
-                .await.unwrap().unwrap();
+                .await
+                .unwrap()
+                .unwrap();
             socket.write_all(response.as_bytes()).await.unwrap();
             String::from_utf8_lossy(&request[..read]).into_owned()
         });
@@ -402,7 +480,10 @@ mod tests {
         let a = "11111111-1111-4111-8111-111111111111";
         let b = "22222222-2222-4222-8222-222222222222";
         let c = "33333333-3333-4333-8333-333333333333";
-        assert!(matches!(api.get_pairing(a, b, c).await, Err(ProvisionError::InvalidResponse)));
+        assert!(matches!(
+            api.get_pairing(a, b, c).await,
+            Err(ProvisionError::InvalidResponse)
+        ));
         let request = server.await.unwrap();
         assert!(request.starts_with(&format!("GET /api/v1/pairings/{a} ")));
         assert!(request.contains("x-telechir-device-key-id:"));
@@ -411,17 +492,17 @@ mod tests {
 
     #[tokio::test]
     async fn provisioning_http_rejects_oversize_or_invalid_json() {
-        for body in [
-            "{malformed-json".to_owned(),
-            "x".repeat(RESPONSE_LIMIT + 1),
-        ] {
+        for body in ["{malformed-json".to_owned(), "x".repeat(RESPONSE_LIMIT + 1)] {
             let response = http_response("200 OK", &body, "Content-Type: application/json\\r\\n");
             let (origin, server) = mock_http(response).await;
             let api = ProvisioningHttp::new(origin).unwrap();
             let a = "11111111-1111-4111-8111-111111111111";
             let b = "22222222-2222-4222-8222-222222222222";
             let c = "33333333-3333-4333-8333-333333333333";
-            assert!(matches!(api.get_pairing(a, b, c).await, Err(ProvisionError::InvalidResponse)));
+            assert!(matches!(
+                api.get_pairing(a, b, c).await,
+                Err(ProvisionError::InvalidResponse)
+            ));
             server.await.unwrap();
         }
     }
@@ -447,7 +528,10 @@ mod tests {
             Err(ProvisionError::InvalidOrigin)
         ));
         let api = ProvisioningHttp::new(Url::parse("https://example.com/").unwrap()).unwrap();
-        assert!(matches!(api.route("//evil.example/path"), Err(ProvisionError::InvalidResponse)));
+        assert!(matches!(
+            api.route("//evil.example/path"),
+            Err(ProvisionError::InvalidResponse)
+        ));
         let secret = CredentialResponse {
             credential: "top-secret-token".to_owned(),
             expires_at: Utc::now(),
