@@ -69,9 +69,13 @@ where
         return Err(ProvisionError::InvalidOrigin);
     }
     if !metadata.capabilities.is_empty()
-        || [metadata.agent_version.as_str(), metadata.os.as_str(), metadata.arch.as_str()]
-            .iter()
-            .any(|value| value.is_empty() || value.len() > 64 || value.chars().any(char::is_control))
+        || [
+            metadata.agent_version.as_str(),
+            metadata.os.as_str(),
+            metadata.arch.as_str(),
+        ]
+        .iter()
+        .any(|value| value.is_empty() || value.len() > 64 || value.chars().any(char::is_control))
         || Utc::now().signed_duration_since(&now).num_seconds().abs() > 30
     {
         // G1-A cannot authorize screen/input/browser/sandbox. G1-C owns the
@@ -98,8 +102,7 @@ where
     let mut issued = api.issue_credential(&association.device_id, &proof).await?;
     if issued.expires_at <= Utc::now()
         || issued.expires_at > now + ChronoDuration::seconds(60)
-        || issued.websocket_path
-            != format!("/api/v1/devices/{}/realtime", association.device_id)
+        || issued.websocket_path != format!("/api/v1/devices/{}/realtime", association.device_id)
         || issued.credential.is_empty()
         || issued.credential.len() > 16 * 1024
         || issued.credential.bytes().any(|ch| !ch.is_ascii_graphic())
@@ -108,7 +111,11 @@ where
     }
     let mut websocket = origin.clone();
     websocket
-        .set_scheme(if origin.scheme() == "https" { "wss" } else { "ws" })
+        .set_scheme(if origin.scheme() == "https" {
+            "wss"
+        } else {
+            "ws"
+        })
         .map_err(|_| ProvisionError::InvalidOrigin)?;
     websocket.set_path(&issued.websocket_path);
     let config = RealtimeClientConfig {
@@ -121,10 +128,15 @@ where
         capabilities: metadata.capabilities,
         handshake_timeout: DEFAULT_HANDSHAKE_TIMEOUT,
     };
-    config.validate().map_err(|_| ProvisionError::InvalidOrigin)?;
+    config
+        .validate()
+        .map_err(|_| ProvisionError::InvalidOrigin)?;
     let credentials = SessionCredentials::new(std::mem::take(&mut issued.credential), nonce)
         .map_err(|_| ProvisionError::InvalidResponse)?;
-    Ok(PreparedConnection { config, credentials })
+    Ok(PreparedConnection {
+        config,
+        credentials,
+    })
 }
 
 #[derive(Debug, PartialEq, Eq)]
