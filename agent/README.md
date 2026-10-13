@@ -33,7 +33,7 @@ Core local do Telechir implementado em Rust.
 - `agent/src/provisioning.rs`: pairing apenas por ação explícita, prova Ed25519 só após `USER_VERIFIED`, vínculo somente após `ACTIVE` e credencial curta (60 s) com nonce novo; prepara a sessão sem abrir WebSocket.
 - `agent/tests/provisioning_contract.rs`: teste de laboratório HTTP real/loopback e verificação criptográfica de pairing/connection proof; o consentimento humano é **simulado** no fixture.
 - **Origem confiável:** quando o host G1-B usar `prepare_connection`, a origin aprovada deve ser a mesma do adapter HTTPS; não aceitar URL ou autoridade retornada por resposta remota como destino de WebSocket.
-- **Ainda não operacional:** `main.rs` não inicia pairing nem WebSocket. Requer o host opt-in de G1-B e enforcement operacional G1-C; [aceite G1-A](../docs/testing/acceptance/phase16-agent-g1a-provisioning-2026-10-13.md).
+- **G1-B ligado à CLI:** o usuário pode iniciar `pair-start`, confirmar pelo dashboard e consultar com `pair-check`, ou executar `serve` em primeiro plano, sempre com origem HTTPS explícita. O host usa **DenyAllHostExecutor** até G1-C; nenhum comando remoto pode executar. Consulte [aceite G1-A](../docs/testing/acceptance/phase16-agent-g1a-provisioning-2026-10-13.md) e [aceite G1-B](../docs/testing/acceptance/phase16-agent-g1b-foreground-host-2026-10-13.md).
 
 ### Runtime operacional — incremento inicial (issue #82)
 
