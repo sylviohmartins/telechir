@@ -145,8 +145,27 @@ pub struct ProvisioningHttp {
 
 impl ProvisioningHttp {
     pub fn new(origin: Url) -> Result<Self, ProvisionError> {
-        // RED: validate HTTPS/loopback origin and redirect policy in GREEN.
-        let client = Client::new();
+        let loopback = match origin.host() {
+            Some(url::Host::Ipv4(ip)) => ip.is_loopback(),
+            Some(url::Host::Ipv6(ip)) => ip.is_loopback(),
+            _ => false,
+        };
+        if (origin.scheme() != "https" && !(origin.scheme() == "http" && loopback))
+            || origin.username() != ""
+            || origin.password().is_some()
+            || origin.query().is_some()
+            || origin.fragment().is_some()
+            || origin.path() != "/"
+            || origin.host().is_none()
+        {
+            return Err(ProvisionError::InvalidOrigin);
+        }
+        let client = Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .connect_timeout(std::time::Duration::from_secs(5))
+            .timeout(std::time::Duration::from_secs(10))
+            .build()
+            .map_err(|_| ProvisionError::Unavailable)?;
         Ok(Self { origin, client })
     }
 }
