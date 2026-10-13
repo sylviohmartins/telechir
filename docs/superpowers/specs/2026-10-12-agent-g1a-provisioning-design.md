@@ -18,9 +18,9 @@ Se qualquer validação falhar, retornar erro sem segredo e **zero tentativas de
 
 ### Contratos que não podem mudar
 
-- [Pairing API v1](../../../../specs/auth/pairing-api-v1.md): `POST /api/v1/pairings`; `GET /api/v1/pairings/{pairing_id}` com os headers de identidade; `POST /api/v1/pairings/{pairing_id}/proof`; confirmação humana feita no control plane, não pelo Agent.
-- [Pairing Proof v1](../../../../specs/auth/pairing-proof-v1.md): assinatura canônica Ed25519, audience `telechir-control-plane`; challenge somente após `USER_VERIFIED`; binding a `pairing_id`, `device_key_id` e `device_installation_id`.
-- [Connection Credential v1](../../../../specs/auth/connection-credential-v1.md): `POST /api/v1/devices/{device_id}/connection-credential`, assinatura Ed25519 com audience `telechir-control-plane/realtime`, nonce 16–128 caracteres, timestamp RFC3339 ±60 s, credential válida 60 s e single-use.
+- [Pairing API v1](../../../specs/auth/pairing-api-v1.md): `POST /api/v1/pairings`; `GET /api/v1/pairings/{pairing_id}` com os headers de identidade; `POST /api/v1/pairings/{pairing_id}/proof`; confirmação humana feita no control plane, não pelo Agent.
+- [Pairing Proof v1](../../../specs/auth/pairing-proof-v1.md): assinatura canônica Ed25519, audience `telechir-control-plane`; challenge somente após `USER_VERIFIED`; binding a `pairing_id`, `device_key_id` e `device_installation_id`.
+- [Connection Credential v1](../../../specs/auth/connection-credential-v1.md): `POST /api/v1/devices/{device_id}/connection-credential`, assinatura Ed25519 com audience `telechir-control-plane/realtime`, nonce 16–128 caracteres, timestamp RFC3339 ±60 s, credential válida 60 s e single-use.
 - Os tipos públicos `DeviceIdentityManager`, `NativeKeyringIdentityStore`, `DevicePairingMetadata`, `PairingProof`, `ConnectionCredentialProof`, `RealtimeClientConfig` e `SessionCredentials` devem ser reutilizados.
 
 ## 2. Opções analisadas
