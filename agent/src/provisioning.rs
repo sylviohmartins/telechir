@@ -4,7 +4,7 @@ use url::Url;
 use uuid::Uuid;
 
 use crate::identity::{
-    PAIRING_PROOF_AUDIENCE, DeviceIdentityManager, DeviceIdentityStore, DevicePairingMetadata,
+    DeviceIdentityManager, DeviceIdentityStore, DevicePairingMetadata, PAIRING_PROOF_AUDIENCE,
 };
 use crate::provisioning_http::{PairingStart, PairingState, ProvisionError, ProvisioningApi};
 use crate::provisioning_store::{BindingError, DeviceBinding, DeviceBindingStore};
@@ -19,7 +19,6 @@ fn store_error(error: BindingError) -> ProvisionError {
         BindingError::StoreUnavailable => ProvisionError::StoreUnavailable,
     }
 }
-
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum PairingProgress {
@@ -48,9 +47,13 @@ where
     if metadata.display_name.trim().is_empty()
         || metadata.display_name.len() > 128
         || metadata.display_name.chars().any(char::is_control)
-        || [metadata.os.as_str(), metadata.arch.as_str(), metadata.agent_version.as_str()]
-            .iter()
-            .any(|value| value.is_empty() || value.len() > 64 || value.chars().any(char::is_control))
+        || [
+            metadata.os.as_str(),
+            metadata.arch.as_str(),
+            metadata.agent_version.as_str(),
+        ]
+        .iter()
+        .any(|value| value.is_empty() || value.len() > 64 || value.chars().any(char::is_control))
     {
         return Err(ProvisionError::InvalidState);
     }
@@ -59,10 +62,12 @@ where
         .load_or_generate()
         .map_err(|_| ProvisionError::StoreUnavailable)?;
     let public = device.public_identity();
-    let started = api.create_pairing(&device.pairing_registration(metadata)).await?;
+    let started = api
+        .create_pairing(&device.pairing_registration(metadata))
+        .await?;
     let now = Utc::now();
-    let verification = Url::parse(&started.verification_uri)
-        .map_err(|_| ProvisionError::InvalidResponse)?;
+    let verification =
+        Url::parse(&started.verification_uri).map_err(|_| ProvisionError::InvalidResponse)?;
     if !valid_uuid(&started.pairing_id)
         || started.fingerprint != public.fingerprint
         || started.expires_at <= now
@@ -103,11 +108,18 @@ where
         .ok_or(ProvisionError::InvalidState)?;
     let public = device.public_identity();
     let previous = binding.load().map_err(store_error)?;
-    if previous.as_ref().is_some_and(|saved| !saved.matches(&public)) {
+    if previous
+        .as_ref()
+        .is_some_and(|saved| !saved.matches(&public))
+    {
         return Err(ProvisionError::IdentityMismatch);
     }
     let status = api
-        .get_pairing(pairing_id, &public.device_key_id, &public.device_installation_id)
+        .get_pairing(
+            pairing_id,
+            &public.device_key_id,
+            &public.device_installation_id,
+        )
         .await?;
     if status.pairing_id != pairing_id || status.fingerprint != public.fingerprint {
         return Err(ProvisionError::IdentityMismatch);
@@ -134,10 +146,7 @@ where
         return Err(ProvisionError::InvalidState);
     }
     let challenge = status.challenge.ok_or(ProvisionError::InvalidResponse)?;
-    if challenge.is_empty()
-        || challenge.len() > 512
-        || challenge.chars().any(char::is_control)
-    {
+    if challenge.is_empty() || challenge.len() > 512 || challenge.chars().any(char::is_control) {
         return Err(ProvisionError::InvalidResponse);
     }
     let proof = device
