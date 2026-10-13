@@ -1,7 +1,7 @@
 # G1-A — Agent identity, pairing and short-lived credential: design
 
 **Data:** 2026-10-12  
-**Status:** **PROPOSTO — revisão de design requerida antes de implementar**  
+**Status:** **DESIGN APROVADO pelo usuário em 2026-10-12; plano TDD aguarda revisão e escolha de execução**  
 **Origem:** [issue #82](https://github.com/sylviohmartins/telechir/issues/82), [G1 no painel de conclusão](../../product/release-readiness-2026-10-09.md#painel-de-conclusão--fonte-única-de-verdade-12102026)  
 **Superpowers:** design arquitetural anterior ao plano TDD. Não é certificado de funcionalidade.
 
@@ -83,6 +83,8 @@ G1-A não inclui `--serve`, processo em background, reconexão, execução de fe
 
 Depois G1-B integra ao `main.rs` um host **opt-in** com estados, shutdown e credential fresca; G1-C liga a policy/executor/audit; G1-D fecha o aceite loopback. O painel G1–G7 permanece com **G1 EM EXECUÇÃO**, sem iniciar outros clientes opcionais.
 
-## 7. Pontos para revisão humana
+## 7. Aprovação e transição para o plano
 
-A direção acima reutiliza os protocolos congelados e não cria novo escopo do MVP. Antes de codificar, confirmar principalmente que **o pairing continua explicitamente disparado e confirmado pelo usuário** e que o host não deve tentar conectar por padrão. Os detalhes de HTTP/armazenamento de associação e a estratégia de teste serão consolidados no plano Superpowers após esta aprovação.
+O usuário aprovou este design na conversa em 2026-10-12, inclusive os limites de pairing explícito, confirmação humana e ausência de conexão por padrão. Isso autoriza a elaboração de um **plano de implementação separado**, não equivale a aprovar seu conteúdo ou iniciar código produtivo.
+
+O plano correspondente é [G1-A Provisioning Implementation Plan](../plans/2026-10-12-agent-g1a-provisioning.md), pendente de revisão e escolha de método (execução nativa ou subagentes). Até lá, o PR #87 permanece em revisão e G1-A **não implementado**.
