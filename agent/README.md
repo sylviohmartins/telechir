@@ -26,6 +26,14 @@ Core local do Telechir implementado em Rust.
 - assinatura do contrato `../specs/auth/pairing-proof-v1.md`;
 - fixture Ed25519 compartilhado com o control plane.
 
+### G1-A — provisionamento explícito (PR #88)
+
+- `agent/src/provisioning_store.rs`: vínculo identidade-dispositivo versionado no keyring, recusando alteração de fingerprint/key/installation.
+- `agent/src/provisioning_http.rs`: adapter HTTPS com TLS, limites de corpo, timeouts e redirects bloqueados.
+- `agent/src/provisioning.rs`: pairing apenas por ação explícita, prova Ed25519 só após `USER_VERIFIED`, vínculo somente após `ACTIVE` e credencial curta (60 s) com nonce novo; prepara a sessão sem abrir WebSocket.
+- `agent/tests/provisioning_contract.rs`: teste de laboratório HTTP real/loopback e verificação criptográfica de pairing/connection proof; o consentimento humano é **simulado** no fixture.
+- **Ainda não operacional:** `main.rs` não inicia pairing nem WebSocket. Requer o host opt-in de G1-B e enforcement operacional G1-C; [aceite G1-A](../docs/testing/acceptance/phase16-agent-g1a-provisioning-2026-10-13.md).
+
 ### Runtime operacional — incremento inicial (issue #82)
 
 - `agent/src/runtime.rs`: supervisor **explicitamente invocado** de sessão realtime, credenciais curtas fornecidas externamente e redigidas, heartbeat negociado, dispatcher existente com policy local e shutdown limitado;
