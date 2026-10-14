@@ -122,10 +122,10 @@ impl ReadOnlyHostExecutor {
         if !self.observed.insert(fingerprint) {
             return true;
         }
-        if self.recent.len() == MAX_RECENT_COMMANDS {
-            if let Some(discarded) = self.recent.pop_front() {
-                self.observed.remove(&discarded);
-            }
+        if self.recent.len() == MAX_RECENT_COMMANDS
+            && let Some(discarded) = self.recent.pop_front()
+        {
+            self.observed.remove(&discarded);
         }
         self.recent.push_back(fingerprint);
         false
