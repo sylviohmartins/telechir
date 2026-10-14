@@ -1,6 +1,6 @@
 # Estado do Projeto
 
-**Atualizado em:** 2026-10-12
+**Atualizado em:** 2026-10-14
 
 ## Fase atual
 
@@ -9,7 +9,7 @@
 
 ### Painel executivo de conclusão (12/10/2026)
 
-**Etapa atual: G1/7 — Agent operacional ([#82](https://github.com/sylviohmartins/telechir/issues/82)); próxima entrega técnica **G1-C — integrar executor tipado, policy, approvals e audit ao host seguro**, mantendo G1-D e E2E físico pendentes.** G1-A integrou identidade/pairing/credential curta; G1-B integrou os comandos explícitos da CLI e supervisor com execução remota `deny-all` ([PR #89](https://github.com/sylviohmartins/telechir/pull/89)). Iniciar o Agent sem argumentos continua sem conexão.
+**Etapa atual: G1/7 — Agent operacional ([#82](https://github.com/sylviohmartins/telechir/issues/82)), subetapa G1-C em execução.** G1-A e G1-B foram integrados. O [PR #90](https://github.com/sylviohmartins/telechir/pull/90) prepara a CLI opt-in `serve-readonly <https-origin> <absolute-root>` com seis operações de leitura, raiz canonicalizada, policy local, negativa de 17 operações e auditoria **somente em memória**. **Não conclui G1-C**: faltam audit durável, aceite da composição realtime e G1-D. `serve` permanece deny-all; iniciar o Agent sem argumentos continua sem conexão. Nenhum E2E físico ou staging.
 
 | Marco | Gate operacional | Estado |
 |---|---|---|

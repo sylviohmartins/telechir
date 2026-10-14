@@ -140,6 +140,29 @@ try {
         throw "Agent accepted an external plaintext provisioning origin"
     }
     Write-Output "PASS: AGENT_WINDOWS_FOREGROUND_ARGS_FAIL_CLOSED"
+    # G1-C does not trigger credential retrieval or remote traffic when
+    # the explicitly selected workspace root or TLS origin is invalid.
+    $readonlyHelp = Invoke-AgentBootstrap -Executable $exe -Arguments @("--help")
+    if ($readonlyHelp.ExitCode -ne 0 -or
+        $readonlyHelp.Stdout -notmatch "serve-readonly <https-origin> <absolute-root>") {
+        throw "Read-only Agent opt-in command is not documented"
+    }
+    $missingRoot = Invoke-AgentBootstrap -Executable $exe -Arguments @("serve-readonly", "https://example.invalid")
+    if ($missingRoot.ExitCode -ne 2 -or
+        $missingRoot.Stderr -notmatch "invalid Agent command") {
+        throw "Read-only Agent accepted missing workspace root"
+    }
+    $relativeRoot = Invoke-AgentBootstrap -Executable $exe -Arguments @("serve-readonly", "https://example.invalid", "relative")
+    if ($relativeRoot.ExitCode -ne 2 -or
+        $relativeRoot.Stderr -notmatch "invalid read-only workspace root") {
+        throw "Read-only Agent accepted implicit relative workspace root"
+    }
+    $unsafeOrigin = Invoke-AgentBootstrap -Executable $exe -Arguments @("serve-readonly", "http://example.org", "C:\\Windows")
+    if ($unsafeOrigin.ExitCode -ne 2 -or
+        $unsafeOrigin.Stderr -notmatch "provisioning") {
+        throw "Read-only Agent accepted plaintext external control plane"
+    }
+    Write-Output "PASS: AGENT_WINDOWS_READONLY_ARGS_FAIL_CLOSED"
     Write-Output "RESULT: TELECHIR_AGENT_WINDOWS_NATIVE_PREFLIGHT_PASS"
     Write-Output "NOT_TESTED: device pairing/credential on a physical host, a real remote session, command execution or human approval"
 
