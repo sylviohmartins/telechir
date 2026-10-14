@@ -152,15 +152,20 @@ try {
         $missingRoot.Stderr -notmatch "invalid Agent command") {
         throw "Read-only Agent accepted missing workspace root"
     }
-    $relativeRoot = Invoke-AgentBootstrap -Executable $exe -Arguments @("serve-readonly", "https://example.invalid", "relative")
+    $relativeRoot = Invoke-AgentBootstrap -Executable $exe -Arguments @("serve-readonly", "https://example.invalid", "relative", "C:\\audit-ci.jsonl")
     if ($relativeRoot.ExitCode -ne 2 -or
         $relativeRoot.Stderr -notmatch "invalid read-only workspace root") {
         throw "Read-only Agent accepted implicit relative workspace root"
     }
-    $unsafeOrigin = Invoke-AgentBootstrap -Executable $exe -Arguments @("serve-readonly", "http://example.org", "C:\\Windows")
+    $unsafeOrigin = Invoke-AgentBootstrap -Executable $exe -Arguments @("serve-readonly", "http://example.org", "C:\\Windows", "C:\\audit-ci.jsonl")
     if ($unsafeOrigin.ExitCode -ne 2 -or
         $unsafeOrigin.Stderr -notmatch "provisioning") {
         throw "Read-only Agent accepted plaintext external control plane"
+    }
+    $missingJournal = Invoke-AgentBootstrap -Executable $exe -Arguments @("serve-readonly", "https://example.invalid", "C:\\Windows")
+    if ($missingJournal.ExitCode -ne 2 -or
+        $missingJournal.Stderr -notmatch "invalid Agent command") {
+        throw "Read-only Agent accepted missing durable journal"
     }
     Write-Output "PASS: AGENT_WINDOWS_READONLY_ARGS_FAIL_CLOSED"
     Write-Output "RESULT: TELECHIR_AGENT_WINDOWS_NATIVE_PREFLIGHT_PASS"
