@@ -247,7 +247,7 @@ mod tests {
 
     #[tokio::test]
     async fn readonly_loopback_executes_only_allowed_reads_and_persists_audit() {
-        use crate::host_readonly::ReadOnlyHostExecutor;
+        use crate::host_readonly::{READ_ONLY_CAPABILITIES, ReadOnlyHostExecutor};
         use crate::protocol::{CommandOperation, PermissionDomain};
         use serde_json::json;
 
@@ -269,8 +269,13 @@ mod tests {
             .unwrap();
             let mut executor =
                 ReadOnlyHostExecutor::new_with_audit(&root, &journal_for_host).unwrap();
+            let mut client_config = config(format!("ws://127.0.0.1:{port}/realtime"));
+            client_config.capabilities = READ_ONLY_CAPABILITIES
+                .iter()
+                .map(|value| (*value).to_owned())
+                .collect();
             run_authenticated_session(
-                config(format!("ws://127.0.0.1:{port}/realtime")),
+                client_config,
                 credentials,
                 &mut executor,
                 async {
@@ -294,6 +299,7 @@ mod tests {
                 .unwrap();
             let hello: DeviceMessage = serde_json::from_str(hello.to_text().unwrap()).unwrap();
             assert_eq!(hello.message_type, MessageType::AgentHello);
+            assert_eq!(hello.payload["capabilities"], json!(READ_ONLY_CAPABILITIES));
             let ack = AgentHelloAck {
                 connection_id: "connection_ci_readonly".to_owned(),
                 selected_protocol_version: PROTOCOL_VERSION.to_owned(),
