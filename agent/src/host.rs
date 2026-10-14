@@ -1,6 +1,7 @@
 //! Explicit opt-in foreground host. No remote authority is enabled by default.
 //! Until G1-C local policy/approvals are operational, ALL inbound tools are denied.
 use std::convert::Infallible;
+use std::path::PathBuf;
 
 use chrono::Utc;
 use thiserror::Error;
@@ -9,6 +10,7 @@ use url::Url;
 
 use crate::config::AgentConfig;
 use crate::identity::{DeviceIdentityManager, DevicePairingMetadata, NativeKeyringIdentityStore};
+use crate::host_readonly::{ReadOnlyHostExecutor, READ_ONLY_CAPABILITIES};
 use crate::ports::{AuthorizationOutcome, CommandExecutor, ExecutionOutcome};
 use crate::protocol::{CommandRequest, ErrorCode, TelechirError};
 use crate::provisioning::{
@@ -31,6 +33,7 @@ pub enum HostAction {
     PairStart { origin: Url, display_name: String },
     PairCheck { origin: Url, pairing_id: String },
     Serve { origin: Url },
+    ServeReadOnly { origin: Url, root: PathBuf },
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -41,6 +44,8 @@ pub enum HostError {
     UnsafeConfiguration,
     #[error("Agent secure keyring is unavailable")]
     KeyringUnavailable,
+    #[error("invalid read-only workspace root")]
+    InvalidWorkspaceRoot,
     #[error("Agent pairing or credential provisioning was refused")]
     Provisioning(#[from] ProvisionError),
     #[error("Agent realtime connection ended or was refused")]
@@ -62,6 +67,16 @@ impl HostAction {
             },
             [verb, url] if verb == "serve" => Self::Serve {
                 origin: parse_origin(url)?,
+            },
+            [verb, url, root] if verb == "serve-readonly" => {
+                let root = PathBuf::from(root);
+                if !root.is_absolute() {
+                    return Err(HostError::InvalidWorkspaceRoot);
+                }
+                Self::ServeReadOnly {
+                    origin: parse_origin(url)?,
+                    root,
+                }
             },
             _ => return Err(HostError::InvalidArguments),
         };
@@ -87,13 +102,12 @@ fn safe_operational_config(config: &AgentConfig) -> Result<(), HostError> {
     Ok(())
 }
 
-fn metadata() -> AgentMetadata {
+fn metadata(capabilities: Vec<String>) -> AgentMetadata {
     AgentMetadata {
         agent_version: env!("CARGO_PKG_VERSION").to_owned(),
         os: std::env::consts::OS.to_owned(),
         arch: std::env::consts::ARCH.to_owned(),
-        // G1-C will gate optional capabilities; no permissions in G1-B.
-        capabilities: vec![],
+        capabilities,
     }
 }
 
@@ -163,7 +177,8 @@ pub async fn run_host_action(action: HostAction, config: &AgentConfig) -> Result
             println!("telechir-agent (no args): local core status only; no remote connection");
             println!("telechir-agent pair-start <https-origin> <display-name>");
             println!("telechir-agent pair-check <https-origin> <pairing-id>");
-            println!("telechir-agent serve <https-origin>   (foreground, deny-all until G1-C)");
+            println!("telechir-agent serve <https-origin>   (foreground, deny-all)");
+            println!("telechir-agent serve-readonly <https-origin> <absolute-root>   (foreground, strict read-only)");
             Ok(())
         }
         operation => {
@@ -176,7 +191,8 @@ pub async fn run_host_action(action: HostAction, config: &AgentConfig) -> Result
             let origin = match &operation {
                 HostAction::PairStart { origin, .. }
                 | HostAction::PairCheck { origin, .. }
-                | HostAction::Serve { origin } => origin.clone(),
+                | HostAction::Serve { origin }
+                | HostAction::ServeReadOnly { origin, .. } => origin.clone(),
                 _ => unreachable!("matched only operational commands"),
             };
             let api = ProvisioningHttp::new(origin.clone())?;
@@ -215,6 +231,22 @@ pub async fn run_host_action(action: HostAction, config: &AgentConfig) -> Result
                     };
                     serve_foreground(&identity, &binding, &api, &origin, shutdown).await
                 }
+                HostAction::ServeReadOnly { root, .. } => {
+                    // An explicit existing root and a second CLI verb are
+                    // required to allow any remote reads. Default serve still
+                    // rejects every operation; there is no write authority.
+                    let mut executor = ReadOnlyHostExecutor::new(&root)
+                        .map_err(|_| HostError::InvalidWorkspaceRoot)?;
+                    let shutdown = async {
+                        let _ = tokio::signal::ctrl_c().await;
+                    };
+                    serve_foreground_with_executor(
+                        &identity, &binding, &api, &origin,
+                        &mut executor,
+                        READ_ONLY_CAPABILITIES.iter().map(|value| (*value).to_owned()).collect(),
+                        shutdown,
+                    ).await
+                }
                 _ => unreachable!("matched operational commands"),
             }
         }
@@ -237,21 +269,43 @@ where
     A: crate::provisioning_http::ProvisioningApi,
     F: std::future::Future<Output = ()>,
 {
+    let mut executor = DenyAllHostExecutor;
+    serve_foreground_with_executor(identity, binding, api, origin, &mut executor, vec![], shutdown).await
+}
+
+/// A supervised session with explicitly limited local authority, retained
+/// across reconnects so replay detection and redacted audit survive transport.
+pub async fn serve_foreground_with_executor<S, B, A, F, E>(
+    identity: &DeviceIdentityManager<S>,
+    binding: &B,
+    api: &A,
+    origin: &Url,
+    executor: &mut E,
+    capabilities: Vec<String>,
+    shutdown: F,
+) -> Result<(), HostError>
+where
+    S: crate::identity::DeviceIdentityStore,
+    B: crate::provisioning_store::DeviceBindingStore,
+    A: crate::provisioning_http::ProvisioningApi,
+    F: std::future::Future<Output = ()>,
+    E: CommandExecutor,
+    E::Error: std::fmt::Display,
+{
     tokio::pin!(shutdown);
     let mut reconnect = ReconnectController::default();
     for attempt in 0..=MAX_RECONNECTS {
         let prepared = tokio::select! {
             biased;
             () = shutdown.as_mut() => return Ok(()),
-            result = prepare_connection(identity, binding, api, origin, metadata(), Utc::now()) =>
+            result = prepare_connection(identity, binding, api, origin, metadata(capabilities.clone()), Utc::now()) =>
                 result?,
         };
         println!("STATE=CONNECTING");
-        let mut executor = DenyAllHostExecutor;
         let result = run_authenticated_session(
             prepared.config,
             prepared.credentials,
-            &mut executor,
+            executor,
             shutdown.as_mut(),
         )
         .await;
