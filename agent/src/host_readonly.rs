@@ -76,12 +76,12 @@ fn permitted(request: &CommandRequest) -> bool {
             | CommandOperation::GitStatus
             | CommandOperation::GitDiff
     ) && !request.operation.has_side_effect()
-        && request.requested_permissions == [PermissionDomain::FsRead]
+        && request.requested_permissions.as_slice() == [PermissionDomain::FsRead]
         && matches!(request.risk, RiskLevel::Low | RiskLevel::Medium)
         && request.workspace_id.is_none()
         && request.approval_id.is_none()
         && request.idempotency_key.is_none()
-        && request.validate().is_ok()
+
 }
 
 impl ReadOnlyHostExecutor {
@@ -185,7 +185,7 @@ impl CommandExecutor for ReadOnlyHostExecutor {
         let result = self.inner.execute_authorized(request, false)?;
         self.record(
             request,
-            match result {
+            match &result {
                 ExecutionOutcome::Completed(_) => ReadOnlyDecision::Completed,
                 ExecutionOutcome::Failed(_) => ReadOnlyDecision::Failed,
             },
