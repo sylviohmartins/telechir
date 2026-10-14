@@ -261,7 +261,7 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
         let (stop_tx, stop_rx) = tokio::sync::oneshot::channel::<()>();
-        let client = tokio::spawn(async move {
+        let client = async move {
             let credentials = SessionCredentials::new(
                 "loopback_ci_token_only".to_owned(),
                 "abcdefghijklmnop".to_owned(),
@@ -278,8 +278,10 @@ mod tests {
                 },
             )
             .await
-        });
+        };
 
+        let workspace_root = workspace.path().to_path_buf();
+        let server = async move {
         let (stream, _) = timeout(Duration::from_secs(3), listener.accept())
             .await
             .unwrap()
@@ -316,7 +318,7 @@ mod tests {
         let mut read = CommandRequest::test_read_only();
         read.operation = CommandOperation::FsList;
         read.command_id = "sensitive_read_command_ci".to_owned();
-        read.arguments = json!({"path": workspace.path().to_string_lossy()})
+        read.arguments = json!({"path": workspace_root.to_string_lossy()})
             .as_object()
             .unwrap()
             .clone();
@@ -397,13 +399,16 @@ mod tests {
         assert_eq!(replay_denied.payload["error"]["code"], "POLICY_DENIED");
 
         stop_tx.send(()).unwrap();
-        assert_eq!(
-            timeout(Duration::from_secs(3), client)
-                .await
-                .unwrap()
-                .unwrap(),
-            Ok(SessionExit::StoppedByHost)
-        );
+        };
+        // The local host executor holds platform objects that are !Send.
+        // Concurrent futures on this test task exercise the same TCP protocol
+        // without wrongly requiring the executor to move between OS threads.
+        let (outcome, ()) = timeout(Duration::from_secs(15), async {
+            tokio::join!(client, server)
+        })
+        .await
+        .unwrap();
+        assert_eq!(outcome, Ok(SessionExit::StoppedByHost));
         let persisted = std::fs::read_to_string(audit_file).unwrap();
         let events: Vec<serde_json::Value> = persisted
             .lines()
