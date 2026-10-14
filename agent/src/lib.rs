@@ -7,6 +7,7 @@ pub mod executor;
 pub mod filesystem;
 pub mod git;
 pub mod host;
+mod host_audit;
 pub mod host_readonly;
 pub mod identity;
 pub mod lifecycle;
