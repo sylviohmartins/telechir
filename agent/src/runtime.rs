@@ -282,123 +282,125 @@ mod tests {
 
         let workspace_root = workspace.path().to_path_buf();
         let server = async move {
-        let (stream, _) = timeout(Duration::from_secs(3), listener.accept())
-            .await
-            .unwrap()
-            .unwrap();
-        let mut socket = accept_async(stream).await.unwrap();
-        let hello = timeout(Duration::from_secs(3), socket.next())
-            .await
-            .unwrap()
-            .unwrap()
-            .unwrap();
-        let hello: DeviceMessage = serde_json::from_str(hello.to_text().unwrap()).unwrap();
-        assert_eq!(hello.message_type, MessageType::AgentHello);
-        let ack = AgentHelloAck {
-            connection_id: "connection_ci_readonly".to_owned(),
-            selected_protocol_version: PROTOCOL_VERSION.to_owned(),
-            server_time: Utc::now(),
-            heartbeat_interval_seconds: 5,
-            limits: ConnectionLimits::default(),
-            policy_revision: None,
-        };
-        let hello_ack = message(
-            MessageType::AgentHelloAck,
-            to_value(ack).unwrap(),
-            1,
-            Some("connection_ci_readonly"),
-        );
-        socket
-            .send(Message::Text(
-                serde_json::to_string(&hello_ack).unwrap().into(),
-            ))
-            .await
-            .unwrap();
+            let (stream, _) = timeout(Duration::from_secs(3), listener.accept())
+                .await
+                .unwrap()
+                .unwrap();
+            let mut socket = accept_async(stream).await.unwrap();
+            let hello = timeout(Duration::from_secs(3), socket.next())
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap();
+            let hello: DeviceMessage = serde_json::from_str(hello.to_text().unwrap()).unwrap();
+            assert_eq!(hello.message_type, MessageType::AgentHello);
+            let ack = AgentHelloAck {
+                connection_id: "connection_ci_readonly".to_owned(),
+                selected_protocol_version: PROTOCOL_VERSION.to_owned(),
+                server_time: Utc::now(),
+                heartbeat_interval_seconds: 5,
+                limits: ConnectionLimits::default(),
+                policy_revision: None,
+            };
+            let hello_ack = message(
+                MessageType::AgentHelloAck,
+                to_value(ack).unwrap(),
+                1,
+                Some("connection_ci_readonly"),
+            );
+            socket
+                .send(Message::Text(
+                    serde_json::to_string(&hello_ack).unwrap().into(),
+                ))
+                .await
+                .unwrap();
 
-        let mut read = CommandRequest::test_read_only();
-        read.operation = CommandOperation::FsList;
-        read.command_id = "sensitive_read_command_ci".to_owned();
-        read.arguments = json!({"path": workspace_root.to_string_lossy()})
-            .as_object()
-            .unwrap()
-            .clone();
-        let command = message(
-            MessageType::CommandRequest,
-            to_value(&read).unwrap(),
-            2,
-            Some("connection_ci_readonly"),
-        );
-        socket
-            .send(Message::Text(
-                serde_json::to_string(&command).unwrap().into(),
-            ))
-            .await
-            .unwrap();
+            let mut read = CommandRequest::test_read_only();
+            read.operation = CommandOperation::FsList;
+            read.command_id = "sensitive_read_command_ci".to_owned();
+            read.arguments = json!({"path": workspace_root.to_string_lossy()})
+                .as_object()
+                .unwrap()
+                .clone();
+            let command = message(
+                MessageType::CommandRequest,
+                to_value(&read).unwrap(),
+                2,
+                Some("connection_ci_readonly"),
+            );
+            socket
+                .send(Message::Text(
+                    serde_json::to_string(&command).unwrap().into(),
+                ))
+                .await
+                .unwrap();
 
-        let accepted = timeout(Duration::from_secs(3), socket.next())
-            .await
-            .unwrap()
-            .unwrap()
-            .unwrap();
-        let accepted: DeviceMessage = serde_json::from_str(accepted.to_text().unwrap()).unwrap();
-        assert_eq!(accepted.message_type, MessageType::CommandAccepted);
-        let completed = timeout(Duration::from_secs(3), socket.next())
-            .await
-            .unwrap()
-            .unwrap()
-            .unwrap();
-        let completed: DeviceMessage = serde_json::from_str(completed.to_text().unwrap()).unwrap();
-        assert_eq!(completed.message_type, MessageType::CommandCompleted);
+            let accepted = timeout(Duration::from_secs(3), socket.next())
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap();
+            let accepted: DeviceMessage =
+                serde_json::from_str(accepted.to_text().unwrap()).unwrap();
+            assert_eq!(accepted.message_type, MessageType::CommandAccepted);
+            let completed = timeout(Duration::from_secs(3), socket.next())
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap();
+            let completed: DeviceMessage =
+                serde_json::from_str(completed.to_text().unwrap()).unwrap();
+            assert_eq!(completed.message_type, MessageType::CommandCompleted);
 
-        let mut escalated = read.clone();
-        escalated.command_id = "sensitive_denied_command_ci".to_owned();
-        escalated.requested_permissions = vec![PermissionDomain::FsWrite];
-        let command = message(
-            MessageType::CommandRequest,
-            to_value(&escalated).unwrap(),
-            3,
-            Some("connection_ci_readonly"),
-        );
-        socket
-            .send(Message::Text(
-                serde_json::to_string(&command).unwrap().into(),
-            ))
-            .await
-            .unwrap();
-        let denied = timeout(Duration::from_secs(3), socket.next())
-            .await
-            .unwrap()
-            .unwrap()
-            .unwrap();
-        let denied: DeviceMessage = serde_json::from_str(denied.to_text().unwrap()).unwrap();
-        assert_eq!(denied.message_type, MessageType::CommandFailed);
-        assert_eq!(denied.payload["error"]["code"], "POLICY_DENIED");
+            let mut escalated = read.clone();
+            escalated.command_id = "sensitive_denied_command_ci".to_owned();
+            escalated.requested_permissions = vec![PermissionDomain::FsWrite];
+            let command = message(
+                MessageType::CommandRequest,
+                to_value(&escalated).unwrap(),
+                3,
+                Some("connection_ci_readonly"),
+            );
+            socket
+                .send(Message::Text(
+                    serde_json::to_string(&command).unwrap().into(),
+                ))
+                .await
+                .unwrap();
+            let denied = timeout(Duration::from_secs(3), socket.next())
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap();
+            let denied: DeviceMessage = serde_json::from_str(denied.to_text().unwrap()).unwrap();
+            assert_eq!(denied.message_type, MessageType::CommandFailed);
+            assert_eq!(denied.payload["error"]["code"], "POLICY_DENIED");
 
-        // A distinct envelope with the SAME command ID must not replay the
-        // already completed read after the connection has been established.
-        let replay = message(
-            MessageType::CommandRequest,
-            to_value(&read).unwrap(),
-            4,
-            Some("connection_ci_readonly"),
-        );
-        socket
-            .send(Message::Text(
-                serde_json::to_string(&replay).unwrap().into(),
-            ))
-            .await
-            .unwrap();
-        let replay_denied = timeout(Duration::from_secs(3), socket.next())
-            .await
-            .unwrap()
-            .unwrap()
-            .unwrap();
-        let replay_denied: DeviceMessage =
-            serde_json::from_str(replay_denied.to_text().unwrap()).unwrap();
-        assert_eq!(replay_denied.message_type, MessageType::CommandFailed);
-        assert_eq!(replay_denied.payload["error"]["code"], "POLICY_DENIED");
+            // A distinct envelope with the SAME command ID must not replay the
+            // already completed read after the connection has been established.
+            let replay = message(
+                MessageType::CommandRequest,
+                to_value(&read).unwrap(),
+                4,
+                Some("connection_ci_readonly"),
+            );
+            socket
+                .send(Message::Text(
+                    serde_json::to_string(&replay).unwrap().into(),
+                ))
+                .await
+                .unwrap();
+            let replay_denied = timeout(Duration::from_secs(3), socket.next())
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap();
+            let replay_denied: DeviceMessage =
+                serde_json::from_str(replay_denied.to_text().unwrap()).unwrap();
+            assert_eq!(replay_denied.message_type, MessageType::CommandFailed);
+            assert_eq!(replay_denied.payload["error"]["code"], "POLICY_DENIED");
 
-        stop_tx.send(()).unwrap();
+            stop_tx.send(()).unwrap();
         };
         // The local host executor holds platform objects that are !Send.
         // Concurrent futures on this test task exercise the same TCP protocol
