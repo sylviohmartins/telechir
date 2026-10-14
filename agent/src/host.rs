@@ -33,7 +33,11 @@ pub enum HostAction {
     PairStart { origin: Url, display_name: String },
     PairCheck { origin: Url, pairing_id: String },
     Serve { origin: Url },
-    ServeReadOnly { origin: Url, root: PathBuf },
+    ServeReadOnly {
+        origin: Url,
+        root: PathBuf,
+        audit_file: PathBuf,
+    },
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -46,6 +50,8 @@ pub enum HostError {
     KeyringUnavailable,
     #[error("invalid read-only workspace root")]
     InvalidWorkspaceRoot,
+    #[error("durable audit file must be new, writable and outside the workspace")]
+    InvalidAuditLocation,
     #[error("Agent pairing or credential provisioning was refused")]
     Provisioning(#[from] ProvisionError),
     #[error("Agent realtime connection ended or was refused")]
@@ -68,14 +74,19 @@ impl HostAction {
             [verb, url] if verb == "serve" => Self::Serve {
                 origin: parse_origin(url)?,
             },
-            [verb, url, root] if verb == "serve-readonly" => {
+            [verb, url, root, journal] if verb == "serve-readonly" => {
                 let root = PathBuf::from(root);
                 if !root.is_absolute() {
                     return Err(HostError::InvalidWorkspaceRoot);
                 }
+                let audit_file = PathBuf::from(journal);
+                if !audit_file.is_absolute() {
+                    return Err(HostError::InvalidAuditLocation);
+                }
                 Self::ServeReadOnly {
                     origin: parse_origin(url)?,
                     root,
+                    audit_file,
                 }
             }
             _ => return Err(HostError::InvalidArguments),
@@ -179,7 +190,7 @@ pub async fn run_host_action(action: HostAction, config: &AgentConfig) -> Result
             println!("telechir-agent pair-check <https-origin> <pairing-id>");
             println!("telechir-agent serve <https-origin>   (foreground, deny-all)");
             println!(
-                "telechir-agent serve-readonly <https-origin> <absolute-root>   (foreground, strict read-only)"
+                "telechir-agent serve-readonly <https-origin> <absolute-root> <new-absolute-audit-file>   (foreground, journal required)"
             );
             Ok(())
         }
@@ -233,12 +244,13 @@ pub async fn run_host_action(action: HostAction, config: &AgentConfig) -> Result
                     };
                     serve_foreground(&identity, &binding, &api, &origin, shutdown).await
                 }
-                HostAction::ServeReadOnly { root, .. } => {
-                    // An explicit existing root and a second CLI verb are
-                    // required to allow any remote reads. Default serve still
-                    // rejects every operation; there is no write authority.
-                    let mut executor = ReadOnlyHostExecutor::new(&root)
-                        .map_err(|_| HostError::InvalidWorkspaceRoot)?;
+                HostAction::ServeReadOnly {
+                    root, audit_file, ..
+                } => {
+                    // No network or remote read authority without an explicit,
+                    // fresh durable journal outside the readable workspace.
+                    let mut executor = ReadOnlyHostExecutor::new_with_audit(&root, &audit_file)
+                        .map_err(|_| HostError::InvalidAuditLocation)?;
                     let shutdown = async {
                         let _ = tokio::signal::ctrl_c().await;
                     };
