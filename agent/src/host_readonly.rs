@@ -300,6 +300,39 @@ mod tests {
     }
 
     #[test]
+    fn readonly_host_prevents_read_outside_root_and_bounded_audit_never_leaks_paths() {
+        let root = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let private = outside.path().join("sensitive.txt");
+        fs::write(&private, "private_secret_content").unwrap();
+        let mut host = ReadOnlyHostExecutor::new(root.path()).unwrap();
+        let mut req = request(CommandOperation::FsRead);
+        req.command_id = "cmd_secrets_should_be_hashed".to_owned();
+        req.arguments = json!({"path": private.to_string_lossy()})
+            .as_object().unwrap().clone();
+        if let AuthorizationOutcome::Allow { request: prepared, .. } = host.authorize(&req, None) {
+            assert!(matches!(
+                host.execute_authorized(&prepared, false).unwrap(),
+                ExecutionOutcome::Failed(_)
+            ));
+        }
+        for i in 0..300 {
+            let mut forbidden = request(CommandOperation::ShellExec);
+            forbidden.command_id = format!("secret_raw_command_id_{i}");
+            assert!(matches!(
+                host.authorize(&forbidden, None),
+                AuthorizationOutcome::Deny(_)
+            ));
+        }
+        assert_eq!(host.audit_events().len(), MAX_AUDIT_EVENTS);
+        let recorded = format!("{:?}", host.audit_events());
+        assert!(!recorded.contains("private_secret_content"));
+        assert!(!recorded.contains("sensitive.txt"));
+        assert!(!recorded.contains("secret_raw_command_id"));
+        assert!(!recorded.contains("cmd_secrets_should_be_hashed"));
+    }
+
+    #[test]
     fn readonly_host_denies_approval_workspace_and_permission_escalation() {
         let root = tempfile::tempdir().unwrap();
         let mut host = ReadOnlyHostExecutor::new(root.path()).unwrap();
