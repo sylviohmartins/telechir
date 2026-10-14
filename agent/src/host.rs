@@ -9,8 +9,8 @@ use tokio::time::sleep;
 use url::Url;
 
 use crate::config::AgentConfig;
+use crate::host_readonly::{READ_ONLY_CAPABILITIES, ReadOnlyHostExecutor};
 use crate::identity::{DeviceIdentityManager, DevicePairingMetadata, NativeKeyringIdentityStore};
-use crate::host_readonly::{ReadOnlyHostExecutor, READ_ONLY_CAPABILITIES};
 use crate::ports::{AuthorizationOutcome, CommandExecutor, ExecutionOutcome};
 use crate::protocol::{CommandRequest, ErrorCode, TelechirError};
 use crate::provisioning::{
@@ -77,7 +77,7 @@ impl HostAction {
                     origin: parse_origin(url)?,
                     root,
                 }
-            },
+            }
             _ => return Err(HostError::InvalidArguments),
         };
         Ok(parsed)
@@ -178,7 +178,9 @@ pub async fn run_host_action(action: HostAction, config: &AgentConfig) -> Result
             println!("telechir-agent pair-start <https-origin> <display-name>");
             println!("telechir-agent pair-check <https-origin> <pairing-id>");
             println!("telechir-agent serve <https-origin>   (foreground, deny-all)");
-            println!("telechir-agent serve-readonly <https-origin> <absolute-root>   (foreground, strict read-only)");
+            println!(
+                "telechir-agent serve-readonly <https-origin> <absolute-root>   (foreground, strict read-only)"
+            );
             Ok(())
         }
         operation => {
@@ -241,11 +243,18 @@ pub async fn run_host_action(action: HostAction, config: &AgentConfig) -> Result
                         let _ = tokio::signal::ctrl_c().await;
                     };
                     serve_foreground_with_executor(
-                        &identity, &binding, &api, &origin,
+                        &identity,
+                        &binding,
+                        &api,
+                        &origin,
                         &mut executor,
-                        READ_ONLY_CAPABILITIES.iter().map(|value| (*value).to_owned()).collect(),
+                        READ_ONLY_CAPABILITIES
+                            .iter()
+                            .map(|value| (*value).to_owned())
+                            .collect(),
                         shutdown,
-                    ).await
+                    )
+                    .await
                 }
                 _ => unreachable!("matched operational commands"),
             }
@@ -270,7 +279,16 @@ where
     F: std::future::Future<Output = ()>,
 {
     let mut executor = DenyAllHostExecutor;
-    serve_foreground_with_executor(identity, binding, api, origin, &mut executor, vec![], shutdown).await
+    serve_foreground_with_executor(
+        identity,
+        binding,
+        api,
+        origin,
+        &mut executor,
+        vec![],
+        shutdown,
+    )
+    .await
 }
 
 /// A supervised session with explicitly limited local authority, retained

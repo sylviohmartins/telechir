@@ -81,7 +81,6 @@ fn permitted(request: &CommandRequest) -> bool {
         && request.workspace_id.is_none()
         && request.approval_id.is_none()
         && request.idempotency_key.is_none()
-
 }
 
 impl ReadOnlyHostExecutor {
@@ -177,7 +176,10 @@ impl CommandExecutor for ReadOnlyHostExecutor {
         request: &CommandRequest,
         approval_verified: bool,
     ) -> Result<ExecutionOutcome, Self::Error> {
-        let matched = self.pending.take().is_some_and(|approved| approved == *request);
+        let matched = self
+            .pending
+            .take()
+            .is_some_and(|approved| approved == *request);
         if !matched || approval_verified || !permitted(request) {
             self.record(request, ReadOnlyDecision::Denied);
             return Ok(ExecutionOutcome::Failed(refused()));
@@ -237,11 +239,18 @@ mod tests {
             }
             assert!(matches!(
                 host.execute(&req).unwrap(),
-                ExecutionOutcome::Failed(TelechirError { code: ErrorCode::PolicyDenied, .. })
+                ExecutionOutcome::Failed(TelechirError {
+                    code: ErrorCode::PolicyDenied,
+                    ..
+                })
             ));
         }
         assert_eq!(denied, 17);
-        assert!(host.audit_events().iter().all(|event| !event.command_digest.is_empty()));
+        assert!(
+            host.audit_events()
+                .iter()
+                .all(|event| !event.command_digest.is_empty())
+        );
     }
 
     #[test]
@@ -281,7 +290,13 @@ mod tests {
             host.execute_authorized(&prepared, false).unwrap(),
             ExecutionOutcome::Failed(_)
         ));
-        assert_eq!(host.audit_events().iter().filter(|e| e.decision == ReadOnlyDecision::Completed).count(), 1);
+        assert_eq!(
+            host.audit_events()
+                .iter()
+                .filter(|e| e.decision == ReadOnlyDecision::Completed)
+                .count(),
+            1
+        );
     }
 
     #[test]
@@ -291,15 +306,29 @@ mod tests {
         let original = request(CommandOperation::FsStat);
         let mut forged = original.clone();
         forged.approval_id = Some("approval_forged".to_owned());
-        assert!(matches!(host.authorize(&forged, None), AuthorizationOutcome::Deny(_)));
+        assert!(matches!(
+            host.authorize(&forged, None),
+            AuthorizationOutcome::Deny(_)
+        ));
         let mut workspace = original.clone();
         workspace.workspace_id = Some("workspace_other".to_owned());
-        assert!(matches!(host.authorize(&workspace, None), AuthorizationOutcome::Deny(_)));
+        assert!(matches!(
+            host.authorize(&workspace, None),
+            AuthorizationOutcome::Deny(_)
+        ));
         let mut permissions = original.clone();
-        permissions.requested_permissions.push(PermissionDomain::FsWrite);
-        assert!(matches!(host.authorize(&permissions, None), AuthorizationOutcome::Deny(_)));
+        permissions
+            .requested_permissions
+            .push(PermissionDomain::FsWrite);
+        assert!(matches!(
+            host.authorize(&permissions, None),
+            AuthorizationOutcome::Deny(_)
+        ));
         let mut high_risk = original;
         high_risk.risk = RiskLevel::High;
-        assert!(matches!(host.authorize(&high_risk, None), AuthorizationOutcome::Deny(_)));
+        assert!(matches!(
+            host.authorize(&high_risk, None),
+            AuthorizationOutcome::Deny(_)
+        ));
     }
 }
