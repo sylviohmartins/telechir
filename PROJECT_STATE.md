@@ -9,7 +9,7 @@
 
 ### Painel executivo de conclusão (12/10/2026)
 
-**Etapa atual: G1/7 — Agent operacional ([#82](https://github.com/sylviohmartins/telechir/issues/82)), subetapa G1-C em execução.** G1-A e G1-B foram integrados. O [PR #90](https://github.com/sylviohmartins/telechir/pull/90) prepara a CLI opt-in `serve-readonly <https-origin> <absolute-root>` com seis operações de leitura, raiz canonicalizada, policy local, negativa de 17 operações e auditoria **somente em memória**. **Não conclui G1-C**: faltam audit durável, aceite da composição realtime e G1-D. `serve` permanece deny-all; iniciar o Agent sem argumentos continua sem conexão. Nenhum E2E físico ou staging.
+**Etapa atual: G1/7 — Agent operacional ([#82](https://github.com/sylviohmartins/telechir/issues/82)); PR #91 conclui tecnicamente G1-C read-only mediante CI final e merge. Próxima subetapa: G1-D — aceitar fluxo integrado de Agent/Control Plane/pairing/OAuth em laboratório.** G1-A e G1-B estão integrados. O PR [#91](https://github.com/sylviohmartins/telechir/pull/91) exige auditoria JSONL durável e redigida fora da raiz de leitura, prova autorização, escalonamento e replay no WebSocket loopback; [CI Windows inicial #38609665975](https://github.com/sylviohmartins/telechir/actions/runs/38609665975) passou **130 testes**. O G1 geral **NÃO está concluído**, porque G1-D e E2E físico/staging permanecem pendentes. Início sem argumentos não conecta; `serve` continua deny-all; `serve-readonly` requer journal explícito. [Aceite G1-C](docs/testing/acceptance/phase16-agent-g1c-durable-realtime-2026-10-14.md).
 
 | Marco | Gate operacional | Estado |
 |---|---|---|
