@@ -309,8 +309,13 @@ mod tests {
         let mut req = request(CommandOperation::FsRead);
         req.command_id = "cmd_secrets_should_be_hashed".to_owned();
         req.arguments = json!({"path": private.to_string_lossy()})
-            .as_object().unwrap().clone();
-        if let AuthorizationOutcome::Allow { request: prepared, .. } = host.authorize(&req, None) {
+            .as_object()
+            .unwrap()
+            .clone();
+        if let AuthorizationOutcome::Allow {
+            request: prepared, ..
+        } = host.authorize(&req, None)
+        {
             assert!(matches!(
                 host.execute_authorized(&prepared, false).unwrap(),
                 ExecutionOutcome::Failed(_)
