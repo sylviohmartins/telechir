@@ -35,6 +35,14 @@ Core local do Telechir implementado em Rust.
 - **Origem confiável:** quando o host G1-B usar `prepare_connection`, a origin aprovada deve ser a mesma do adapter HTTPS; não aceitar URL ou autoridade retornada por resposta remota como destino de WebSocket.
 - **G1-B ligado à CLI:** o usuário pode iniciar `pair-start`, confirmar pelo dashboard e consultar com `pair-check`, ou executar `serve` em primeiro plano, sempre com origem HTTPS explícita. O host usa **DenyAllHostExecutor** até G1-C; nenhum comando remoto pode executar. Consulte [aceite G1-A](../docs/testing/acceptance/phase16-agent-g1a-provisioning-2026-10-13.md) e [aceite G1-B](../docs/testing/acceptance/phase16-agent-g1b-foreground-host-2026-10-13.md).
 
+### G1-C — Host explícito read-only (PR #90)
+
+- `serve` continua **deny-all**, e `serve-readonly <https-origin> <absolute-root>` é uma ação separada e voluntária com diretório existente e absoluto canonicalizado;
+- `host_readonly.rs` aplica allowlist de seis operações (`fs.list`, `fs.stat`, `fs.read`, `fs.search`, `git.status`, `git.diff`), permissão exclusivamente `FS_READ` e nega 17 operações privilegiadas, claims de workspace desconhecido, approval remoto e execução sem autorização;
+- o executor reutiliza `LocalCommandExecutor` com `LocalPolicyEngine`, impede replay de command ID e retém auditoria redigida em memória, limitada a 256 eventos;
+- **G1-C AINDA NÃO FECHADO:** a auditoria não persiste, e falta prova completa de read-only no realtime, políticas/aprovações e integração G1-D; não habilitar recursos mutáveis nem declarar E2E físico;
+- [evidência e limites](../docs/testing/acceptance/phase16-agent-g1c-readonly-2026-10-14.md).
+
 ### Runtime operacional — incremento inicial (issue #82)
 
 - `agent/src/runtime.rs`: supervisor **explicitamente invocado** de sessão realtime, credenciais curtas fornecidas externamente e redigidas, heartbeat negociado, dispatcher existente com policy local e shutdown limitado;
