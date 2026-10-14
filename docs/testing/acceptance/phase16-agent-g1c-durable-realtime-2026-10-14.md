@@ -1,7 +1,7 @@
 # G1-C — Agent read-only: auditoria persistente e autorização no WebSocket
 
 **Data:** 2026-10-14 (America/Sao_Paulo)
-**Escopo:** encerramento **técnico do G1-C no perfil read-only**, condicionado à CI final e merge do [PR #91](https://github.com/sylviohmartins/telechir/pull/91).
+**Escopo:** **G1-C read-only aprovado em laboratório**, PR [#91](https://github.com/sylviohmartins/telechir/pull/91). O G1 geral continua aberto até G1-D.
 **Issue:** [#82](https://github.com/sylviohmartins/telechir/issues/82)
 **Histórico do perfil:** [PR #90](https://github.com/sylviohmartins/telechir/pull/90) e [aceite inicial](phase16-agent-g1c-readonly-2026-10-14.md).
 
@@ -40,7 +40,7 @@ A [CI Windows #38609665975](https://github.com/sylviohmartins/telechir/actions/r
 - [x] Auditoria em disco fora do root, dados redigidos, persistidos por evento e falha fechada.
 - [x] Leitura permitida, negativa de escalonamento, negativa de replay e shutdown em WebSocket de laboratório.
 - [x] CI Windows no head inicial com 130 testes aprovados.
-- [ ] **CI final Windows + MCP/Keycloak no último SHA e merge do PR #91**; registrar a evidência no painel G1–G7.
+- [x] [CI Windows #38610667278](https://github.com/sylviohmartins/telechir/actions/runs/38610667278) **1/1 PASS** e [CI MCP/Keycloak #38610667317](https://github.com/sylviohmartins/telechir/actions/runs/38610667317) **3/3 PASS** no head `e40bf27da6eeb4692501bd787b6ce03a46513135`. O commit final de documentação terá verificações próprias antes do merge do PR #91.
 
 G1-C não autoriza ação mutável nem publicação. Após integração, **G1-D será a próxima etapa do G1**, com o aceite local completo de Agent/Control Plane/pairing/OAuth. G1 geral, G2–G7, E2E físico e publicação permanecem abertos.
 
