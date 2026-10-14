@@ -379,6 +379,28 @@ mod tests {
         assert!(HostAction::parse(&["serve".into()]).is_err());
         assert!(HostAction::parse(&["--serve".into()]).is_err());
         assert!(HostAction::parse(&["serve".into(), "http://external.example".into()]).is_err());
+        assert!(HostAction::parse(&[
+            "serve-readonly".into(),
+            "https://host.test".into(),
+            "/root".into(),
+        ]).is_err());
+        let root = tempfile::tempdir().unwrap();
+        let journal = tempfile::tempdir().unwrap();
+        assert!(matches!(
+            HostAction::parse(&[
+                "serve-readonly".into(),
+                "https://host.test".into(),
+                root.path().to_string_lossy().into_owned(),
+                journal.path().join("audit.jsonl").to_string_lossy().into_owned(),
+            ]),
+            Ok(HostAction::ServeReadOnly { .. })
+        ));
+        assert!(HostAction::parse(&[
+            "serve-readonly".into(),
+            "https://host.test".into(),
+            root.path().to_string_lossy().into_owned(),
+            "relative-audit.jsonl".into(),
+        ]).is_err());
         assert!(HostAction::parse(&["pair-start".into(), "https://host.test".into()]).is_err());
         assert!(HostAction::parse(&["serve".into(), "https://u:p@host.test".into()]).is_err());
         assert!(matches!(
