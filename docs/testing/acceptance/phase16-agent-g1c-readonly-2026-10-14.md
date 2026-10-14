@@ -31,6 +31,8 @@ No head `246ebe9c0e0f71a23dc71a31673d71d3afb37aa0`, a [CI Windows #38576636817](
 - [x] PowerShell preflight: missing-root/relative-root/HTTP externo sem acessar keyring ou rede.
 - [x] CI do control plane e cliente OAuth/Keycloak sem regressões no último SHA.
 
+**Atualização 2026-10-14 (PR #91):** as lacunas desta primeira versão foram implementadas em [novo aceite G1-C](phase16-agent-g1c-durable-realtime-2026-10-14.md): auditoria JSONL redigida com gravação fail-closed e teste real de comandos read-only via WebSocket de loopback. Esta seção é evidência histórica do PR #90 e não representa o estado após a integração do PR #91.
+
 ## Limites para encerramento
 
 **G1-C não será encerrado por este incremento.** Faltam auditoria durável, verificação da integração de política/approvals no contexto da sessão realtime, testes de negativa e de execução read-only end-to-end no fluxo completo do Agent. O G1-D continuará responsável pelo aceite integrado em loopback, sem usar tokens simulados na fronteira real do produto.
