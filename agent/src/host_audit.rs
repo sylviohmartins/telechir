@@ -60,6 +60,11 @@ impl DurableReadOnlyAudit {
         })
     }
 
+    #[cfg(test)]
+    pub(crate) fn inject_write_failure(&mut self) {
+        self.fail_writes = true;
+    }
+
     /// Serialization happens before disk I/O. Each event is flushed to the
     /// underlying filesystem before authorization/execution is reported.
     pub(crate) fn append(&mut self, event: &ReadOnlyAuditEvent) -> io::Result<()> {
