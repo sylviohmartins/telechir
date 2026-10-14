@@ -32,7 +32,10 @@ impl DurableReadOnlyAudit {
     /// create_new also refuses an existing regular file or symlink.
     pub(crate) fn create(root: &Path, path: &Path) -> io::Result<Self> {
         if !root.is_absolute() || !path.is_absolute() || path.file_name().is_none() {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid audit location"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "invalid audit location",
+            ));
         }
         let workspace = root.canonicalize()?;
         let parent = path
@@ -40,7 +43,10 @@ impl DurableReadOnlyAudit {
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing audit parent"))?
             .canonicalize()?;
         if !workspace.is_dir() || !parent.is_dir() || parent.starts_with(&workspace) {
-            return Err(io::Error::new(io::ErrorKind::PermissionDenied, "unsafe audit directory"));
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "unsafe audit directory",
+            ));
         }
 
         let mut options = OpenOptions::new();

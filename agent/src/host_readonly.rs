@@ -421,7 +421,10 @@ mod tests {
         for (index, record) in records.iter().enumerate() {
             assert_eq!(record["schema_version"], 1);
             assert_eq!(record["sequence"], (index + 1) as u64);
-            assert_eq!(record["event"]["command_digest"].as_str().unwrap().len(), 43);
+            assert_eq!(
+                record["event"]["command_digest"].as_str().unwrap().len(),
+                43
+            );
         }
         assert_eq!(records[0]["event"]["decision"], "Allowed");
         assert_eq!(records[1]["event"]["decision"], "Completed");
@@ -445,7 +448,10 @@ mod tests {
             .as_object()
             .unwrap()
             .clone();
-        assert!(matches!(host.authorize(&read, None), AuthorizationOutcome::Deny(_)));
+        assert!(matches!(
+            host.authorize(&read, None),
+            AuthorizationOutcome::Deny(_)
+        ));
         assert!(host.audit_failed);
         assert!(matches!(
             host.authorize(&request(CommandOperation::FsStat), None),
