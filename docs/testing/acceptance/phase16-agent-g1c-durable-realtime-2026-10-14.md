@@ -1,8 +1,8 @@
 # G1-C — Agent read-only: auditoria persistente e autorização no WebSocket
 
-**Data:** 2026-10-14 (America/Sao_Paulo)  
-**Escopo:** encerramento **técnico do G1-C no perfil read-only**, condicionado à CI final e merge do [PR #91](https://github.com/sylviohmartins/telechir/pull/91).  
-**Issue:** [#82](https://github.com/sylviohmartins/telechir/issues/82)  
+**Data:** 2026-10-14 (America/Sao_Paulo)
+**Escopo:** encerramento **técnico do G1-C no perfil read-only**, condicionado à CI final e merge do [PR #91](https://github.com/sylviohmartins/telechir/pull/91).
+**Issue:** [#82](https://github.com/sylviohmartins/telechir/issues/82)
 **Histórico do perfil:** [PR #90](https://github.com/sylviohmartins/telechir/pull/90) e [aceite inicial](phase16-agent-g1c-readonly-2026-10-14.md).
 
 ## Entrega funcional
