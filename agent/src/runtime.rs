@@ -274,14 +274,9 @@ mod tests {
                 .iter()
                 .map(|value| (*value).to_owned())
                 .collect();
-            run_authenticated_session(
-                client_config,
-                credentials,
-                &mut executor,
-                async {
-                    let _ = stop_rx.await;
-                },
-            )
+            run_authenticated_session(client_config, credentials, &mut executor, async {
+                let _ = stop_rx.await;
+            })
             .await
         };
 
