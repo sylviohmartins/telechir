@@ -267,13 +267,15 @@ mod tests {
                 "abcdefghijklmnop".to_owned(),
             )
             .unwrap();
-            let mut executor = ReadOnlyHostExecutor::new_with_audit(&root, &journal_for_host)
-                .unwrap();
+            let mut executor =
+                ReadOnlyHostExecutor::new_with_audit(&root, &journal_for_host).unwrap();
             run_authenticated_session(
                 config(format!("ws://127.0.0.1:{port}/realtime")),
                 credentials,
                 &mut executor,
-                async { let _ = stop_rx.await; },
+                async {
+                    let _ = stop_rx.await;
+                },
             )
             .await
         });
