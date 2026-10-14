@@ -1,8 +1,8 @@
 # G1-C — Host de leitura explícita, política local e auditoria limitada
 
-**Data:** 2026-10-14 (America/Sao_Paulo)  
-**Status:** PASS do incremento read-only em CI; **G1-C permanece parcialmente aberto**, sem auditoria durável ou E2E de sessão.  
-**Issue:** [#82](https://github.com/sylviohmartins/telechir/issues/82)  
+**Data:** 2026-10-14 (America/Sao_Paulo)
+**Status:** PASS do incremento read-only em CI; **G1-C permanece parcialmente aberto**, sem auditoria durável ou E2E de sessão.
+**Issue:** [#82](https://github.com/sylviohmartins/telechir/issues/82)
 **PR:** [#90](https://github.com/sylviohmartins/telechir/pull/90)
 
 ## Entrega
