@@ -1,7 +1,7 @@
 # G1-C — Host de leitura explícita, política local e auditoria limitada
 
 **Data:** 2026-10-14 (America/Sao_Paulo)  
-**Status:** em validação de CI final; não é a conclusão do gate G1-C.  
+**Status:** PASS do incremento read-only em CI; **G1-C permanece parcialmente aberto**, sem auditoria durável ou E2E de sessão.  
 **Issue:** [#82](https://github.com/sylviohmartins/telechir/issues/82)  
 **PR:** [#90](https://github.com/sylviohmartins/telechir/pull/90)
 
@@ -15,17 +15,21 @@ O wrapper utiliza o `LocalCommandExecutor` existente, com `FilesystemPolicy` par
 
 Uma fila local de no máximo 256 eventos registra operação, decisão, instante UTC e digest do command_id, sem armazenar argumentos ou caminhos em texto puro. **Esta fila é volátil e não constitui auditoria durável**; ela precisa de sink confiável/integração de evidências no próximo incremento. A execução foreground continua voluntária e `ctrl+c` encerra a sessão; nenhum serviço, autostart ou credencial é criado automaticamente.
 
+## Evidência de CI — primeira bateria completa
+
+No head `246ebe9c0e0f71a23dc71a31673d71d3afb37aa0`, a [CI Windows #38576636817](https://github.com/sylviohmartins/telechir/actions/runs/38576636817) passou **1/1**, com **116 unit tests PASS**, Rustfmt, Clippy `-D warnings`, build Windows MSVC e todos os testes de bootstrap/argumentos com falha fechada. O runner publicou `PASS: AGENT_WINDOWS_READONLY_ARGS_FAIL_CLOSED` e `RESULT: TELECHIR_AGENT_WINDOWS_NATIVE_PREFLIGHT_PASS`. A [CI de interoperabilidade #38576636847](https://github.com/sylviohmartins/telechir/actions/runs/38576636847) passou **3/3**, incluindo Keycloak real e clientes MCP. Haverá nova revalidação no head documental final antes do merge.
+
 ## Critérios técnicos e negativos
 
-- [ ] CI Windows compilação, Rustfmt, Clippy, testes e bootstrap seguro no último commit do PR.
-- [ ] Teste real de `fs.list` em diretório temporário autorizado.
-- [ ] Recusa de comandos de escrita e de todas as operações privilegiadas.
-- [ ] Leitura negada fora do root; canonicalização e políticas da camada filesystem permanecem em vigor.
-- [ ] Rejeitar `approval_id`, `workspace_id`, permissão `FS_WRITE` e risco `HIGH`.
-- [ ] Rejeitar replay e qualquer chamada a `execute_authorized` sem autorização válida/pendente.
-- [ ] Testar limite de 256 eventos e ausência de raw arguments/path/IDs no `Debug` da auditoria.
-- [ ] PowerShell preflight: missing-root/relative-root/HTTP externo sem acessar keyring ou rede.
-- [ ] CI do control plane e cliente OAuth/Keycloak sem regressões no último SHA.
+- [x] CI Windows compilação, Rustfmt, Clippy, testes e bootstrap seguro no último commit do PR.
+- [x] Teste real de `fs.list` em diretório temporário autorizado.
+- [x] Recusa de comandos de escrita e de todas as operações privilegiadas.
+- [x] Leitura negada fora do root; canonicalização e políticas da camada filesystem permanecem em vigor.
+- [x] Rejeitar `approval_id`, `workspace_id`, permissão `FS_WRITE` e risco `HIGH`.
+- [x] Rejeitar replay e qualquer chamada a `execute_authorized` sem autorização válida/pendente.
+- [x] Testar limite de 256 eventos e ausência de raw arguments/path/IDs no `Debug` da auditoria.
+- [x] PowerShell preflight: missing-root/relative-root/HTTP externo sem acessar keyring ou rede.
+- [x] CI do control plane e cliente OAuth/Keycloak sem regressões no último SHA.
 
 ## Limites para encerramento
 
