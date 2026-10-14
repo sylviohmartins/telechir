@@ -4,6 +4,10 @@ use std::collections::{HashSet, VecDeque};
 use std::convert::Infallible;
 use std::path::Path;
 
+use serde::Serialize;
+
+use crate::host_audit::DurableReadOnlyAudit;
+
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use chrono::{DateTime, Utc};
@@ -31,7 +35,7 @@ pub const READ_ONLY_CAPABILITIES: [&str; 6] = [
     "git.diff",
 ];
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum ReadOnlyDecision {
     Allowed,
     Denied,
@@ -39,7 +43,7 @@ pub enum ReadOnlyDecision {
     Failed,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ReadOnlyAuditEvent {
     pub operation: &'static str,
     pub decision: ReadOnlyDecision,
@@ -54,6 +58,8 @@ pub struct ReadOnlyHostExecutor {
     observed: HashSet<[u8; 32]>,
     recent: VecDeque<[u8; 32]>,
     audit: VecDeque<ReadOnlyAuditEvent>,
+    journal: Option<DurableReadOnlyAudit>,
+    audit_failed: bool,
 }
 
 fn refused() -> TelechirError {
@@ -86,7 +92,7 @@ fn permitted(request: &CommandRequest) -> bool {
 impl ReadOnlyHostExecutor {
     /// The root MUST be explicitly supplied by an opt-in CLI action; no
     /// implicit HOME, cwd, full drive or env-based workspace is trusted.
-    pub fn new(root: impl AsRef<Path>) -> Result<Self, TelechirError> {
+    pub(crate) fn new(root: impl AsRef<Path>) -> Result<Self, TelechirError> {
         if !root.as_ref().is_absolute() {
             return Err(refused());
         }
@@ -97,24 +103,51 @@ impl ReadOnlyHostExecutor {
             observed: HashSet::new(),
             recent: VecDeque::new(),
             audit: VecDeque::new(),
+            journal: None,
+            audit_failed: false,
         })
+    }
+
+    /// Production host: no readable command can start until a fresh, durable
+    /// journal is created outside the readable workspace.
+    pub fn new_with_audit(
+        root: impl AsRef<Path>,
+        audit_file: impl AsRef<Path>,
+    ) -> Result<Self, TelechirError> {
+        let mut executor = Self::new(root.as_ref())?;
+        executor.journal = Some(
+            DurableReadOnlyAudit::create(root.as_ref(), audit_file.as_ref())
+                .map_err(|_| refused())?,
+        );
+        Ok(executor)
     }
 
     pub fn audit_events(&self) -> &VecDeque<ReadOnlyAuditEvent> {
         &self.audit
     }
 
-    fn record(&mut self, request: &CommandRequest, decision: ReadOnlyDecision) {
+    fn record(&mut self, request: &CommandRequest, decision: ReadOnlyDecision) -> bool {
         let digest = URL_SAFE_NO_PAD.encode(Sha256::digest(request.command_id.as_bytes()));
-        if self.audit.len() == MAX_AUDIT_EVENTS {
-            self.audit.pop_front();
-        }
-        self.audit.push_back(ReadOnlyAuditEvent {
+        let event = ReadOnlyAuditEvent {
             operation: request.operation.as_str(),
             decision,
             at: Utc::now(),
             command_digest: digest,
-        });
+        };
+        if self.audit_failed {
+            return false;
+        }
+        if let Some(journal) = &mut self.journal
+            && journal.append(&event).is_err()
+        {
+            self.audit_failed = true;
+            return false;
+        }
+        if self.audit.len() == MAX_AUDIT_EVENTS {
+            self.audit.pop_front();
+        }
+        self.audit.push_back(event);
+        true
     }
 
     fn seen(&mut self, request: &CommandRequest) -> bool {
@@ -141,6 +174,9 @@ impl CommandExecutor for ReadOnlyHostExecutor {
         session_id: Option<&str>,
     ) -> AuthorizationOutcome {
         self.pending = None;
+        if self.audit_failed {
+            return AuthorizationOutcome::Deny(refused());
+        }
         if !permitted(request) || self.seen(request) {
             self.record(request, ReadOnlyDecision::Denied);
             return AuthorizationOutcome::Deny(refused());
@@ -150,8 +186,10 @@ impl CommandExecutor for ReadOnlyHostExecutor {
                 request: prepared,
                 approval_verified: false,
             } if permitted(&prepared) => {
+                if !self.record(request, ReadOnlyDecision::Allowed) {
+                    return AuthorizationOutcome::Deny(refused());
+                }
                 self.pending = Some(prepared.clone());
-                self.record(request, ReadOnlyDecision::Allowed);
                 AuthorizationOutcome::Allow {
                     request: prepared,
                     approval_verified: false,
@@ -184,14 +222,19 @@ impl CommandExecutor for ReadOnlyHostExecutor {
             self.record(request, ReadOnlyDecision::Denied);
             return Ok(ExecutionOutcome::Failed(refused()));
         }
+        if self.audit_failed {
+            return Ok(ExecutionOutcome::Failed(refused()));
+        }
         let result = self.inner.execute_authorized(request, false)?;
-        self.record(
+        if !self.record(
             request,
             match &result {
                 ExecutionOutcome::Completed(_) => ReadOnlyDecision::Completed,
                 ExecutionOutcome::Failed(_) => ReadOnlyDecision::Failed,
             },
-        );
+        ) {
+            return Ok(ExecutionOutcome::Failed(refused()));
+        }
         Ok(result)
     }
 
