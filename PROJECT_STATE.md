@@ -1,6 +1,6 @@
 # Estado do Projeto
 
-**Atualizado em:** 2026-10-14
+**Atualizado em:** 2026-10-17
 
 ## Fase atual
 
@@ -9,11 +9,11 @@
 
 ### Painel executivo de conclusão (12/10/2026)
 
-**Etapa atual: G1/7 — Agent operacional ([#82](https://github.com/sylviohmartins/telechir/issues/82)); subetapa **G1-D — aceite integrado do Agent em laboratório**.** G1-A, G1-B e G1-C read-only estão implementados, com [PR #91](https://github.com/sylviohmartins/telechir/pull/91) fechando auditoria persistente redigida, falha fechada e autorização/replay no WebSocket de loopback. [CI Windows #38610667278](https://github.com/sylviohmartins/telechir/actions/runs/38610667278) **1/1 PASS, 130 testes**; [CI MCP/Keycloak #38610667317](https://github.com/sylviohmartins/telechir/actions/runs/38610667317) **3/3 PASS**. `serve-readonly` requer root e arquivo de audit novo fora dele, `serve` continua deny-all e iniciar o Agent sem argumentos não conecta. **Não é G1-D, G2 ou E2E físico:** ainda falta testar a sequência completa de pairing + credencial curta + Worker/D1/DO + canal realtime + MCP + audit num laboratório integrado, antes de iniciar staging autorizada. [Aceite G1-C](docs/testing/acceptance/phase16-agent-g1c-durable-realtime-2026-10-14.md).
+**G1 — Agent operacional (componentes e integração local) ACEITO em 17/10/2026, condicionado ao merge do [PR #92](https://github.com/sylviohmartins/telechir/pull/92). Próxima etapa: G2 — integração Agent ↔ Worker/D1/DO ↔ MCP/OAuth no laboratório, sem mock nas fronteiras do produto.** As entregas G1-A (identidade/pairing/credencial curta), G1-B (CLI explícita foreground), G1-C (read-only, policy, auditoria persistente) e G1-D (teste de loopback único com assinatura Ed25519 verificada, WebSocket, fs.list, FS_WRITE negado, audit e shutdown) possuem evidências em CI. O [aceite G1-D](docs/testing/acceptance/phase16-agent-g1d-integrated-loopback-2026-10-17.md) é **somente do Agent**, pois o provisionamento HTTP, confirmação humana e cloud/control plane foram simulados; não comprova E2E do sistema. [CI Windows #39052105110](https://github.com/sylviohmartins/telechir/actions/runs/39052105110): **133 testes, 1/1 PASS**; a CI MCP/Keycloak do último head deve permanecer verde para integração. **MVP não concluído**, depende de G2 + G3 autorizada + G4 físico.
 
 | Marco | Gate operacional | Estado |
 |---|---|---|
-| MVP técnico | **G1** Agent residente + **G2** integração local + **G3** staging autorizada + **G4** E2E em dispositivo Windows autorizado | **NÃO CONCLUÍDO**; G1 em execução |
+| MVP técnico | **G1** Agent residente + **G2** integração local + **G3** staging autorizada + **G4** E2E em dispositivo Windows autorizado | **NÃO CONCLUÍDO**; G1 local aceito, G2 em preparação |
 | Beta fechado | **G5** compatibilidade mínima/segurança e **G6** instalação, operação e aceites com usuários convidados | **NÃO CONCLUÍDO** |
 | Lançamento público | **G7** publicação por canal, aprovação do fornecedor e clearance comercial | **NÃO CONCLUÍDO**; #15/#14 externas |
 
