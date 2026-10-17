@@ -668,7 +668,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn provisioning_session_rejects_expanded_or_reordered_readonly_capabilities_before_http() {
+    async fn provisioning_session_rejects_expanded_or_reordered_readonly_capabilities_before_http()
+    {
         let (identity, binding) = active_binding();
         let allowed: Vec<String> = crate::host_readonly::READ_ONLY_CAPABILITIES
             .iter()
