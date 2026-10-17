@@ -644,6 +644,63 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn provisioning_session_exact_readonly_capabilities_can_receive_credential() {
+        let (identity, binding) = active_binding();
+        let api = CredentialApi::new(30, credential_path(), false);
+        let mut meta = connection_metadata();
+        meta.capabilities = crate::host_readonly::READ_ONLY_CAPABILITIES
+            .iter()
+            .map(|capability| (*capability).to_owned())
+            .collect();
+        let expected = meta.capabilities.clone();
+        let result = prepare_connection(
+            &identity,
+            &binding,
+            &api,
+            &connection_origin(),
+            meta,
+            Utc::now(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(result.config.capabilities, expected);
+        assert_eq!(api.calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn provisioning_session_rejects_expanded_or_reordered_readonly_capabilities_before_http() {
+        let (identity, binding) = active_binding();
+        let allowed: Vec<String> = crate::host_readonly::READ_ONLY_CAPABILITIES
+            .iter()
+            .map(|capability| (*capability).to_owned())
+            .collect();
+        let mut additional = allowed.clone();
+        additional.push("fs.write".to_owned());
+        let mut modified = allowed.clone();
+        modified[0] = "shell.exec".to_owned();
+        let mut reordered = allowed.clone();
+        reordered.swap(0, 1);
+        let mut duplicate = allowed.clone();
+        duplicate[0] = duplicate[1].clone();
+        for capabilities in [additional, modified, reordered, duplicate] {
+            let api = CredentialApi::new(30, credential_path(), false);
+            let mut meta = connection_metadata();
+            meta.capabilities = capabilities;
+            let result = prepare_connection(
+                &identity,
+                &binding,
+                &api,
+                &connection_origin(),
+                meta,
+                Utc::now(),
+            )
+            .await;
+            assert!(matches!(result, Err(ProvisionError::InvalidState)));
+            assert_eq!(api.calls.load(Ordering::SeqCst), 0);
+        }
+    }
+
+    #[tokio::test]
     async fn provisioning_session_revoked_credential_denied() {
         let (identity, store) = active_binding();
         let api = CredentialApi::new(30, credential_path(), true);
