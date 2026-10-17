@@ -3,6 +3,7 @@ use chrono::{DateTime, Duration as ChronoDuration, Utc};
 use url::{Host, Url};
 use uuid::Uuid;
 
+use crate::host_readonly::READ_ONLY_CAPABILITIES;
 use crate::identity::{
     DeviceIdentityManager, DeviceIdentityStore, DevicePairingMetadata, PAIRING_PROOF_AUDIENCE,
 };
@@ -68,7 +69,16 @@ where
     {
         return Err(ProvisionError::InvalidOrigin);
     }
-    if !metadata.capabilities.is_empty()
+    // Provision only the exact read-only authority that the operational host
+    // already enforces locally. Empty remains deny-all. A reordered, partial,
+    // duplicate or expanded list must never reach the credential endpoint.
+    let approved = metadata.capabilities.is_empty()
+        || metadata
+            .capabilities
+            .iter()
+            .map(String::as_str)
+            .eq(READ_ONLY_CAPABILITIES.iter().copied());
+    if !approved
         || [
             metadata.agent_version.as_str(),
             metadata.os.as_str(),
@@ -78,8 +88,7 @@ where
         .any(|value| value.is_empty() || value.len() > 64 || value.chars().any(char::is_control))
         || Utc::now().signed_duration_since(now).num_seconds().abs() > 30
     {
-        // G1-A cannot authorize screen/input/browser/sandbox. G1-C owns the
-        // eventual capabilities policy and the trusted runtime clock.
+        // Never provision screen/input/browser/sandbox or a custom authority.
         return Err(ProvisionError::InvalidState);
     }
     let device = identity
