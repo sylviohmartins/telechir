@@ -9,7 +9,7 @@
 
 ### Painel executivo de conclusão (12/10/2026)
 
-**Etapa atual: G1/7 — Agent operacional ([#82](https://github.com/sylviohmartins/telechir/issues/82)), subetapa G1-C em execução.** G1-A e G1-B foram integrados. O [PR #90](https://github.com/sylviohmartins/telechir/pull/90) prepara a CLI opt-in `serve-readonly <https-origin> <absolute-root>` com seis operações de leitura, raiz canonicalizada, policy local, negativa de 17 operações e auditoria **somente em memória**. **Não conclui G1-C**: faltam audit durável, aceite da composição realtime e G1-D. `serve` permanece deny-all; iniciar o Agent sem argumentos continua sem conexão. Nenhum E2E físico ou staging.
+**Etapa atual: G1/7 — Agent operacional ([#82](https://github.com/sylviohmartins/telechir/issues/82)); subetapa **G1-D — aceite integrado do Agent em laboratório**.** G1-A, G1-B e G1-C read-only estão implementados, com [PR #91](https://github.com/sylviohmartins/telechir/pull/91) fechando auditoria persistente redigida, falha fechada e autorização/replay no WebSocket de loopback. [CI Windows #38610667278](https://github.com/sylviohmartins/telechir/actions/runs/38610667278) **1/1 PASS, 130 testes**; [CI MCP/Keycloak #38610667317](https://github.com/sylviohmartins/telechir/actions/runs/38610667317) **3/3 PASS**. `serve-readonly` requer root e arquivo de audit novo fora dele, `serve` continua deny-all e iniciar o Agent sem argumentos não conecta. **Não é G1-D, G2 ou E2E físico:** ainda falta testar a sequência completa de pairing + credencial curta + Worker/D1/DO + canal realtime + MCP + audit num laboratório integrado, antes de iniciar staging autorizada. [Aceite G1-C](docs/testing/acceptance/phase16-agent-g1c-durable-realtime-2026-10-14.md).
 
 | Marco | Gate operacional | Estado |
 |---|---|---|

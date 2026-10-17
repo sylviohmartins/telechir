@@ -3,6 +3,7 @@ use chrono::{DateTime, Duration as ChronoDuration, Utc};
 use url::{Host, Url};
 use uuid::Uuid;
 
+use crate::host_readonly::READ_ONLY_CAPABILITIES;
 use crate::identity::{
     DeviceIdentityManager, DeviceIdentityStore, DevicePairingMetadata, PAIRING_PROOF_AUDIENCE,
 };
@@ -68,7 +69,16 @@ where
     {
         return Err(ProvisionError::InvalidOrigin);
     }
-    if !metadata.capabilities.is_empty()
+    // Provision only the exact read-only authority that the operational host
+    // already enforces locally. Empty remains deny-all. A reordered, partial,
+    // duplicate or expanded list must never reach the credential endpoint.
+    let approved = metadata.capabilities.is_empty()
+        || metadata
+            .capabilities
+            .iter()
+            .map(String::as_str)
+            .eq(READ_ONLY_CAPABILITIES.iter().copied());
+    if !approved
         || [
             metadata.agent_version.as_str(),
             metadata.os.as_str(),
@@ -78,8 +88,7 @@ where
         .any(|value| value.is_empty() || value.len() > 64 || value.chars().any(char::is_control))
         || Utc::now().signed_duration_since(now).num_seconds().abs() > 30
     {
-        // G1-A cannot authorize screen/input/browser/sandbox. G1-C owns the
-        // eventual capabilities policy and the trusted runtime clock.
+        // Never provision screen/input/browser/sandbox or a custom authority.
         return Err(ProvisionError::InvalidState);
     }
     let device = identity
@@ -640,6 +649,64 @@ mod tests {
             .await;
             assert!(result.is_err());
             assert_eq!(api.calls.load(Ordering::SeqCst), 1);
+        }
+    }
+
+    #[tokio::test]
+    async fn provisioning_session_exact_readonly_capabilities_can_receive_credential() {
+        let (identity, binding) = active_binding();
+        let api = CredentialApi::new(30, credential_path(), false);
+        let mut meta = connection_metadata();
+        meta.capabilities = crate::host_readonly::READ_ONLY_CAPABILITIES
+            .iter()
+            .map(|capability| (*capability).to_owned())
+            .collect();
+        let expected = meta.capabilities.clone();
+        let result = prepare_connection(
+            &identity,
+            &binding,
+            &api,
+            &connection_origin(),
+            meta,
+            Utc::now(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(result.config.capabilities, expected);
+        assert_eq!(api.calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn provisioning_session_rejects_expanded_or_reordered_readonly_capabilities_before_http()
+    {
+        let (identity, binding) = active_binding();
+        let allowed: Vec<String> = crate::host_readonly::READ_ONLY_CAPABILITIES
+            .iter()
+            .map(|capability| (*capability).to_owned())
+            .collect();
+        let mut additional = allowed.clone();
+        additional.push("fs.write".to_owned());
+        let mut modified = allowed.clone();
+        modified[0] = "shell.exec".to_owned();
+        let mut reordered = allowed.clone();
+        reordered.swap(0, 1);
+        let mut duplicate = allowed.clone();
+        duplicate[0] = duplicate[1].clone();
+        for capabilities in [additional, modified, reordered, duplicate] {
+            let api = CredentialApi::new(30, credential_path(), false);
+            let mut meta = connection_metadata();
+            meta.capabilities = capabilities;
+            let result = prepare_connection(
+                &identity,
+                &binding,
+                &api,
+                &connection_origin(),
+                meta,
+                Utc::now(),
+            )
+            .await;
+            assert!(matches!(result, Err(ProvisionError::InvalidState)));
+            assert_eq!(api.calls.load(Ordering::SeqCst), 0);
         }
     }
 

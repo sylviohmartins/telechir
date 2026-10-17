@@ -246,6 +246,189 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn readonly_loopback_executes_only_allowed_reads_and_persists_audit() {
+        use crate::host_readonly::{READ_ONLY_CAPABILITIES, ReadOnlyHostExecutor};
+        use crate::protocol::{CommandOperation, PermissionDomain};
+        use serde_json::json;
+
+        let workspace = tempfile::tempdir().unwrap();
+        let audit_dir = tempfile::tempdir().unwrap();
+        std::fs::write(workspace.path().join("visible.txt"), "only in workspace").unwrap();
+        let root = workspace.path().to_path_buf();
+        let audit_file = audit_dir.path().join("session.jsonl");
+        let journal_for_host = audit_file.clone();
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let (stop_tx, stop_rx) = tokio::sync::oneshot::channel::<()>();
+        let client = async move {
+            let credentials = SessionCredentials::new(
+                "loopback_ci_token_only".to_owned(),
+                "abcdefghijklmnop".to_owned(),
+            )
+            .unwrap();
+            let mut executor =
+                ReadOnlyHostExecutor::new_with_audit(&root, &journal_for_host).unwrap();
+            let mut client_config = config(format!("ws://127.0.0.1:{port}/realtime"));
+            client_config.capabilities = READ_ONLY_CAPABILITIES
+                .iter()
+                .map(|value| (*value).to_owned())
+                .collect();
+            run_authenticated_session(client_config, credentials, &mut executor, async {
+                let _ = stop_rx.await;
+            })
+            .await
+        };
+
+        let workspace_root = workspace.path().to_path_buf();
+        let server = async move {
+            let (stream, _) = timeout(Duration::from_secs(3), listener.accept())
+                .await
+                .unwrap()
+                .unwrap();
+            let mut socket = accept_async(stream).await.unwrap();
+            let hello = timeout(Duration::from_secs(3), socket.next())
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap();
+            let hello: DeviceMessage = serde_json::from_str(hello.to_text().unwrap()).unwrap();
+            assert_eq!(hello.message_type, MessageType::AgentHello);
+            assert_eq!(hello.payload["capabilities"], json!(READ_ONLY_CAPABILITIES));
+            let ack = AgentHelloAck {
+                connection_id: "connection_ci_readonly".to_owned(),
+                selected_protocol_version: PROTOCOL_VERSION.to_owned(),
+                server_time: Utc::now(),
+                heartbeat_interval_seconds: 5,
+                limits: ConnectionLimits::default(),
+                policy_revision: None,
+            };
+            let hello_ack = message(
+                MessageType::AgentHelloAck,
+                to_value(ack).unwrap(),
+                1,
+                Some("connection_ci_readonly"),
+            );
+            socket
+                .send(Message::Text(
+                    serde_json::to_string(&hello_ack).unwrap().into(),
+                ))
+                .await
+                .unwrap();
+
+            let mut read = CommandRequest::test_read_only();
+            read.operation = CommandOperation::FsList;
+            read.command_id = "sensitive_read_command_ci".to_owned();
+            read.arguments = json!({"path": workspace_root.to_string_lossy()})
+                .as_object()
+                .unwrap()
+                .clone();
+            let command = message(
+                MessageType::CommandRequest,
+                to_value(&read).unwrap(),
+                2,
+                Some("connection_ci_readonly"),
+            );
+            socket
+                .send(Message::Text(
+                    serde_json::to_string(&command).unwrap().into(),
+                ))
+                .await
+                .unwrap();
+
+            let accepted = timeout(Duration::from_secs(3), socket.next())
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap();
+            let accepted: DeviceMessage =
+                serde_json::from_str(accepted.to_text().unwrap()).unwrap();
+            assert_eq!(accepted.message_type, MessageType::CommandAccepted);
+            let completed = timeout(Duration::from_secs(3), socket.next())
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap();
+            let completed: DeviceMessage =
+                serde_json::from_str(completed.to_text().unwrap()).unwrap();
+            assert_eq!(completed.message_type, MessageType::CommandCompleted);
+
+            let mut escalated = read.clone();
+            escalated.command_id = "sensitive_denied_command_ci".to_owned();
+            escalated.requested_permissions = vec![PermissionDomain::FsWrite];
+            let command = message(
+                MessageType::CommandRequest,
+                to_value(&escalated).unwrap(),
+                3,
+                Some("connection_ci_readonly"),
+            );
+            socket
+                .send(Message::Text(
+                    serde_json::to_string(&command).unwrap().into(),
+                ))
+                .await
+                .unwrap();
+            let denied = timeout(Duration::from_secs(3), socket.next())
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap();
+            let denied: DeviceMessage = serde_json::from_str(denied.to_text().unwrap()).unwrap();
+            assert_eq!(denied.message_type, MessageType::CommandFailed);
+            assert_eq!(denied.payload["error"]["code"], "POLICY_DENIED");
+
+            // A distinct envelope with the SAME command ID must not replay the
+            // already completed read after the connection has been established.
+            let replay = message(
+                MessageType::CommandRequest,
+                to_value(&read).unwrap(),
+                4,
+                Some("connection_ci_readonly"),
+            );
+            socket
+                .send(Message::Text(
+                    serde_json::to_string(&replay).unwrap().into(),
+                ))
+                .await
+                .unwrap();
+            let replay_denied = timeout(Duration::from_secs(3), socket.next())
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap();
+            let replay_denied: DeviceMessage =
+                serde_json::from_str(replay_denied.to_text().unwrap()).unwrap();
+            assert_eq!(replay_denied.message_type, MessageType::CommandFailed);
+            assert_eq!(replay_denied.payload["error"]["code"], "POLICY_DENIED");
+
+            stop_tx.send(()).unwrap();
+        };
+        // The local host executor holds platform objects that are !Send.
+        // Concurrent futures on this test task exercise the same TCP protocol
+        // without wrongly requiring the executor to move between OS threads.
+        let (outcome, ()) = timeout(Duration::from_secs(15), async {
+            tokio::join!(client, server)
+        })
+        .await
+        .unwrap();
+        assert_eq!(outcome, Ok(SessionExit::StoppedByHost));
+        let persisted = std::fs::read_to_string(audit_file).unwrap();
+        let events: Vec<serde_json::Value> = persisted
+            .lines()
+            .map(|entry| serde_json::from_str(entry).unwrap())
+            .collect();
+        assert_eq!(events.len(), 4);
+        assert_eq!(events[0]["event"]["decision"], "Allowed");
+        assert_eq!(events[1]["event"]["decision"], "Completed");
+        assert_eq!(events[2]["event"]["decision"], "Denied");
+        assert_eq!(events[3]["event"]["decision"], "Denied");
+        assert!(!persisted.contains("sensitive_read_command_ci"));
+        assert!(!persisted.contains("sensitive_denied_command_ci"));
+        assert!(!persisted.contains("visible.txt"));
+        assert!(!persisted.contains(workspace.path().to_string_lossy().as_ref()));
+    }
+
+    #[tokio::test]
     async fn local_loopback_handshake_denies_command_and_stops_gracefully() {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();

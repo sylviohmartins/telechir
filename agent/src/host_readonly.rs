@@ -4,6 +4,10 @@ use std::collections::{HashSet, VecDeque};
 use std::convert::Infallible;
 use std::path::Path;
 
+use serde::Serialize;
+
+use crate::host_audit::DurableReadOnlyAudit;
+
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use chrono::{DateTime, Utc};
@@ -31,7 +35,7 @@ pub const READ_ONLY_CAPABILITIES: [&str; 6] = [
     "git.diff",
 ];
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum ReadOnlyDecision {
     Allowed,
     Denied,
@@ -39,7 +43,7 @@ pub enum ReadOnlyDecision {
     Failed,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ReadOnlyAuditEvent {
     pub operation: &'static str,
     pub decision: ReadOnlyDecision,
@@ -54,6 +58,8 @@ pub struct ReadOnlyHostExecutor {
     observed: HashSet<[u8; 32]>,
     recent: VecDeque<[u8; 32]>,
     audit: VecDeque<ReadOnlyAuditEvent>,
+    journal: Option<DurableReadOnlyAudit>,
+    audit_failed: bool,
 }
 
 fn refused() -> TelechirError {
@@ -86,7 +92,7 @@ fn permitted(request: &CommandRequest) -> bool {
 impl ReadOnlyHostExecutor {
     /// The root MUST be explicitly supplied by an opt-in CLI action; no
     /// implicit HOME, cwd, full drive or env-based workspace is trusted.
-    pub fn new(root: impl AsRef<Path>) -> Result<Self, TelechirError> {
+    pub(crate) fn new(root: impl AsRef<Path>) -> Result<Self, TelechirError> {
         if !root.as_ref().is_absolute() {
             return Err(refused());
         }
@@ -97,24 +103,51 @@ impl ReadOnlyHostExecutor {
             observed: HashSet::new(),
             recent: VecDeque::new(),
             audit: VecDeque::new(),
+            journal: None,
+            audit_failed: false,
         })
+    }
+
+    /// Production host: no readable command can start until a fresh, durable
+    /// journal is created outside the readable workspace.
+    pub fn new_with_audit(
+        root: impl AsRef<Path>,
+        audit_file: impl AsRef<Path>,
+    ) -> Result<Self, TelechirError> {
+        let mut executor = Self::new(root.as_ref())?;
+        executor.journal = Some(
+            DurableReadOnlyAudit::create(root.as_ref(), audit_file.as_ref())
+                .map_err(|_| refused())?,
+        );
+        Ok(executor)
     }
 
     pub fn audit_events(&self) -> &VecDeque<ReadOnlyAuditEvent> {
         &self.audit
     }
 
-    fn record(&mut self, request: &CommandRequest, decision: ReadOnlyDecision) {
+    fn record(&mut self, request: &CommandRequest, decision: ReadOnlyDecision) -> bool {
         let digest = URL_SAFE_NO_PAD.encode(Sha256::digest(request.command_id.as_bytes()));
-        if self.audit.len() == MAX_AUDIT_EVENTS {
-            self.audit.pop_front();
-        }
-        self.audit.push_back(ReadOnlyAuditEvent {
+        let event = ReadOnlyAuditEvent {
             operation: request.operation.as_str(),
             decision,
             at: Utc::now(),
             command_digest: digest,
-        });
+        };
+        if self.audit_failed {
+            return false;
+        }
+        if let Some(journal) = &mut self.journal
+            && journal.append(&event).is_err()
+        {
+            self.audit_failed = true;
+            return false;
+        }
+        if self.audit.len() == MAX_AUDIT_EVENTS {
+            self.audit.pop_front();
+        }
+        self.audit.push_back(event);
+        true
     }
 
     fn seen(&mut self, request: &CommandRequest) -> bool {
@@ -141,6 +174,9 @@ impl CommandExecutor for ReadOnlyHostExecutor {
         session_id: Option<&str>,
     ) -> AuthorizationOutcome {
         self.pending = None;
+        if self.audit_failed {
+            return AuthorizationOutcome::Deny(refused());
+        }
         if !permitted(request) || self.seen(request) {
             self.record(request, ReadOnlyDecision::Denied);
             return AuthorizationOutcome::Deny(refused());
@@ -150,8 +186,10 @@ impl CommandExecutor for ReadOnlyHostExecutor {
                 request: prepared,
                 approval_verified: false,
             } if permitted(&prepared) => {
+                if !self.record(request, ReadOnlyDecision::Allowed) {
+                    return AuthorizationOutcome::Deny(refused());
+                }
                 self.pending = Some(prepared.clone());
-                self.record(request, ReadOnlyDecision::Allowed);
                 AuthorizationOutcome::Allow {
                     request: prepared,
                     approval_verified: false,
@@ -184,14 +222,19 @@ impl CommandExecutor for ReadOnlyHostExecutor {
             self.record(request, ReadOnlyDecision::Denied);
             return Ok(ExecutionOutcome::Failed(refused()));
         }
+        if self.audit_failed {
+            return Ok(ExecutionOutcome::Failed(refused()));
+        }
         let result = self.inner.execute_authorized(request, false)?;
-        self.record(
+        if !self.record(
             request,
             match &result {
                 ExecutionOutcome::Completed(_) => ReadOnlyDecision::Completed,
                 ExecutionOutcome::Failed(_) => ReadOnlyDecision::Failed,
             },
-        );
+        ) {
+            return Ok(ExecutionOutcome::Failed(refused()));
+        }
         Ok(result)
     }
 
@@ -335,6 +378,90 @@ mod tests {
         assert!(!recorded.contains("sensitive.txt"));
         assert!(!recorded.contains("secret_raw_command_id"));
         assert!(!recorded.contains("cmd_secrets_should_be_hashed"));
+    }
+
+    #[test]
+    fn readonly_host_durable_journal_persists_redacted_outcomes_outside_root() {
+        let root = tempfile::tempdir().unwrap();
+        let audit_dir = tempfile::tempdir().unwrap();
+        fs::write(root.path().join("visible.txt"), "workspace-only").unwrap();
+        assert!(
+            ReadOnlyHostExecutor::new_with_audit(root.path(), root.path().join("audit.jsonl"))
+                .is_err()
+        );
+        let audit_path = audit_dir.path().join("audit.jsonl");
+        let mut host = ReadOnlyHostExecutor::new_with_audit(root.path(), &audit_path).unwrap();
+        let mut read = request(CommandOperation::FsList);
+        read.command_id = "private_command_identity_123".to_owned();
+        read.arguments = json!({"path": root.path().to_string_lossy()})
+            .as_object()
+            .unwrap()
+            .clone();
+        let prepared = match host.authorize(&read, None) {
+            AuthorizationOutcome::Allow { request, .. } => request,
+            other => panic!("read must be allowed with working audit: {other:?}"),
+        };
+        assert!(matches!(
+            host.execute_authorized(&prepared, false).unwrap(),
+            ExecutionOutcome::Completed(_)
+        ));
+        let mut forbidden = request(CommandOperation::ShellExec);
+        forbidden.command_id = "secret_forbidden_command".to_owned();
+        assert!(matches!(
+            host.authorize(&forbidden, None),
+            AuthorizationOutcome::Deny(_)
+        ));
+        drop(host);
+        let journal = fs::read_to_string(&audit_path).unwrap();
+        let records: Vec<serde_json::Value> = journal
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
+        assert_eq!(records.len(), 3);
+        for (index, record) in records.iter().enumerate() {
+            assert_eq!(record["schema_version"], 1);
+            assert_eq!(record["sequence"], (index + 1) as u64);
+            assert_eq!(
+                record["event"]["command_digest"].as_str().unwrap().len(),
+                43
+            );
+        }
+        assert_eq!(records[0]["event"]["decision"], "Allowed");
+        assert_eq!(records[1]["event"]["decision"], "Completed");
+        assert_eq!(records[2]["event"]["decision"], "Denied");
+        assert!(!journal.contains("private_command_identity_123"));
+        assert!(!journal.contains("secret_forbidden_command"));
+        assert!(!journal.contains("visible.txt"));
+        assert!(!journal.contains(root.path().to_string_lossy().as_ref()));
+        assert!(ReadOnlyHostExecutor::new_with_audit(root.path(), &audit_path).is_err());
+    }
+
+    #[test]
+    fn readonly_host_journal_failure_permanently_revokes_read_authority() {
+        let root = tempfile::tempdir().unwrap();
+        let audit_dir = tempfile::tempdir().unwrap();
+        let audit_path = audit_dir.path().join("audit.jsonl");
+        let mut host = ReadOnlyHostExecutor::new_with_audit(root.path(), &audit_path).unwrap();
+        host.journal.as_mut().unwrap().inject_write_failure();
+        let mut read = request(CommandOperation::FsList);
+        read.arguments = json!({"path": root.path().to_string_lossy()})
+            .as_object()
+            .unwrap()
+            .clone();
+        assert!(matches!(
+            host.authorize(&read, None),
+            AuthorizationOutcome::Deny(_)
+        ));
+        assert!(host.audit_failed);
+        assert!(matches!(
+            host.authorize(&request(CommandOperation::FsStat), None),
+            AuthorizationOutcome::Deny(_)
+        ));
+        assert!(matches!(
+            host.execute(&read).unwrap(),
+            ExecutionOutcome::Failed(_)
+        ));
+        assert!(fs::read_to_string(&audit_path).unwrap().is_empty());
     }
 
     #[test]
