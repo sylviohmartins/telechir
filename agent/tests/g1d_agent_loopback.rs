@@ -3,8 +3,8 @@
 //! durable audit -> controlled shutdown. ALL endpoints/data are CI loopback
 //! fixtures; no OS keyring, external service, user device or LLM is used.
 use std::collections::HashSet;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -23,13 +23,13 @@ use url::Url;
 use telechir_agent::host::{HostError, serve_foreground_with_executor};
 use telechir_agent::host_readonly::{READ_ONLY_CAPABILITIES, ReadOnlyHostExecutor};
 use telechir_agent::identity::{
-    CONNECTION_PROOF_AUDIENCE, PAIRING_PROOF_AUDIENCE, ConnectionCredentialProof,
-    DeviceIdentityManager, DevicePairingMetadata, MemoryIdentityStore,
-    PairingProof, PairingRegistration, connection_credential_proof_message, pairing_proof_message,
+    CONNECTION_PROOF_AUDIENCE, ConnectionCredentialProof, DeviceIdentityManager,
+    DevicePairingMetadata, MemoryIdentityStore, PAIRING_PROOF_AUDIENCE, PairingProof,
+    PairingRegistration, connection_credential_proof_message, pairing_proof_message,
 };
 use telechir_agent::protocol::{
-    AgentHelloAck, CommandOperation, CommandRequest, ConnectionLimits, DeviceMessage,
-    MessageType, PermissionDomain, PROTOCOL_VERSION,
+    AgentHelloAck, CommandOperation, CommandRequest, ConnectionLimits, DeviceMessage, MessageType,
+    PROTOCOL_VERSION, PermissionDomain,
 };
 use telechir_agent::provisioning::{PairingProgress, advance_pairing, begin_pairing};
 use telechir_agent::provisioning_http::{
@@ -138,7 +138,10 @@ impl ProvisioningApi for VerifiedLoopbackApi {
         let registered = registration.as_ref().unwrap();
         assert_eq!(pairing_id, PAIRING_ID);
         assert_eq!(proof.device_key_id, registered.device_key_id);
-        assert_eq!(proof.device_installation_id, registered.device_installation_id);
+        assert_eq!(
+            proof.device_installation_id,
+            registered.device_installation_id
+        );
         verify_signed(
             &registered.public_key,
             pairing_proof_message(
@@ -175,7 +178,12 @@ impl ProvisioningApi for VerifiedLoopbackApi {
         assert_eq!(device_id, DEVICE_ID);
         assert_eq!(proof.device_key_id, registered.device_key_id);
         let timestamp = chrono::DateTime::parse_from_rfc3339(&proof.requested_at).unwrap();
-        assert!((Utc::now() - timestamp.with_timezone(&Utc)).num_seconds().abs() <= 60);
+        assert!(
+            (Utc::now() - timestamp.with_timezone(&Utc))
+                .num_seconds()
+                .abs()
+                <= 60
+        );
         assert!((16..=128).contains(&proof.connection_nonce.len()));
         verify_signed(
             &registered.public_key,
@@ -189,7 +197,12 @@ impl ProvisioningApi for VerifiedLoopbackApi {
             .unwrap(),
             &proof.signature,
         );
-        assert!(self.nonces.lock().unwrap().insert(proof.connection_nonce.clone()));
+        assert!(
+            self.nonces
+                .lock()
+                .unwrap()
+                .insert(proof.connection_nonce.clone())
+        );
         self.connection_proofs.fetch_add(1, Ordering::SeqCst);
         Ok(CredentialResponse {
             credential: "short_lived_ci_loopback_only".to_owned(),
@@ -238,14 +251,22 @@ async fn g1d_agent_pairing_credential_readonly_revoke_and_durable_audit_loopback
         &mut never,
         vec![],
         std::future::pending(),
-    ).await;
-    assert!(matches!(early, Err(HostError::Provisioning(ProvisionError::InvalidState))));
+    )
+    .await;
+    assert!(matches!(
+        early,
+        Err(HostError::Provisioning(ProvisionError::InvalidState))
+    ));
     assert_eq!(api.connection_proofs.load(Ordering::SeqCst), 0);
 
-    let started = begin_pairing(&identity, &binding, &api, metadata).await.unwrap();
+    let started = begin_pairing(&identity, &binding, &api, metadata)
+        .await
+        .unwrap();
     assert_eq!(started.pairing_id, PAIRING_ID);
     assert!(matches!(
-        advance_pairing(&identity, &binding, &api, PAIRING_ID).await.unwrap(),
+        advance_pairing(&identity, &binding, &api, PAIRING_ID)
+            .await
+            .unwrap(),
         PairingProgress::WaitingForUser
     ));
     assert_eq!(binding.writes.load(Ordering::SeqCst), 0);
@@ -253,34 +274,59 @@ async fn g1d_agent_pairing_credential_readonly_revoke_and_durable_audit_loopback
 
     // This is a synthetic fixture switch, NOT a real human or dashboard.
     api.confirmed_by_user.store(true, Ordering::SeqCst);
-    let paired = advance_pairing(&identity, &binding, &api, PAIRING_ID).await.unwrap();
+    let paired = advance_pairing(&identity, &binding, &api, PAIRING_ID)
+        .await
+        .unwrap();
     assert!(matches!(paired, PairingProgress::Active(_)));
     assert_eq!(binding.writes.load(Ordering::SeqCst), 1);
     assert_eq!(api.pairing_proofs.load(Ordering::SeqCst), 1);
 
     // Existing binding is not silently overwritten by a second pairing.
     assert!(matches!(
-        begin_pairing(&identity, &binding, &api, DevicePairingMetadata {
-            display_name: "should fail".to_owned(), os: "windows".to_owned(),
-            arch: "x86_64".to_owned(), agent_version: "0.1.0".to_owned()
-        }).await,
+        begin_pairing(
+            &identity,
+            &binding,
+            &api,
+            DevicePairingMetadata {
+                display_name: "should fail".to_owned(),
+                os: "windows".to_owned(),
+                arch: "x86_64".to_owned(),
+                agent_version: "0.1.0".to_owned()
+            }
+        )
+        .await,
         Err(ProvisionError::InvalidState)
     ));
 
     let root = tempfile::tempdir().unwrap();
     let audit_dir = tempfile::tempdir().unwrap();
-    std::fs::write(root.path().join("visible.txt"), "CI fixture without secrets").unwrap();
+    std::fs::write(
+        root.path().join("visible.txt"),
+        "CI fixture without secrets",
+    )
+    .unwrap();
     let audit_path = audit_dir.path().join("g1d.jsonl");
     let mut executor = ReadOnlyHostExecutor::new_with_audit(root.path(), &audit_path).unwrap();
 
     // Disabled principal cannot obtain a new credential or open a socket.
     api.disabled.store(true, Ordering::SeqCst);
     let blocked = serve_foreground_with_executor(
-        &identity, &binding, &api, &origin, &mut executor,
-        READ_ONLY_CAPABILITIES.iter().map(|x| (*x).to_owned()).collect(),
+        &identity,
+        &binding,
+        &api,
+        &origin,
+        &mut executor,
+        READ_ONLY_CAPABILITIES
+            .iter()
+            .map(|x| (*x).to_owned())
+            .collect(),
         std::future::pending(),
-    ).await;
-    assert!(matches!(blocked, Err(HostError::Provisioning(ProvisionError::Denied))));
+    )
+    .await;
+    assert!(matches!(
+        blocked,
+        Err(HostError::Provisioning(ProvisionError::Denied))
+    ));
 
     api.disabled.store(false, Ordering::SeqCst);
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -290,16 +336,33 @@ async fn g1d_agent_pairing_credential_readonly_revoke_and_durable_audit_loopback
 
     let client = async {
         serve_foreground_with_executor(
-            &identity, &binding, &api, &origin, &mut executor,
-            READ_ONLY_CAPABILITIES.iter().map(|x| (*x).to_owned()).collect(),
-            async { let _ = stop_rx.await; },
-        ).await
+            &identity,
+            &binding,
+            &api,
+            &origin,
+            &mut executor,
+            READ_ONLY_CAPABILITIES
+                .iter()
+                .map(|x| (*x).to_owned())
+                .collect(),
+            async {
+                let _ = stop_rx.await;
+            },
+        )
+        .await
     };
 
     let server = async {
-        let (tcp, _) = timeout(Duration::from_secs(3), listener.accept()).await.unwrap().unwrap();
+        let (tcp, _) = timeout(Duration::from_secs(3), listener.accept())
+            .await
+            .unwrap()
+            .unwrap();
         let mut socket = accept_async(tcp).await.unwrap();
-        let hello = timeout(Duration::from_secs(3), socket.next()).await.unwrap().unwrap().unwrap();
+        let hello = timeout(Duration::from_secs(3), socket.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
         let hello: DeviceMessage = serde_json::from_str(hello.to_text().unwrap()).unwrap();
         assert_eq!(hello.message_type, MessageType::AgentHello);
         assert_eq!(hello.device_id, DEVICE_ID);
@@ -313,31 +376,64 @@ async fn g1d_agent_pairing_credential_readonly_revoke_and_durable_audit_loopback
             limits: ConnectionLimits::default(),
             policy_revision: None,
         };
-        socket.send(Message::Text(serde_json::to_string(&wire(
-            MessageType::AgentHelloAck, to_value(ack).unwrap(), 1
-        )).unwrap().into())).await.unwrap();
+        socket
+            .send(Message::Text(
+                serde_json::to_string(&wire(MessageType::AgentHelloAck, to_value(ack).unwrap(), 1))
+                    .unwrap()
+                    .into(),
+            ))
+            .await
+            .unwrap();
 
         let mut read = CommandRequest::test_read_only();
         read.command_id = "g1d_private_command_id".to_owned();
         read.operation = CommandOperation::FsList;
         read.arguments = json!({"path": root.path().to_string_lossy()})
-            .as_object().unwrap().clone();
-        socket.send(Message::Text(serde_json::to_string(&wire(
-            MessageType::CommandRequest, to_value(&read).unwrap(), 2
-        )).unwrap().into())).await.unwrap();
+            .as_object()
+            .unwrap()
+            .clone();
+        socket
+            .send(Message::Text(
+                serde_json::to_string(&wire(
+                    MessageType::CommandRequest,
+                    to_value(&read).unwrap(),
+                    2,
+                ))
+                .unwrap()
+                .into(),
+            ))
+            .await
+            .unwrap();
 
         for expected in [MessageType::CommandAccepted, MessageType::CommandCompleted] {
-            let response = timeout(Duration::from_secs(3), socket.next()).await.unwrap().unwrap().unwrap();
+            let response = timeout(Duration::from_secs(3), socket.next())
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap();
             let parsed: DeviceMessage = serde_json::from_str(response.to_text().unwrap()).unwrap();
             assert_eq!(parsed.message_type, expected);
         }
         let mut escalated = read.clone();
         escalated.command_id = "g1d_escalated_id".to_owned();
         escalated.requested_permissions = vec![PermissionDomain::FsWrite];
-        socket.send(Message::Text(serde_json::to_string(&wire(
-            MessageType::CommandRequest, to_value(escalated).unwrap(), 3
-        )).unwrap().into())).await.unwrap();
-        let refused = timeout(Duration::from_secs(3), socket.next()).await.unwrap().unwrap().unwrap();
+        socket
+            .send(Message::Text(
+                serde_json::to_string(&wire(
+                    MessageType::CommandRequest,
+                    to_value(escalated).unwrap(),
+                    3,
+                ))
+                .unwrap()
+                .into(),
+            ))
+            .await
+            .unwrap();
+        let refused = timeout(Duration::from_secs(3), socket.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
         let refused: DeviceMessage = serde_json::from_str(refused.to_text().unwrap()).unwrap();
         assert_eq!(refused.message_type, MessageType::CommandFailed);
         assert_eq!(refused.payload["error"]["code"], "POLICY_DENIED");
@@ -347,12 +443,17 @@ async fn g1d_agent_pairing_credential_readonly_revoke_and_durable_audit_loopback
     // No Send-bound task spawn: tests actual concurrent socket on one runtime.
     let (finished, ()) = timeout(Duration::from_secs(15), async {
         tokio::join!(client, server)
-    }).await.unwrap();
+    })
+    .await
+    .unwrap();
     assert_eq!(finished, Ok(()));
     assert_eq!(api.connection_proofs.load(Ordering::SeqCst), 1);
     assert_eq!(api.nonces.lock().unwrap().len(), 1);
     let journal = std::fs::read_to_string(&audit_path).unwrap();
-    let events: Vec<Value> = journal.lines().map(|line| serde_json::from_str(line).unwrap()).collect();
+    let events: Vec<Value> = journal
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
     assert_eq!(events.len(), 3);
     assert_eq!(events[0]["event"]["decision"], "Allowed");
     assert_eq!(events[1]["event"]["decision"], "Completed");
